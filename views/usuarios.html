@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Usuários - SemeaJovens</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/velzon-theme.css">
     <link rel="stylesheet" href="/css/style.css">
     <style>
         .table-hover tbody tr:hover {
@@ -25,7 +26,7 @@
       #sidebar { width: 250px; ... }
       #content { flex: 1; ... }
     -->
-    <div id="app" style="display: flex; width: 100%;">
+    <div id="app">
         <!-- O menu.js irá injetar o <nav id="sidebar"> aqui dentro, como primeiro filho -->
 
         <main id="content" class="w-100 p-4" v-cloak>
@@ -68,7 +69,7 @@
                                 <td>{{ formatDate(user.data_entrada) }}</td>
                                 <td>{{ formatDate(user.data_saida) }}</td>
                                 <td class="text-end">
-                                    <button class="btn btn-sm btn-outline-primary me-1"
+                                    <button class="btn btn-sm btn-soft-primary me-1"
                                         @click="editarUsuario(user)">✏️</button>
                                     <button class="btn btn-sm btn-outline-danger"
                                         @click="deletarUsuario(user)">🗑️</button>
@@ -98,7 +99,7 @@
                                             @input="buscarJovem" @focus="mostrarResultados = true"
                                             placeholder="Digite o nome do jovem ou preencha manualmente..."
                                             :readonly="!!form.jovem_id">
-                                        <button v-if="form.jovem_id" class="btn btn-outline-secondary" type="button"
+                                        <button v-if="form.jovem_id" class="btn btn-soft-secondary" type="button"
                                             @click="limparSelecaoJovem">❌</button>
                                     </div>
                                     <!-- Resultados da Busca -->
@@ -144,7 +145,7 @@
                                     </div>
                                 </div>
                                 <div class="d-flex justify-content-end gap-2">
-                                    <button type="button" class="btn btn-secondary"
+                                    <button type="button" class="btn btn-soft-secondary"
                                         data-bs-dismiss="modal">Cancelar</button>
                                     <button type="submit" class="btn btn-primary">Salvar</button>
                                 </div>
