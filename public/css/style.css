@@ -1,0 +1,261 @@
+/* ===== LAYOUT GERAL ===== */
+body {
+    display: flex;
+    min-height: 100vh;
+    background-color: #f4f7f6;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+/* ===== SIDEBAR ===== */
+#sidebar {
+    width: 250px;
+    background: #003366;
+    color: white;
+    flex-shrink: 0;
+    transition: width 0.3s ease;
+    overflow: hidden;
+}
+
+#sidebar.collapsed {
+    width: 80px;
+}
+
+#sidebar .nav-link {
+    color: white;
+    padding: 15px;
+    text-decoration: none;
+    display: flex; /* Mudado para flex para alinhar ícone e texto */
+    align-items: center;
+    gap: 10px;
+    transition: background-color 0.3s ease;
+    white-space: nowrap; /* Evita quebra de linha do texto */
+}
+
+/* Ocultar texto quando colapsado */
+#sidebar.collapsed .link-text {
+    opacity: 0;
+    width: 0;
+    display: none;
+}
+
+#sidebar.collapsed h4 {
+    display: none;
+}
+
+#sidebar.collapsed .p-4 {
+    padding: 1rem !important;
+    text-align: center;
+}
+
+/* Centralizar ícones quando colapsado */
+#sidebar.collapsed .nav-link {
+    justify-content: center;
+    padding: 15px 0;
+}
+
+#sidebar .nav-link:hover {
+    background-color: #004080;
+}
+
+#sidebar .active {
+    background: #0056b3;
+    font-weight: bold;
+}
+
+/* ===== SIDEBAR HEADER ===== */
+#sidebar .p-4 {
+    padding: 1.5rem;
+    position: relative; /* Para posicionar botão de toggle absolute se quiser, ou flex */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#sidebar h4 {
+    margin: 0;
+    font-size: 1.25rem;
+    transition: opacity 0.3s;
+}
+
+/* ===== CONTENT AREA ===== */
+#content {
+    flex: 1;
+    padding: 30px;
+    overflow-y: auto;
+}
+
+/* ===== TABELA ===== */
+.table {
+    background-color: white;
+}
+
+.table thead {
+    background-color: #f8f9fa;
+}
+
+.table-hover tbody tr:hover {
+    background-color: #f5f5f5;
+}
+
+/* ===== LINKS CLICÁVEIS ===== */
+.nome-clicavel {
+    color: #0056b3;
+    cursor: pointer;
+    text-decoration: underline;
+    transition: color 0.2s ease;
+}
+
+.nome-clicavel:hover {
+    color: #003d82;
+}
+
+/* ===== FILTROS ===== */
+.filtro-panel {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid #ddd;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.filtro-panel label {
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.filtro-panel .form-control,
+.filtro-panel .form-select {
+    border: 1px solid #ddd;
+}
+
+/* ===== MODAIS ===== */
+.modal-header {
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-content {
+    border-radius: 8px;
+}
+
+/* ===== CARDS E CONTAINERS ===== */
+.card {
+    border-radius: 8px;
+}
+
+.p-2 {
+    padding: 0.5rem;
+}
+
+.bg-light {
+    background-color: #f8f9fa !important;
+}
+
+/* ===== BADGES ===== */
+.badge {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.bg-info {
+    background-color: #0dcaf0 !important;
+}
+
+.bg-warning {
+    background-color: #ffc107 !important;
+}
+
+.bg-danger {
+    background-color: #dc3545 !important;
+}
+
+.bg-secondary {
+    background-color: #6c757d !important;
+}
+
+/* ===== BOTÕES ===== */
+.btn {
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.btn-primary {
+    background-color: #0056b3;
+    border-color: #0056b3;
+}
+
+.btn-primary:hover {
+    background-color: #003d82;
+    border-color: #003d82;
+}
+
+.btn-outline-secondary {
+    color: #6c757d;
+    border-color: #6c757d;
+}
+
+.btn-outline-secondary:hover {
+    background-color: #6c757d;
+    color: white;
+}
+
+.btn-warning {
+    background-color: #ffc107;
+    border-color: #ffc107;
+}
+
+.btn-warning:hover {
+    background-color: #e0a800;
+    border-color: #d39e00;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+
+.btn-secondary:hover {
+    background-color: #5c636a;
+    border-color: #565e64;
+}
+
+/* ===== DROPDOWN ===== */
+.dropdown-menu {
+    border-radius: 8px;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+/* ===== RESPONSIVIDADE ===== */
+@media (max-width: 768px) {
+    #sidebar {
+        width: 200px;
+    }
+
+    #content {
+        padding: 15px;
+    }
+
+    .table {
+        font-size: 0.875rem;
+    }
+}
+
+@media (max-width: 576px) {
+    #sidebar {
+        width: 180px;
+    }
+
+    #sidebar .nav-link {
+        padding: 10px;
+        font-size: 0.875rem;
+    }
+
+    #content {
+        padding: 10px;
+    }
+
+    .filtro-panel {
+        padding: 15px;
+    }
+}
