@@ -317,6 +317,9 @@ body {
   border-radius: 0.25rem;
   padding: 0.5rem 0.9rem;
 }
+.form-select {
+  padding-right: 2rem;
+}
 
 .form-control:focus,
 .form-select:focus {

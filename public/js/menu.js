@@ -16,6 +16,9 @@ const menuTemplate = `
             <a href="/ejc" class="nav-link" title="EJC">
                 <span class="fs-5">🎯</span> <span class="link-text">EJC</span>
             </a>
+            <a href="/montar-encontro" class="nav-link" title="Montar Encontro">
+                <span class="fs-5">🧩</span> <span class="link-text">Montar Encontro</span>
+            </a>
             <a href="/equipes" class="nav-link" title="Equipes">
                 <span class="fs-5">👥</span> <span class="link-text">Equipes</span>
             </a>

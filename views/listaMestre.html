@@ -69,9 +69,7 @@
                             <option v-for="(m, i) in meses" :value="i">{{ m }}</option>
                         </select>
                     </div>
-                    <div class="col-md-2"><label>Nº EJC</label><input type="number" v-model="filtros.numEjc"
-                            class="form-control"></div>
-                    <div class="col-md-3"><label>Paróquia</label><input type="text" v-model="filtros.paroquia"
+                    <div class="col-md-3"><label>Nº EJC</label><input type="number" v-model="filtros.numEjc"
                             class="form-control"></div>
                     <div class="col-md-3"><label>Estado Civil</label>
                         <select v-model="filtros.estadoCivil" class="form-select">
@@ -108,7 +106,6 @@
                             <th v-if="colunasVisiveis.Idade">Idade</th>
                             <th v-if="colunasVisiveis.Nascimento">Nascimento</th>
                             <th v-if="colunasVisiveis.NumEJC">Nº EJC</th>
-                            <th v-if="colunasVisiveis.Paroquia">Paróquia</th>
                             <th v-if="colunasVisiveis.Instagram">Instagram</th>
                             <th v-if="colunasVisiveis.EstadoCivil">Estado Civil</th>
                             <th v-if="colunasVisiveis.Casamento">Data Casamento</th>
@@ -125,10 +122,8 @@
                             <td v-if="colunasVisiveis.Telefone">{{ jovem.telefone }}</td>
                             <td v-if="colunasVisiveis.Idade">{{ calcularIdade(jovem.data_nascimento) }}</td>
                             <td v-if="colunasVisiveis.Nascimento">{{ formatarData(jovem.data_nascimento) }}</td>
-                            <td v-if="colunasVisiveis.NumEJC">{{ jovem.numero_ejc || '-' }}</td>
-                            <td v-if="colunasVisiveis.Paroquia">{{ jovem.paroquia_ejc || jovem.paroquia || '-'
-                                }}
-                            </td>
+                            <td v-if="colunasVisiveis.NumEJC">{{ jovem.numero_ejc ? (numeroParaRomano(jovem.numero_ejc)
+                                + ' EJC Inconfidentes') : '-' }}</td>
                             <td v-if="colunasVisiveis.Instagram">@{{ jovem.instagram }}</td>
                             <td v-if="colunasVisiveis.EstadoCivil">{{ jovem.estado_civil }}</td>
                             <td v-if="colunasVisiveis.Casamento">{{ formatarData(jovem.data_casamento) }}</td>
@@ -145,184 +140,329 @@
         <div class="modal fade" id="modalEditar" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-lg">
                 <div class="modal-content border-0 shadow">
-                    <div class="modal-header align-items-center"
-                        :style="{ backgroundColor: getCirculoColor(jovemEditando.circulo), color: getCirculoTextColor(jovemEditando.circulo) }">
-                        <h5 class="modal-title d-flex align-items-center m-0">
+                    <div class="modal-header align-items-center bg-light border-bottom">
+                        <h5 class="modal-title d-flex align-items-center m-0 text-dark">
                             {{ jovemEditando.nome_completo }}
                         </h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
 
-                        <!-- TABS NAVIGATION -->
-                        <ul class="nav nav-tabs mb-3">
-                            <li class="nav-item">
-                                <button class="nav-link" :class="{ active: tabEdicao === 'dados' }"
-                                    @click="tabEdicao = 'dados'">👤 Dados Pessoais</button>
-                            </li>
-                            <li class="nav-item">
-                                <button class="nav-link" :class="{ active: tabEdicao === 'comissoes' }"
-                                    @click="carregarComissoes">📜 Histórico / Comissões</button>
-                            </li>
-                            <li class="nav-item">
-                                <button class="nav-link" :class="{ active: tabEdicao === 'observacoes' }"
-                                    @click="carregarObservacoes">📝 Observações</button>
-                            </li>
-                        </ul>
+                        <!-- TABS NAVIGATION & Action Buttons -->
+                        <div class="d-flex justify-content-between border-bottom mb-3">
+                            <ul class="nav nav-tabs border-bottom-0 mb-0">
+                                <li class="nav-item">
+                                    <button class="nav-link" :class="{ active: tabEdicao === 'dados' }"
+                                        @click="tabEdicao = 'dados'">👤 Dados Pessoais</button>
+                                </li>
+                                <li class="nav-item">
+                                    <button class="nav-link" :class="{ active: tabEdicao === 'comissoes' }"
+                                        @click="carregarComissoes">📜 Histórico / Comissões</button>
+                                </li>
+                                <li class="nav-item">
+                                    <button class="nav-link" :class="{ active: tabEdicao === 'observacoes' }"
+                                        @click="carregarObservacoes">📝 Observações</button>
+                                </li>
+                            </ul>
 
-                        <!-- TAB 1: DADOS PESSOAIS -->
-                        <div v-show="tabEdicao === 'dados'">
-                            <div class="d-flex justify-content-end mb-2">
+                            <!-- Editar Dados Button now on the same line as Tabs -->
+                            <div v-show="tabEdicao === 'dados'" class="pb-1 align-self-end">
                                 <button type="button"
-                                    :class="isLightCirculo(jovemEditando.circulo) ? 'btn btn-sm btn-outline-dark me-2' : 'btn btn-sm btn-outline-dark me-2'"
+                                    :class="isLightCirculo(jovemEditando.circulo) ? 'btn btn-sm btn-outline-dark' : 'btn btn-sm btn-outline-dark'"
                                     @click="toggleEditing" v-if="!isEditing">✏️ Editar Dados</button>
                                 <button type="button"
-                                    :class="isLightCirculo(jovemEditando.circulo) ? 'btn btn-sm btn-outline-dark me-2' : 'btn btn-sm btn-outline-dark me-2'"
+                                    :class="isLightCirculo(jovemEditando.circulo) ? 'btn btn-sm btn-outline-dark' : 'btn btn-sm btn-outline-dark'"
                                     @click="cancelarEdicao" v-else>✖️ Cancelar Edição</button>
                             </div>
+                        </div>
 
-                            <div class="row g-3">
-                                <div class="col-md-12">
-                                    <label class="text-muted small">Nome Completo</label>
-                                    <div v-if="!isEditing" class="p-2 bg-light border rounded">{{
-                                        jovemEditando.nome_completo }}</div>
-                                    <input v-else type="text" v-model="jovemEditando.nome_completo"
-                                        class="form-control">
+                        <!-- TAB 1: DADOS PESSOAIS -->
+                        <div v-show="tabEdicao === 'dados'" class="clearfix">
+                            <!-- Coluna da Esquerda: Foto (Flutuando) -->
+                            <div class="float-md-start me-md-3 mb-4 mt-2 d-flex flex-column align-items-center"
+                                style="width: 180px;">
+                                <div class="position-relative mb-3">
+                                    <img :src="jovemEditando.foto_url || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(jovemEditando.nome_completo || 'J') + '&background=e9ecef&color=6c757d&size=140')"
+                                        alt="Foto do Jovem" class="rounded border shadow-sm object-fit-cover"
+                                        style="width: 140px; height: 140px; background-color: #f8f9fa; cursor: pointer;"
+                                        data-bs-toggle="modal" data-bs-target="#modalVerFoto" title="Ver foto ampliada">
+
+                                    <!-- Botão de editar foto, só aparece no modo edição -->
+                                    <label v-if="isEditing"
+                                        class="position-absolute bottom-0 end-0 bg-primary text-white rounded-circle d-flex justify-content-center align-items-center shadow cursor-pointer"
+                                        style="width: 32px; height: 32px; cursor: pointer; transform: translate(15%, 15%);"
+                                        title="Trocar foto">
+                                        <span style="font-size: 14px;">📷</span>
+                                        <input type="file" accept="image/*" class="d-none"
+                                            @change="uploadFotoJovem($event, jovemEditando.id)">
+                                    </label>
                                 </div>
-                                <div class="col-md-4">
-                                    <label class="text-muted small">Telefone</label>
-                                    <div v-if="!isEditing" class="p-2 bg-light border rounded">{{
-                                        jovemEditando.telefone }}</div>
-                                    <input v-else type="text" v-model="jovemEditando.telefone" class="form-control">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="text-muted small">Idade</label>
-                                    <div class="p-2 bg-light border rounded">{{
-                                        calcularIdade(jovemEditando.data_nascimento) }} anos</div>
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="text-muted small">Data de Nascimento</label>
-                                    <div v-if="!isEditing" class="p-2 bg-light border rounded">{{
-                                        formatarData(jovemEditando.data_nascimento) }}</div>
-                                    <input v-else type="date" v-model="jovemEditando.data_nascimento"
-                                        class="form-control">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="text-muted small">Nº EJC que fez</label>
-                                    <div v-if="!isEditing" class="p-2 bg-light border rounded">{{
-                                        jovemEditando.numero_ejc_fez }}º</div>
-                                    <select v-else v-model="jovemEditando.numero_ejc_fez" class="form-select">
-                                        <option value="">(Não informado)</option>
-                                        <option v-for="ejc in ejcsList" :value="ejc.id">{{
-                                            numeroParaRomano(ejc.numero) }} — {{ ejc.paroquia }}</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-8">
-                                    <label class="text-muted small">Paróquia</label>
-                                    <div v-if="!isEditing" class="p-2 bg-light border rounded">{{
-                                        jovemEditando.paroquia }}</div>
-                                    <div v-else-if="jovemEditando.numero_ejc_fez" class="p-2 bg-light border rounded"
-                                        title="Paróquia vinculada ao EJC">{{
-                                        jovemEditando.paroquia }}</div>
-                                    <input v-else type="text" v-model="jovemEditando.paroquia" class="form-control"
-                                        placeholder="Informe a paróquia">
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="text-muted small">Instagram</label>
-                                    <div v-if="!isEditing" class="p-2 bg-light border rounded">@{{
-                                        jovemEditando.instagram }}</div>
-                                    <input v-else type="text" v-model="jovemEditando.instagram" class="form-control">
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="text-muted small">Estado Civil</label>
-                                    <div v-if="!isEditing" class="p-2 bg-light border rounded">{{
-                                        jovemEditando.estado_civil }}</div>
-                                    <select v-else v-model="jovemEditando.estado_civil" class="form-select">
-                                        <option value="Solteiro">Solteiro</option>
-                                        <option value="Casado">Casado</option>
-                                        <option value="Amasiado">Amasiado</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-6" v-if="jovemEditando.estado_civil === 'Casado'">
-                                    <label class="text-muted small">Data do Casamento</label>
-                                    <div v-if="!isEditing" class="p-2 bg-light border rounded">{{
-                                        formatarData(jovemEditando.data_casamento) }}</div>
-                                    <input v-else type="date" v-model="jovemEditando.data_casamento"
-                                        class="form-control">
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="text-muted small">Cor do Círculo</label>
-                                    <div v-if="!isEditing" class="p-2 bg-light border rounded">{{
-                                        jovemEditando.circulo }}</div>
-                                    <select v-else v-model="jovemEditando.circulo" class="form-select">
-                                        <option v-for="c in cores" :value="c">{{ c }}</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-12">
-                                    <label class="text-muted small">Possui Deficiência?</label>
-                                    <div v-if="!isEditing" class="p-2 bg-light border rounded">
-                                        {{ jovemEditando.deficiencia ? 'Sim - ' + (jovemEditando.qual_deficiencia ||
-                                        'Não especificada') : 'Não' }}
-                                    </div>
-                                    <div v-else class="d-flex g-2">
-                                        <div class="form-check me-3">
-                                            <input class="form-check-input" type="checkbox"
-                                                v-model="jovemEditando.deficiencia">
-                                            <label class="form-check-label">Possui deficiência</label>
-                                        </div>
-                                        <input v-if="jovemEditando.deficiencia" type="text"
-                                            v-model="jovemEditando.qual_deficiencia" placeholder="Qual?"
-                                            class="form-control w-50">
-                                    </div>
+                                <div v-if="isEditing" class="text-muted small text-center px-1">
+                                    Clique no ícone de câmera<br>para alterar a foto.
                                 </div>
 
-                                <!-- INFO CÔNJUGE -->
-                                <div v-if="jovemEditando.estado_civil === 'Casado'" class="col-md-12 mt-3">
-                                    <label class="text-muted small">Informações do Cônjuge</label>
-                                    <div class="p-2 bg-light border rounded">
-                                        <div v-if="!jovemConjuge" class="text-muted">Nenhuma informação de cônjuge
-                                            disponível.</div>
-                                        <div v-else>
-                                            <div><strong>Nome:</strong> {{ jovemConjuge.nome_completo || '-' }}
-                                            </div>
-                                            <div v-if="jovemConjuge.telefone"><strong>Telefone:</strong> {{
-                                                jovemConjuge.telefone }}</div>
+                                <!-- Informações Adicionais (Esquerda) -->
+                                <div class="w-100 px-3 mt-4 text-start">
+                                    <!-- Círculo -->
+                                    <div class="mb-1">
+                                        <label class="text-muted small fw-bold mb-0">Círculo</label>
+                                        <div v-if="!isEditing" class="py-1 px-2 bg-light border rounded">
+                                            <span v-if="jovemEditando.circulo">{{ jovemEditando.circulo }}</span>
+                                            <span v-else>Não informado</span>
                                         </div>
+                                        <select v-else v-model="jovemEditando.circulo"
+                                            class="form-select form-select-sm">
+                                            <option v-for="c in cores" :value="c">{{ c }}</option>
+                                        </select>
                                     </div>
-                                    <div class="mt-2" v-if="isEditing">
-                                        <button class="btn btn-soft-secondary btn-sm" @click="toggleConjugeEdit">Editar
-                                            Cônjuge</button>
+
+                                    <div class="mb-1">
+                                        <label class="text-muted small fw-bold mb-0">Nº EJC que fez</label>
+                                        <div v-if="!isEditing" class="py-1 px-2 bg-light border rounded">
+                                            <span v-if="jovemEditando.numero_ejc">{{
+                                                numeroParaRomano(jovemEditando.numero_ejc) }} EJC Inconfidentes</span>
+                                            <span v-else-if="jovemEditando.numero_ejc_fez">{{
+                                                jovemEditando.numero_ejc_fez }}º</span>
+                                            <span v-else>Não informado</span>
+                                        </div>
+                                        <select v-else v-model="jovemEditando.numero_ejc_fez"
+                                            class="form-select form-select-sm">
+                                            <option value="">(Não informado)</option>
+                                            <option v-for="ejc in ejcsList" :value="ejc.id">{{
+                                                numeroParaRomano(ejc.numero) }} EJC Inconfidentes</option>
+                                        </select>
                                     </div>
-                                    <div v-if="showConjugeEdit && isEditing" class="mt-3 card card-body bg-light">
-                                        <h6>Vincular ou Editar Cônjuge</h6>
-                                        <div class="row g-2">
-                                            <div class="col-md-6">
-                                                <label class="form-label small">Buscar jovem existente</label>
-                                                <input type="text" v-model="searchQuery" @input="onSearchInput"
-                                                    class="form-control form-control-sm" placeholder="Pesquisar...">
-                                                <ul class="list-group mt-1" v-if="searchResults.length">
-                                                    <li class="list-group-item list-group-item-action small"
-                                                        v-for="s in searchResults" :key="s.id"
-                                                        @click="selectJovemAsConjuge(s)">
-                                                        {{ s.nome_completo }}
-                                                    </li>
-                                                </ul>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label class="form-label small">Nome do Cônjuge</label>
-                                                <input type="text" v-model="jovemEditando.conjuge_nome"
-                                                    class="form-control form-control-sm">
-                                            </div>
-                                            <div class="col-md-12 text-end">
-                                                <button class="btn btn-primary btn-sm" @click="salvarConjuge">Salvar
-                                                    Cônjuge</button>
-                                            </div>
+
+                                    <!-- Instagram -->
+                                    <div class="mb-1">
+                                        <label class="text-muted small fw-bold mb-0">Instagram</label>
+                                        <div v-if="!isEditing" class="py-1 px-2 bg-light border rounded text-truncate">
+                                            <span v-if="jovemEditando.instagram">@{{ jovemEditando.instagram
+                                                }}</span>
+                                            <span v-else>Não informado</span>
+                                        </div>
+                                        <div v-else class="input-group input-group-sm">
+                                            <span class="input-group-text">@</span>
+                                            <input type="text" v-model="jovemEditando.instagram" class="form-control"
+                                                placeholder="usuario">
                                         </div>
                                     </div>
                                 </div>
+                            </div>
 
-                                <!-- HISTÓRICO EQUIPES (INTERNAL) -->
-                                <div class="col-md-12 mt-3">
+                            <!-- Conteúdo Principal (flui ao lado e abaixo) -->
+                            <div class="pt-2">
+
+                                <div class="row g-1">
+                                    <div class="col-md-12">
+                                        <label class="text-muted small mb-0">Nome Completo</label>
+                                        <div v-if="!isEditing" class="py-1 px-2 bg-light border rounded">{{
+                                            jovemEditando.nome_completo }}</div>
+                                        <input v-else type="text" v-model="jovemEditando.nome_completo"
+                                            class="form-control">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="text-muted small mb-0">Telefone</label>
+                                        <div v-if="!isEditing" class="py-1 px-2 bg-light border rounded">{{
+                                            jovemEditando.telefone }}</div>
+                                        <input v-else type="text" v-model="jovemEditando.telefone" class="form-control">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="text-muted small mb-0">Idade</label>
+                                        <div class="py-1 px-2 bg-light border rounded">{{
+                                            calcularIdade(jovemEditando.data_nascimento) }} anos</div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="text-muted small mb-0">Data de Nascimento</label>
+                                        <div v-if="!isEditing" class="py-1 px-2 bg-light border rounded">{{
+                                            formatarData(jovemEditando.data_nascimento) }}</div>
+                                        <input v-else type="date" v-model="jovemEditando.data_nascimento"
+                                            class="form-control">
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="text-muted small mb-0">Estado Civil</label>
+                                        <div v-if="!isEditing" class="py-1 px-2 bg-light border rounded">{{
+                                            jovemEditando.estado_civil }}</div>
+                                        <select v-else v-model="jovemEditando.estado_civil"
+                                            @change="onEstadoCivilChange" class="form-select">
+                                            <option value="Solteiro">Solteiro</option>
+                                            <option value="Casado">Casado</option>
+                                            <option value="Amasiado">Amasiado</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6"
+                                        v-if="['Casado', 'Amasiado'].includes(jovemEditando.estado_civil)">
+                                        <label class="text-muted small mb-0">Data do Casamento</label>
+                                        <div v-if="!isEditing" class="py-1 px-2 bg-light border rounded">{{
+                                            formatarData(jovemEditando.data_casamento) }}</div>
+                                        <input v-else type="date" v-model="jovemEditando.data_casamento"
+                                            class="form-control">
+                                    </div>
+
+                                    <!-- INFO CÔNJUGE -->
+                                    <div v-if="['Casado', 'Amasiado'].includes(jovemEditando.estado_civil)"
+                                        class="col-md-12">
+                                        <label class="text-muted small">Informações do Cônjuge</label>
+                                        <div class="p-2 bg-light border rounded pb-1">
+                                            <div v-if="!jovemConjuge" class="text-muted small">Nenhuma informação de
+                                                cônjuge
+                                                disponível.</div>
+                                            <div v-else>
+                                                <div><strong>Nome:</strong> {{ jovemConjuge.nome_completo || '-' }}
+                                                </div>
+                                                <div v-if="jovemConjuge.telefone"><strong>Telefone:</strong> {{
+                                                    jovemConjuge.telefone }}</div>
+                                                <div v-if="jovemConjuge.paroquia_ejc || jovemConjuge.numero_ejc"><strong
+                                                        class="text-primary">EJC:</strong> {{ jovemConjuge.paroquia_ejc
+                                                    || 'Inconfidentes' }} <span v-if="jovemConjuge.numero_ejc">({{
+                                                        jovemConjuge.numero_ejc }})</span></div>
+                                                <div v-if="jovemConjuge.nao_fez" class="text-danger small mt-1">
+                                                    <strong><i class="fas fa-times-circle"></i> Não fez EJC</strong>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="mt-2" v-if="isEditing">
+                                            <button class="btn btn-soft-secondary btn-sm"
+                                                @click="toggleConjugeEdit">Editar
+                                                Cônjuge</button>
+                                        </div>
+                                        <div v-if="showConjugeEdit && isEditing" class="mt-3 card card-body bg-light">
+                                            <h6>Opções do Cônjuge</h6>
+                                            <div class="mb-3">
+                                                <select v-model="tipoConjuge" class="form-select form-select-sm"
+                                                    @change="limparDadosConjuge()">
+                                                    <option value="MESMO_EJC">Fez EJC Inconfidentes</option>
+                                                    <option value="OUTRO_EJC">Fez outro EJC</option>
+                                                    <option value="NAO_FEZ">Não fez EJC</option>
+                                                </select>
+                                            </div>
+                                            <div class="row g-2">
+                                                <div class="col-md-12" v-if="tipoConjuge === 'MESMO_EJC'">
+                                                    <label class="form-label small mb-1">Buscar jovem existente no
+                                                        EJC</label>
+                                                    <div v-if="jovemEditando.conjuge_id"
+                                                        class="p-2 border rounded bg-white d-flex justify-content-between align-items-center">
+                                                        <div>
+                                                            <span class="small fw-bold text-success"><i
+                                                                    class="fas fa-check-circle"></i> Selecionado:</span>
+                                                            <div class="small fw-semibold mt-1">{{
+                                                                jovemEditando.conjuge_nome }}</div>
+                                                        </div>
+                                                        <button class="btn btn-sm btn-outline-danger py-0 px-2"
+                                                            @click="removerConjugeSelecionado()">Alterar</button>
+                                                    </div>
+                                                    <div v-else>
+                                                        <input type="text" v-model="searchQuery" @input="onSearchInput"
+                                                            class="form-control form-control-sm"
+                                                            placeholder="Pesquisar...">
+                                                        <ul class="list-group mt-1" v-if="searchResults.length">
+                                                            <li class="list-group-item list-group-item-action small"
+                                                                v-for="s in searchResults" :key="s.id"
+                                                                @click="selectJovemAsConjuge(s)">
+                                                                {{ s.nome_completo }}
+                                                            </li>
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                                <template
+                                                    v-if="tipoConjuge === 'OUTRO_EJC' || tipoConjuge === 'NAO_FEZ'">
+                                                    <div class="col-md-6">
+                                                        <label class="form-label small">Nome do Cônjuge</label>
+                                                        <input type="text" v-model="jovemEditando.conjuge_nome"
+                                                            class="form-control form-control-sm">
+                                                    </div>
+                                                </template>
+                                                <div class="col-md-6" v-if="tipoConjuge === 'OUTRO_EJC'">
+                                                    <label class="form-label small">Qual EJC fez?</label>
+                                                    <select v-model="jovemEditando.conjuge_outro_ejc_id"
+                                                        class="form-select form-select-sm">
+                                                        <option value="">Selecione na lista...</option>
+                                                        <option v-for="oe in outrosEjcsList" :key="oe.id"
+                                                            :value="oe.id">{{ oe.paroquia }} <span v-if="oe.nome">- {{
+                                                                oe.nome }}</span> ({{ oe.bairro }})</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-12 text-end mt-2">
+                                                    <button class="btn btn-primary btn-sm" @click="salvarConjuge">Salvar
+                                                        Cônjuge</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-12 mt-2">
+                                        <label class="text-muted small mb-0">Possui Deficiência?</label>
+                                        <div v-if="!isEditing" class="py-1 px-2 bg-light border rounded">
+                                            {{ jovemEditando.deficiencia ? 'Sim - ' +
+                                            (jovemEditando.qual_deficiencia ||
+                                            'Não especificada') : 'Não' }}
+                                        </div>
+                                        <div v-else class="d-flex g-2">
+                                            <div class="form-check me-3">
+                                                <input class="form-check-input" type="checkbox"
+                                                    v-model="jovemEditando.deficiencia" :true-value="1"
+                                                    :false-value="0">
+                                                <label class="form-check-label">Possui deficiência</label>
+                                            </div>
+                                            <input v-if="jovemEditando.deficiencia" type="text"
+                                                v-model="jovemEditando.qual_deficiencia" placeholder="Qual?"
+                                                class="form-control w-50">
+                                        </div>
+                                    </div>
+
+                                    <!-- RESTRIÇÃO ALIMENTAR -->
+                                    <div class="col-md-12">
+                                        <label class="text-muted small mb-0">Possui Restrição Alimentar?</label>
+                                        <div v-if="!isEditing" class="py-1 px-2 bg-light border rounded">
+                                            {{ jovemEditando.restricao_alimentar ? 'Sim - ' +
+                                            (jovemEditando.detalhes_restricao || 'Não especificada') : 'Não' }}
+                                        </div>
+                                        <div v-else class="d-flex gap-2 align-items-center">
+                                            <div class="form-check me-2 mb-0">
+                                                <input class="form-check-input" type="checkbox" id="checkRestricao"
+                                                    v-model="jovemEditando.restricao_alimentar" :true-value="1"
+                                                    :false-value="0">
+                                                <label class="form-check-label" for="checkRestricao">Sim</label>
+                                            </div>
+                                            <div v-if="jovemEditando.restricao_alimentar" class="w-100 flex-grow-1">
+                                                <select v-model="jovemEditando.detalhes_restricao"
+                                                    class="form-select form-select-sm">
+                                                    <option disabled value="">Selecione uma restrição...</option>
+                                                    <option value="Alergia a amendoim">Alergia a amendoim</option>
+                                                    <option value="Alergia a castanhas">Alergia a castanhas</option>
+                                                    <option value="Alergia a frutos do mar">Alergia a frutos do mar
+                                                    </option>
+                                                    <option value="APLV (Alergia à proteína do leite de vaca)">APLV
+                                                        (Alergia à proteína do leite de vaca)</option>
+                                                    <option value="Intolerante à lactose">Intolerante à lactose</option>
+                                                    <option value="Intolerante a glúten (Celíaco)">Intolerante a glúten
+                                                        (Celíaco)</option>
+                                                    <option value="Não come carne vermelha">Não come carne vermelha
+                                                    </option>
+                                                    <option value="Não come carne de porco">Não come carne de porco
+                                                    </option>
+                                                    <option value="Vegetariano">Vegetariano</option>
+                                                    <option value="Vegano">Vegano</option>
+                                                    <option value="Outras">Outras (Especifique nas observações)</option>
+                                                    <!-- Keep existing custom value if any -->
+                                                    <option
+                                                        v-if="jovemEditando.detalhes_restricao && !['Alergia a amendoim', 'Alergia a castanhas', 'Alergia a frutos do mar', 'APLV (Alergia à proteína do leite de vaca)', 'Intolerante à lactose', 'Intolerante a glúten (Celíaco)', 'Não come carne vermelha', 'Não come carne de porco', 'Vegetariano', 'Vegano', 'Outras'].includes(jovemEditando.detalhes_restricao)"
+                                                        :value="jovemEditando.detalhes_restricao">{{
+                                                        jovemEditando.detalhes_restricao }}</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+
+
+                                </div> <!-- row g-1 interno -->
+                            </div> <!-- conteudo principal -->
+                            <div class="clearfix w-100 mt-2" style="clear: both !important;"></div>
+
+                            <!-- HISTÓRICO EQUIPES (INTERNAL - FULL WIDTH) -->
+                            <div class="row mt-4">
+                                <div class="col-12">
                                     <label class="fw-bold mb-2">Equipes de Trabalho (EJC Inconfidentes)</label>
                                     <div class="p-2 bg-white border rounded">
                                         <div v-if="!jovemHistoricoEquipes || jovemHistoricoEquipes.length === 0"
@@ -330,8 +470,8 @@
                                         <ul v-else class="list-group list-group-flush">
                                             <li v-for="h in jovemHistoricoEquipes" :key="h.id"
                                                 class="list-group-item py-1 px-2 small">
-                                                <strong>{{ numeroParaRomano(h.numero_ejc) }} EJC</strong>: {{
-                                                h.nome_equipe || h.equipe }}
+                                                <strong>{{ numeroParaRomano(h.numero_ejc) }} EJC</strong>:
+                                                {{ h.nome_equipe || h.equipe }}
                                                 <span class="badge bg-secondary ms-1">{{ h.papel }}</span>
                                                 <button v-if="isEditing"
                                                     class="btn btn-link btn-sm text-danger p-0 ms-2"
@@ -366,12 +506,12 @@
                                         </div>
                                     </div>
                                 </div>
+                            </div>
 
-                            </div> <!-- row -->
-
-                            <div class="mt-4 d-flex justify-content-between">
+                            <div class="mt-4 d-flex justify-content-between border-top pt-3">
                                 <button v-if="isEditing" type="button" class="btn btn-danger"
-                                    @click="deletarJovemModal">🗑️ Deletar Jovem</button>
+                                    @click="deletarJovemModal">🗑️
+                                    Deletar Jovem</button>
                                 <div v-if="isEditing" class="ms-auto">
                                     <button type="button" class="btn btn-soft-secondary me-2"
                                         @click="cancelarEdicao">Cancelar</button>
@@ -409,8 +549,10 @@
                                     <div class="card bg-light border-0">
                                         <div class="card-body">
                                             <h6 class="card-title">Adicionar Nova Observação</h6>
-                                            <label class="form-label small text-muted">A observação ficará salva como
-                                                uma anotação permanente de histórico na linha do tempo. Ela não pode ser
+                                            <label class="form-label small text-muted">A observação ficará salva
+                                                como
+                                                uma anotação permanente de histórico na linha do tempo. Ela não pode
+                                                ser
                                                 deletada.</label>
                                             <textarea v-model="novaObservacaoExtra" class="form-control mb-2" rows="3"
                                                 placeholder="Digite aqui a informação especial..."></textarea>
@@ -595,6 +737,25 @@
             </div>
         </div>
 
+        <!-- Modal Ver Foto Grande -->
+        <div class="modal fade" id="modalVerFoto" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content bg-transparent border-0 shadow-none">
+                    <div class="modal-header border-0 position-absolute w-100 d-flex justify-content-end p-2"
+                        style="z-index: 1061;">
+                        <button type="button" class="btn-close btn-close-white" data-bs-toggle="modal"
+                            data-bs-target="#modalEditar"
+                            style="background-color: rgba(0,0,0,0.5); border-radius: 50%; opacity: 1; padding: 0.5rem; margin: 10px;"></button>
+                    </div>
+                    <div class="modal-body p-0 text-center">
+                        <img :src="jovemEditando.foto_url || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(jovemEditando.nome_completo || 'J') + '&background=e9ecef&color=6c757d&size=800')"
+                            class="img-fluid rounded shadow"
+                            style="max-height: 80vh; max-width: 100%; object-fit: contain; background-color: #f8f9fa;">
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Modal Novo Jovem -->
         <div class="modal fade" id="modalNovoJovem" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-lg">
@@ -624,16 +785,10 @@
                                 <select v-model="novoJovem.numero_ejc_fez" class="form-select">
                                     <option value="">(Não informado)</option>
                                     <option v-for="ejc in ejcsList" :value="ejc.id">{{ numeroParaRomano(ejc.numero)
-                                        }} — {{ ejc.paroquia }}</option>
+                                        }} EJC Inconfidentes</option>
                                 </select>
                             </div>
-                            <div class="col-md-4">
-                                <label class="text-muted small">Paróquia</label>
-                                <div v-if="novoJovem.numero_ejc_fez" class="p-2 bg-light border rounded"
-                                    title="Paróquia vinculada ao EJC">{{ paroquiaDoEJC }}</div>
-                                <input v-else type="text" v-model="novoJovem.paroquia" class="form-control"
-                                    placeholder="Informe a paróquia">
-                            </div>
+
                             <div class="col-md-6">
                                 <label class="text-muted small">Instagram</label>
                                 <input type="text" v-model="novoJovem.instagram" class="form-control"
@@ -664,6 +819,33 @@
                                 <label class="text-muted small">Qual Deficiência</label>
                                 <input type="text" v-model="novoJovem.qual_deficiencia" class="form-control"
                                     placeholder="Descreva a deficiência">
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="text-muted small">Restrição Alimentar</label>
+                                <select v-model="novoJovem.restricao_alimentar" class="form-select">
+                                    <option :value="false">Não</option>
+                                    <option :value="true">Sim</option>
+                                </select>
+                            </div>
+                            <div v-if="novoJovem.restricao_alimentar" class="col-md-12">
+                                <label class="text-muted small">Qual Restrição</label>
+                                <select v-model="novoJovem.detalhes_restricao" class="form-select">
+                                    <option disabled value="">Selecione uma restrição...</option>
+                                    <option value="Alergia a amendoim">Alergia a amendoim</option>
+                                    <option value="Alergia a castanhas">Alergia a castanhas</option>
+                                    <option value="Alergia a frutos do mar">Alergia a frutos do mar</option>
+                                    <option value="APLV (Alergia à proteína do leite de vaca)">APLV (Alergia à proteína
+                                        do leite de vaca)</option>
+                                    <option value="Intolerante à lactose">Intolerante à lactose</option>
+                                    <option value="Intolerante a glúten (Celíaco)">Intolerante a glúten (Celíaco)
+                                    </option>
+                                    <option value="Não come carne vermelha">Não come carne vermelha</option>
+                                    <option value="Não come carne de porco">Não come carne de porco</option>
+                                    <option value="Vegetariano">Vegetariano</option>
+                                    <option value="Vegano">Vegano</option>
+                                    <option value="Outras">Outras (Especifique nas observações)</option>
+                                </select>
                             </div>
                         </div>
                     </div>
@@ -699,6 +881,7 @@
                     searchQuery: '',
                     searchResults: [],
                     searchTimer: null,
+                    tipoConjuge: 'MESMO_EJC',
                     observacoesExtras: [],
                     novaObservacaoExtra: '',
                     comissoes: [], // Lista de comissões do jovem
@@ -721,21 +904,22 @@
                         telefone: '',
                         data_nascimento: '',
                         numero_ejc_fez: '',
-                        paroquia: '',
                         instagram: '',
                         estado_civil: 'Solteiro',
                         circulo: '',
                         deficiencia: false,
-                        qual_deficiencia: ''
+                        qual_deficiencia: '',
+                        restricao_alimentar: false,
+                        detalhes_restricao: ''
                     },
                     meses: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'],
                     cores: ['Rosa', 'Azul', 'Vermelho', 'Verde', 'Amarelo', 'Marrom'],
                     colunasVisiveis: {
                         Nome: true, Telefone: true, Idade: true, Nascimento: false, NumEJC: false,
-                        Paroquia: true, Instagram: false, EstadoCivil: true, Casamento: false,
+                        Instagram: false, EstadoCivil: true, Casamento: false,
                         Circulo: true, Deficiencia: false, QualDeficiencia: false
                     },
-                    filtros: { nome: '', idadeMin: null, idadeMax: null, mesNasc: '', numEjc: null, paroquia: '', estadoCivil: '', circulo: '', deficiencia: '' },
+                    filtros: { nome: '', idadeMin: null, idadeMax: null, mesNasc: '', numEjc: null, estadoCivil: '', circulo: '', deficiencia: '' },
                     jovemSelecionado: {}, jovemEditando: {}, jovemHistoricoEquipes: [],
                     todasEquipes: [], // Lista de todas as equipes para o select
                     novaEquipeHistorico: { equipe_id: '', ejc_id: '', papel: 'Membro' }
@@ -746,34 +930,20 @@
                     return this.jovens.filter(j => {
                         const idade = this.calcularIdade(j.data_nascimento);
                         const mesNasc = j.data_nascimento ? new Date(j.data_nascimento).getUTCMonth() : -1;
-                        const paroquiaFiltro = j.paroquia_ejc || j.paroquia || '';
                         return (!this.filtros.nome || j.nome_completo.toLowerCase().includes(this.filtros.nome.toLowerCase())) &&
                             (!this.filtros.idadeMin || idade >= this.filtros.idadeMin) &&
                             (!this.filtros.idadeMax || idade <= this.filtros.idadeMax) &&
                             (this.filtros.mesNasc === '' || mesNasc == this.filtros.mesNasc) &&
                             (!this.filtros.numEjc || j.numero_ejc == this.filtros.numEjc) &&
-                            (!this.filtros.paroquia || paroquiaFiltro.toLowerCase().includes(this.filtros.paroquia.toLowerCase())) &&
                             (!this.filtros.estadoCivil || j.estado_civil === this.filtros.estadoCivil) &&
                             (!this.filtros.circulo || j.circulo === this.filtros.circulo) &&
                             (this.filtros.deficiencia === '' || j.deficiencia == this.filtros.deficiencia);
                     });
                 },
-                paroquiaDoEJC() {
-                    if (!this.novoJovem || !this.novoJovem.numero_ejc_fez) return '';
-                    const ejc = this.ejcsList.find(e => e && e.id == this.novoJovem.numero_ejc_fez);
-                    return ejc ? ejc.paroquia : '';
-                }
+
             },
             watch: {
-                'jovemEditando.numero_ejc_fez'(newVal) {
-                    // Quando um EJC é selecionado, auto-preencher paróquia
-                    if (newVal && newVal !== '') {
-                        const ejcSelecionado = this.ejcsList.find(e => e && e.id == newVal);
-                        if (ejcSelecionado) {
-                            this.jovemEditando.paroquia = ejcSelecionado.paroquia;
-                        }
-                    }
-                }
+                // Removed watch for 'jovemEditando.numero_ejc_fez' as paroquia is no longer managed here
             },
             methods: {
                 async buscarJovens() {
@@ -867,7 +1037,7 @@
 
                     // Cabeçalhos
                     const headers = [
-                        "Nome", "Telefone", "Data Nascimento", "Idade", "EJC Fez", "Paróquia",
+                        "Nome", "Telefone", "Data Nascimento", "Idade", "EJC Fez",
                         "Instagram", "Estado Civil", "Cônjuge", "Data Casamento", "Círculo", "Deficiência", "Qual"
                     ];
 
@@ -882,7 +1052,7 @@
                         const ejcFez = this.numeroParaRomano(j.numero_ejc) + (j.numero_ejc ? ' EJC' : '');
 
                         // Nome do cônjuge (apenas se casado e informado)
-                        const conjugeNome = (j.estado_civil === 'Casado' && j.conjuge_nome) ? j.conjuge_nome : '';
+                        const conjugeNome = (['Casado', 'Amasiado'].includes(j.estado_civil) && j.conjuge_nome) ? j.conjuge_nome : '';
 
                         // Dados base
                         const baseData = [
@@ -1052,6 +1222,38 @@
                     return new Date(d).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
                 },
                 limparFiltros() { this.filtros = { nome: '', idadeMin: null, idadeMax: null, mesNasc: '', numEjc: null, paroquia: '', estadoCivil: '', circulo: '', deficiencia: '' }; },
+                async uploadFotoJovem(event, jovemId) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+
+                    const formData = new FormData();
+                    formData.append('foto', file);
+
+                    try {
+                        const res = await fetch(`/api/lista-mestre/${jovemId}/foto`, {
+                            method: 'POST',
+                            body: formData
+                        });
+
+                        if (!res.ok) {
+                            const errorObj = await res.json();
+                            throw new Error(errorObj.error || "Erro ao fazer upload da foto");
+                        }
+
+                        const data = await res.json();
+                        this.jovemEditando.foto_url = data.foto_url;
+
+                        const index = this.jovens.findIndex(j => j.id === jovemId);
+                        if (index !== -1) {
+                            this.jovens[index].foto_url = data.foto_url;
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        alert(err.message || "Não foi possível enviar a foto.");
+                    } finally {
+                        event.target.value = '';
+                    }
+                },
                 async verDetalhes(j) {
                     if (!j) return;
                     this.jovemEditando = { ...j };
@@ -1068,11 +1270,11 @@
                     }
 
                     // definir se o cônjuge fez outro EJC (campo livre)
-                    this.conjFezOutroEjc = !!(this.jovemEditando.conjuge_paroquia) || (!this.jovemEditando.conjuge_ejc_id && !!this.jovemEditando.conjuge_nome);
+                    this.conjFezOutroEjc = !!(this.jovemEditando.conjuge_paroquia) || !!(this.jovemEditando.conjuge_outro_ejc_id);
 
                     // Se casado, tentar buscar informações do cônjuge
                     this.jovemConjuge = null;
-                    if (this.jovemEditando.estado_civil === 'Casado') {
+                    if (['Casado', 'Amasiado'].includes(this.jovemEditando.estado_civil)) {
                         if (this.jovemEditando.conjuge_id) {
                             try {
                                 const r = await fetch(`/api/jovem/${this.jovemEditando.conjuge_id}`);
@@ -1086,12 +1288,22 @@
                                     this.jovemConjuge = { nome_completo: this.jovemEditando.conjuge_nome || '-', telefone: this.jovemEditando.conjuge_telefone || '-', paroquia_ejc: ejc.paroquia, numero_ejc: ejc.numero };
                                 }
                             } catch (e) { this.jovemConjuge = null; }
+                        } else if (this.jovemEditando.conjuge_outro_ejc_id) {
+                            try {
+                                const r = await fetch(`/api/outros-ejcs`);
+                                if (r.ok) {
+                                    const ejcs = await r.json();
+                                    const ejcOutro = ejcs.find(e => e.id == this.jovemEditando.conjuge_outro_ejc_id);
+                                    let nomeParoq = ejcOutro ? (ejcOutro.paroquia + (ejcOutro.nome ? ' - ' + ejcOutro.nome : '')) : '';
+                                    this.jovemConjuge = { nome_completo: this.jovemEditando.conjuge_nome || '-', telefone: this.jovemEditando.conjuge_telefone || '-', paroquia_ejc: nomeParoq };
+                                }
+                            } catch (e) { this.jovemConjuge = null; }
                         } else if (this.jovemEditando.conjuge_nome) {
                             this.jovemConjuge = { nome_completo: this.jovemEditando.conjuge_nome, telefone: this.jovemEditando.conjuge_telefone || '' };
                         }
 
                         // se foi informado paróquia livre do cônjuge, mostrar também
-                        if (!this.jovemEditando.conjuge_ejc_id && this.jovemEditando.conjuge_paroquia) {
+                        if (!this.jovemEditando.conjuge_ejc_id && !this.jovemEditando.conjuge_outro_ejc_id && this.jovemEditando.conjuge_paroquia) {
                             this.jovemConjuge = this.jovemConjuge || {};
                             this.jovemConjuge.paroquia_ejc = this.jovemEditando.conjuge_paroquia;
                         }
@@ -1121,8 +1333,11 @@
                         instagram: '',
                         estado_civil: 'Solteiro',
                         circulo: '',
+                        circulo: '',
                         deficiencia: false,
-                        qual_deficiencia: ''
+                        qual_deficiencia: '',
+                        restricao_alimentar: false,
+                        detalhes_restricao: ''
                     };
                     this.carregarEjcs();
                     new bootstrap.Modal(document.getElementById('modalNovoJovem')).show();
@@ -1148,7 +1363,9 @@
                             estado_civil: this.novoJovem.estado_civil || 'Solteiro',
                             circulo: this.novoJovem.circulo || null,
                             deficiencia: this.novoJovem.deficiencia ? 1 : 0,
-                            qual_deficiencia: this.novoJovem.qual_deficiencia || null
+                            qual_deficiencia: this.novoJovem.qual_deficiencia || null,
+                            restricao_alimentar: this.novoJovem.restricao_alimentar ? 1 : 0,
+                            detalhes_restricao: this.novoJovem.detalhes_restricao || null
                         };
 
                         const res = await fetch('/api/lista-mestre', {
@@ -1184,6 +1401,8 @@
                             circulo: this.jovemEditando.circulo || null,
                             deficiencia: this.jovemEditando.deficiencia ? 1 : 0,
                             qual_deficiencia: this.jovemEditando.qual_deficiencia || null,
+                            restricao_alimentar: this.jovemEditando.restricao_alimentar ? 1 : 0,
+                            detalhes_restricao: this.jovemEditando.detalhes_restricao || null,
                             conjuge_id: this.jovemEditando.conjuge_id || null,
                             conjuge_nome: this.jovemEditando.conjuge_nome || null,
                             conjuge_telefone: this.jovemEditando.conjuge_telefone || null,
@@ -1225,7 +1444,7 @@
                     this.conjFezOutroEjc = !!(this.jovemEditando.conjuge_paroquia) || (!this.jovemEditando.conjuge_ejc_id && !!this.jovemEditando.conjuge_nome);
                     // também carregar info do cônjuge quando for casado
                     this.jovemConjuge = null;
-                    if (this.jovemEditando.estado_civil === 'Casado') {
+                    if (['Casado', 'Amasiado'].includes(this.jovemEditando.estado_civil)) {
                         if (this.jovemEditando.conjuge_id) {
                             try {
                                 const r = await fetch(`/api/jovem/${this.jovemEditando.conjuge_id}`);
@@ -1239,11 +1458,30 @@
                                     this.jovemConjuge = { nome_completo: this.jovemEditando.conjuge_nome || '-', telefone: this.jovemEditando.conjuge_telefone || '-', paroquia_ejc: ejc.paroquia, numero_ejc: ejc.numero };
                                 }
                             } catch (e) { this.jovemConjuge = null; }
-                        } else if (this.jovemEditando.conjuge_nome) {
-                            this.jovemConjuge = { nome_completo: this.jovemEditando.conjuge_nome, telefone: this.jovemEditando.conjuge_telefone || '' };
                         }
 
-                        if (!this.jovemEditando.conjuge_ejc_id && this.jovemEditando.conjuge_paroquia) {
+                        // Override para cônjuge de outro EJC
+                        if (this.jovemEditando.conjuge_outro_ejc_id) {
+                            try {
+                                const r = await fetch(`/api/outros-ejcs`);
+                                if (r.ok) {
+                                    const ejcs = await r.json();
+                                    const ejcOutro = ejcs.find(e => e.id == this.jovemEditando.conjuge_outro_ejc_id);
+                                    let nomeParoq = ejcOutro ? (ejcOutro.paroquia + (ejcOutro.nome ? ' (' + ejcOutro.nome + ')' : '')) : '';
+                                    if (this.jovemConjuge) {
+                                        this.jovemConjuge.paroquia_ejc = nomeParoq;
+                                    } else {
+                                        this.jovemConjuge = { nome_completo: this.jovemEditando.conjuge_nome || '-', telefone: this.jovemEditando.conjuge_telefone || '-', paroquia_ejc: nomeParoq };
+                                    }
+                                }
+                            } catch (e) { }
+                        } else if (this.jovemEditando.conjuge_nome && !this.jovemEditando.conjuge_id) {
+                            if (!this.jovemConjuge) {
+                                this.jovemConjuge = { nome_completo: this.jovemEditando.conjuge_nome, telefone: this.jovemEditando.conjuge_telefone || '', nao_fez: true };
+                            }
+                        }
+
+                        if (!this.jovemEditando.conjuge_ejc_id && !this.jovemEditando.conjuge_outro_ejc_id && this.jovemEditando.conjuge_paroquia) {
                             this.jovemConjuge = this.jovemConjuge || {};
                             this.jovemConjuge.paroquia_ejc = this.jovemEditando.conjuge_paroquia;
                         }
@@ -1376,7 +1614,65 @@
                 },
                 toggleConjugeEdit() {
                     this.showConjugeEdit = !this.showConjugeEdit;
-                    if (this.showConjugeEdit) this.carregarEjcs();
+                    if (this.showConjugeEdit) {
+                        this.carregarEjcs();
+                        this.carregarOutrosEjcs();
+                        this.inferirTipoConjuge();
+                    }
+                },
+                inferirTipoConjuge() {
+                    if (this.jovemEditando.conjuge_id && !this.jovemEditando.conjuge_outro_ejc_id) {
+                        this.tipoConjuge = 'MESMO_EJC';
+                    } else if (this.jovemEditando.conjuge_outro_ejc_id || this.jovemEditando.conjuge_paroquia) {
+                        this.tipoConjuge = 'OUTRO_EJC';
+                    } else if (this.jovemEditando.conjuge_nome && !this.jovemEditando.conjuge_id) {
+                        this.tipoConjuge = 'NAO_FEZ';
+                    } else {
+                        this.tipoConjuge = 'MESMO_EJC';
+                    }
+                },
+                limparDadosConjuge() {
+                    this.searchQuery = '';
+                    this.searchResults = [];
+                    // Sempre remover dados de salvamento do display ao trocar a categoria para forçar regravação
+                    this.jovemConjuge = null;
+
+                    if (this.tipoConjuge !== 'MESMO_EJC') {
+                        this.jovemEditando.conjuge_id = null;
+                        this.jovemEditando.conjuge_ejc_id = null;
+                    }
+                    if (this.tipoConjuge !== 'OUTRO_EJC') {
+                        this.jovemEditando.conjuge_outro_ejc_id = null;
+                        this.jovemEditando.conjuge_paroquia = null;
+                    }
+                    if (this.tipoConjuge === 'MESMO_EJC') {
+                        this.jovemEditando.conjuge_nome = '';
+                    }
+                },
+                removerConjugeSelecionado() {
+                    this.jovemEditando.conjuge_id = null;
+                    this.jovemEditando.conjuge_nome = '';
+                    this.jovemEditando.conjuge_telefone = '';
+                    this.jovemEditando.conjuge_ejc_id = null;
+                    this.jovemConjuge = null;
+                },
+                onEstadoCivilChange() {
+                    // Quando trocar o estado civil para Casado ou Amasiado (ou entre eles), limpa o cônjuge atrelado anterior para forçar registro novo
+                    if (['Casado', 'Amasiado'].includes(this.jovemEditando.estado_civil)) {
+                        this.tipoConjuge = 'MESMO_EJC';
+                        this.limparDadosConjuge();
+                        this.removerConjugeSelecionado();
+                        this.jovemEditando.conjuge_outro_ejc_id = null;
+                        this.jovemEditando.conjuge_paroquia = null;
+                        this.showConjugeEdit = true; // Força visualmente a aba de edição a já abrir
+                    } else {
+                        // Se voltar para Solteiro, apenas limpar
+                        this.jovemConjuge = null;
+                        this.removerConjugeSelecionado();
+                        this.jovemEditando.conjuge_outro_ejc_id = null;
+                        this.jovemEditando.conjuge_paroquia = null;
+                        this.showConjugeEdit = false;
+                    }
                 },
                 onSearchInput() {
                     clearTimeout(this.searchTimer);
@@ -1397,22 +1693,50 @@
                     this.jovemEditando.conjuge_nome = j.nome_completo;
                     this.jovemEditando.conjuge_telefone = j.telefone;
                     this.jovemEditando.conjuge_ejc_id = j.numero_ejc_fez || null;
+                    this.jovemEditando.conjuge_outro_ejc_id = null;
                     this.searchResults = [];
                     this.searchQuery = '';
                 },
                 async salvarConjuge() {
                     try {
                         const payload = {
-                            conjuge_id: this.jovemEditando.conjuge_id || null,
-                            conjuge_nome: this.jovemEditando.conjuge_nome || null,
-                            conjuge_telefone: this.jovemEditando.conjuge_telefone || null,
-                            conjuge_ejc_id: this.jovemEditando.conjuge_ejc_id || null,
-                            conjuge_paroquia: this.conjFezOutroEjc ? (this.jovemEditando.conjuge_paroquia || null) : null
+                            conjuge_id: this.tipoConjuge === 'MESMO_EJC' ? (this.jovemEditando.conjuge_id || null) : null,
+                            conjuge_nome: this.tipoConjuge === 'MESMO_EJC' ? (this.jovemEditando.conjuge_nome || null) : (this.jovemEditando.conjuge_nome || null), // Wait, both use conjuge_nome
+                            conjuge_telefone: this.tipoConjuge === 'MESMO_EJC' ? (this.jovemEditando.conjuge_telefone || null) : null,
+                            conjuge_ejc_id: this.tipoConjuge === 'MESMO_EJC' ? (this.jovemEditando.conjuge_ejc_id || null) : null,
+                            conjuge_outro_ejc_id: this.tipoConjuge === 'OUTRO_EJC' ? (this.jovemEditando.conjuge_outro_ejc_id || null) : null,
+                            conjuge_paroquia: null
                         };
                         const res = await fetch(`/api/lista-mestre/${this.jovemEditando.id}`, {
                             method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
                         });
                         if (!res.ok) { const err = await res.json(); alert(err.error || 'Erro ao salvar cônjuge'); return; }
+
+                        // Atualização reativa da interface
+                        if (this.tipoConjuge === 'MESMO_EJC') {
+                            const foundEjc = this.jovemEditando.conjuge_ejc_id ? this.ejcsList.find(e => e.id == this.jovemEditando.conjuge_ejc_id) : null;
+                            this.jovemConjuge = {
+                                nome_completo: this.jovemEditando.conjuge_nome,
+                                telefone: this.jovemEditando.conjuge_telefone,
+                                paroquia_ejc: foundEjc ? foundEjc.paroquia : null,
+                                numero_ejc: foundEjc ? foundEjc.numero : null
+                            };
+                        } else if (this.tipoConjuge === 'OUTRO_EJC') {
+                            const foundOutro = this.outrosEjcsList.find(e => e.id == this.jovemEditando.conjuge_outro_ejc_id);
+                            let nomeParoq = foundOutro ? (foundOutro.paroquia + (foundOutro.nome ? ' (' + foundOutro.nome + ')' : '')) : '';
+                            this.jovemConjuge = {
+                                nome_completo: this.jovemEditando.conjuge_nome || '-',
+                                telefone: '',
+                                paroquia_ejc: nomeParoq
+                            };
+                        } else if (this.tipoConjuge === 'NAO_FEZ') {
+                            this.jovemConjuge = {
+                                nome_completo: this.jovemEditando.conjuge_nome || '-',
+                                telefone: '',
+                                nao_fez: true
+                            };
+                        }
+
                         alert('Informações do cônjuge salvas');
                         this.showConjugeEdit = false;
                         this.buscarJovens();

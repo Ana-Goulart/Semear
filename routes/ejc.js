@@ -32,6 +32,20 @@ router.get('/:id', async (req, res) => {
     }
 });
 
+// GET - Buscar encontristas de um EJC específico
+router.get('/:id/encontristas', async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            'SELECT id, nome_completo, circulo, telefone FROM jovens WHERE numero_ejc_fez = ? ORDER BY nome_completo ASC',
+            [req.params.id]
+        );
+        res.json(rows);
+    } catch (err) {
+        console.error("Erro ao buscar encontristas:", err);
+        res.status(500).json({ error: "Erro ao buscar encontristas" });
+    }
+});
+
 // POST - Criar novo EJC
 router.post('/', async (req, res) => {
     const { numero, paroquia, ano, data_inicio, data_fim, descricao } = req.body;

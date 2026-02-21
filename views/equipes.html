@@ -3,9 +3,10 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>SemeaJovens - Equipes</title>
+    <title>SemeaJovens - Equipes e Funções</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <link rel="stylesheet" href="/css/velzon-theme.css">
     <link rel="stylesheet" href="/css/style.css">
@@ -25,11 +26,13 @@
             padding: 20px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             transition: transform 0.2s;
+            cursor: pointer;
         }
 
         .equipe-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+            border-color: var(--vz-primary);
         }
 
         .equipe-icon {
@@ -55,24 +58,119 @@
 <body>
     <div id="app">
         <!-- Menu injetado via JS -->
-
         <main class="container-fluid">
-            <div class="mb-4">
-                <h3>👥 Equipes</h3>
-                <p class="text-muted">Conheça todas as equipes e suas responsabilidades</p>
+            <div class="d-flex justify-content-between mb-4 align-items-center">
+                <div>
+                    <h3>👥 Gerenciar Equipes e Funções</h3>
+                    <p class="text-muted mb-0">Cadastre suas equipes e configure as funções exclusivas de cada uma
+                        delas.</p>
+                </div>
+                <button class="btn btn-primary" @click="abrirModalEquipeNovo()">➕ Nova Equipe</button>
             </div>
 
-            <div class="cart-container">
-                <div v-for="equipe in equipes" :key="equipe.id" class="equipe-card">
-                    <div class="equipe-icon">{{ equipe.icon }}</div>
+            <div v-if="carregando" class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+                <div class="mt-2 text-muted">Carregando equipes...</div>
+            </div>
+
+            <div v-else-if="equipes.length === 0" class="text-center text-muted py-5">
+                <i class="fas fa-users-slash fa-3x mb-3 text-light"></i>
+                <p>Nenhuma equipe cadastrada ainda.</p>
+            </div>
+
+            <div v-else class="cart-container">
+                <div v-for="equipe in equipes" :key="equipe.id" class="equipe-card" @click="abrirModalEquipe(equipe)">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="equipe-icon">👥</div>
+                        <span class="badge bg-soft-primary text-primary" style="font-size: 0.75rem;">Clique p/
+                            Editar</span>
+                    </div>
                     <div class="equipe-nome">{{ equipe.nome }}</div>
-                    <div class="equipe-descricao">{{ equipe.descricao }}</div>
+                    <div class="equipe-descricao">{{ equipe.descricao || 'Sem descrição' }}</div>
                 </div>
             </div>
         </main>
+
+        <!-- Modal Editar Equipe e Funções -->
+        <div class="modal fade" id="modalEquipe" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title">{{ editando ? '⚙️ Gerenciar Equipe' : '➕ Nova Equipe' }}</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+
+                    <div class="modal-body bg-light">
+                        <div class="card shadow-sm border-0 mb-3">
+                            <div class="card-body">
+                                <h6 class="card-title text-muted mb-3 fw-bold">1. Dados Fundamentais</h6>
+                                <div class="row g-3">
+                                    <div class="col-md-12">
+                                        <label class="form-label small mb-1">Nome da Equipe *</label>
+                                        <input type="text" v-model="formulario.nome" class="form-control"
+                                            placeholder="Ex: Cozinha, Liturgia Ext...">
+                                    </div>
+                                    <div class="col-md-12">
+                                        <label class="form-label small mb-1">Descrição Breve</label>
+                                        <input type="text" v-model="formulario.descricao" class="form-control"
+                                            placeholder="Ex: Prepara as refeições gerais">
+                                    </div>
+                                    <div class="col-md-12 text-end">
+                                        <button class="btn btn-sm btn-success" @click="salvarEquipe"><i
+                                                class="fas fa-save"></i> {{ editando ? 'Atualizar Dados da Equipe' :
+                                            'Salvar Equipe' }}</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Parte 2: Funções. SÓ EXIBE SE A EQUIPE JÁ FOI CRIADA E ESTÁ SENDO EDITADA -->
+                        <div v-if="editando" class="card shadow-sm border-0">
+                            <div class="card-body pb-2">
+                                <h6 class="card-title text-muted mb-3 fw-bold border-bottom pb-2">2. Controle de Funções
+                                    (Cargos da Equipe)</h6>
+
+                                <div class="d-flex mb-3 gap-2">
+                                    <input type="text" v-model="novaFuncao" class="form-control form-control-sm"
+                                        placeholder="Ex: Coordenador(a), Animador(a)..." @keyup.enter="adicionarFuncao">
+                                    <button class="btn btn-primary btn-sm px-3" @click="adicionarFuncao"
+                                        :disabled="!novaFuncao.trim()"><i class="fas fa-plus"></i> Inserir</button>
+                                </div>
+
+                                <div v-if="carregandoFuncoes" class="text-center py-3">
+                                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                                </div>
+                                <div v-else-if="funcoes.length === 0"
+                                    class="text-center text-muted small py-3 bg-light rounded">
+                                    Nenhuma função específica registrada para esta equipe.
+                                </div>
+                                <ul v-else class="list-group list-group-flush border mt-2 rounded">
+                                    <li v-for="funcao in funcoes" :key="funcao.id"
+                                        class="list-group-item d-flex justify-content-between align-items-center py-2 bg-white small">
+                                        <span class="fw-medium text-dark"><i
+                                                class="fas fa-user-tag text-muted me-2"></i> {{ funcao.nome }}</span>
+                                        <button class="btn btn-sm btn-outline-danger py-0 px-2"
+                                            @click="removerFuncao(funcao.id)" title="Deletar Função"><i
+                                                class="fas fa-trash-alt"></i></button>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer d-flex justify-content-between">
+                        <button type="button" class="btn btn-danger" v-if="editando"
+                            @click="deletarEquipe(formulario.id)">🗑️ Deletar Equipe Completa</button>
+                        <span v-else></span>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
+
     <script>
-        // Injetar menu lateral
         document.addEventListener('DOMContentLoaded', () => {
             injetarMenu('#app');
             ativarMenu('/equipes');
@@ -82,69 +180,151 @@
         createApp({
             data() {
                 return {
-                    equipes: [
-                        {
-                            id: 1,
-                            nome: 'Finanças',
-                            descricao: 'Caixa do EJC',
-                            icon: '💰'
-                        },
-                        {
-                            id: 2,
-                            nome: 'Geral',
-                            descricao: 'Coordenação Geral',
-                            icon: '👨‍💼'
-                        },
-                        {
-                            id: 3,
-                            nome: 'Secretaria',
-                            descricao: 'Responsável pela papelaria',
-                            icon: '📋'
-                        },
-                        {
-                            id: 4,
-                            nome: 'Ordem',
-                            descricao: 'Responsável pela limpeza e organização',
-                            icon: '🧹'
-                        },
-                        {
-                            id: 5,
-                            nome: 'Cozinha',
-                            descricao: 'Responsável pela refeição',
-                            icon: '🍳'
-                        },
-                        {
-                            id: 6,
-                            nome: 'Apoio',
-                            descricao: 'Apoia outra equipes',
-                            icon: '🤝'
-                        },
-                        {
-                            id: 7,
-                            nome: 'Liturgia Interna',
-                            descricao: 'Reza na capela',
-                            icon: '⛪'
-                        },
-                        {
-                            id: 8,
-                            nome: 'Liturgia Externa',
-                            descricao: 'Reza na casa',
-                            icon: '🏠'
-                        },
-                        {
-                            id: 9,
-                            nome: 'Sala',
-                            descricao: 'Fica a frente do movimento',
-                            icon: '🎤'
-                        },
-                        {
-                            id: 10,
-                            nome: 'Cafezinho',
-                            descricao: 'Faz lanche',
-                            icon: '☕'
-                        }
-                    ]
+                    equipes: [],
+                    carregando: true,
+                    editando: false,
+                    modalInstancia: null,
+
+                    formulario: {
+                        id: null,
+                        nome: '',
+                        descricao: ''
+                    },
+
+                    funcoes: [],
+                    novaFuncao: '',
+                    carregandoFuncoes: false
                 }
+            },
+            methods: {
+                async buscarEquipes() {
+                    this.carregando = true;
+                    try {
+                        const res = await fetch('/api/equipes');
+                        this.equipes = await res.json();
+                    } catch (e) {
+                        console.error("Erro ao puxar:", e);
+                    } finally {
+                        this.carregando = false;
+                    }
+                },
+
+                abrirModalEquipeNovo() {
+                    this.editando = false;
+                    this.formulario = { id: null, nome: '', descricao: '' };
+                    this.funcoes = [];
+                    this.novaFuncao = '';
+                    if (!this.modalInstancia) this.modalInstancia = new bootstrap.Modal(document.getElementById('modalEquipe'));
+                    this.modalInstancia.show();
+                },
+
+                abrirModalEquipe(equipe) {
+                    this.editando = true;
+                    this.formulario = { id: equipe.id, nome: equipe.nome, descricao: equipe.descricao };
+                    this.novaFuncao = '';
+                    this.buscarFuncoes(equipe.id);
+                    if (!this.modalInstancia) this.modalInstancia = new bootstrap.Modal(document.getElementById('modalEquipe'));
+                    this.modalInstancia.show();
+                },
+
+                async salvarEquipe() {
+                    if (!this.formulario.nome.trim()) {
+                        alert("O nome da equipe é obrigatório.");
+                        return;
+                    }
+
+                    try {
+                        const url = this.editando ? `/api/equipes/${this.formulario.id}` : '/api/equipes';
+                        const metodo = this.editando ? 'PUT' : 'POST';
+
+                        const res = await fetch(url, {
+                            method: metodo,
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.formulario)
+                        });
+
+                        if (!res.ok) {
+                            const err = await res.json();
+                            alert(err.error || "Erro ao salvar equipe"); return;
+                        }
+
+                        const dados = await res.json();
+
+                        if (!this.editando) {
+                            this.editando = true;
+                            this.formulario.id = dados.id;
+                            this.funcoes = [];
+                        } else {
+                            alert('Dados atualizados com sucesso!');
+                        }
+
+                        this.buscarEquipes();
+
+                    } catch (e) {
+                        alert("Erro de comunicação ao salvar.");
+                    }
+                },
+
+                async deletarEquipe(id) {
+                    if (!confirm("Atenção! Deletar esta equipe também DELETARÁ todas as funções internas cadastradas nela. Deseja prosseguir de forma definitiva?")) return;
+
+                    try {
+                        const res = await fetch(`/api/equipes/${id}`, { method: 'DELETE' });
+                        if (!res.ok) {
+                            alert("Erro ao excluir."); return;
+                        }
+                        this.modalInstancia.hide();
+                        this.buscarEquipes();
+                    } catch (e) {
+                        alert("Erro ao excluir.");
+                    }
+                },
+
+                async buscarFuncoes(equipeId) {
+                    this.carregandoFuncoes = true;
+                    this.funcoes = [];
+                    try {
+                        const res = await fetch(`/api/equipes/${equipeId}/funcoes`);
+                        if (res.ok) {
+                            this.funcoes = await res.json();
+                        }
+                    } catch (e) { } finally {
+                        this.carregandoFuncoes = false;
+                    }
+                },
+
+                async adicionarFuncao() {
+                    if (!this.novaFuncao.trim() || !this.formulario.id) return;
+
+                    try {
+                        const res = await fetch(`/api/equipes/${this.formulario.id}/funcoes`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ nome: this.novaFuncao })
+                        });
+                        if (res.ok) {
+                            this.novaFuncao = '';
+                            this.buscarFuncoes(this.formulario.id); // Recarrega lista local
+                        } else {
+                            alert("Erro ao inserir.");
+                        }
+                    } catch (e) { }
+                },
+
+                async removerFuncao(funcaoId) {
+                    if (!confirm("Tem certeza que deseja remover esta função/cargo?")) return;
+                    try {
+                        const res = await fetch(`/api/equipes/funcoes/${funcaoId}`, { method: 'DELETE' });
+                        if (res.ok) {
+                            this.buscarFuncoes(this.formulario.id);
+                        } else {
+                            alert("Erro ao remover.");
+                        }
+                    } catch (e) { }
+                }
+            },
+            mounted() {
+                this.buscarEquipes();
             }
         }).mount('#app');
     </script>

@@ -120,4 +120,60 @@ router.delete('/vinculo/:ejcId/:equipeId', async (req, res) => {
     }
 });
 
+// DELETE - Deletar equipe e suas dependências
+router.delete('/:id', async (req, res) => {
+    try {
+        await pool.query('DELETE FROM equipes_funcoes WHERE equipe_id = ?', [req.params.id]);
+        await pool.query('DELETE FROM equipes_ejc WHERE equipe_id = ?', [req.params.id]);
+        const [result] = await pool.query('DELETE FROM equipes WHERE id = ?', [req.params.id]);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: "Equipe não encontrada" });
+        }
+        res.json({ message: "Equipe deletada com sucesso" });
+    } catch (err) {
+        console.error("Erro ao deletar equipe:", err);
+        res.status(500).json({ error: "Erro ao deletar equipe" });
+    }
+});
+
+// --- FUNÇÕES DA EQUIPE ---
+
+// GET - Listar funções de uma equipe
+router.get('/:id/funcoes', async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT * FROM equipes_funcoes WHERE equipe_id = ? ORDER BY nome ASC', [req.params.id]);
+        res.json(rows);
+    } catch (err) {
+        console.error("Erro ao buscar funções:", err);
+        res.status(500).json({ error: "Erro no servidor" });
+    }
+});
+
+// POST - Criar função para uma equipe
+router.post('/:id/funcoes', async (req, res) => {
+    const { nome } = req.body;
+    if (!nome) return res.status(400).json({ error: "Nome da função é obrigatório" });
+
+    try {
+        const [result] = await pool.query('INSERT INTO equipes_funcoes (equipe_id, nome) VALUES (?, ?)', [req.params.id, nome]);
+        res.json({ id: result.insertId, message: "Função criada" });
+    } catch (err) {
+        console.error("Erro ao criar função:", err);
+        res.status(500).json({ error: "Erro no servidor" });
+    }
+});
+
+// DELETE - Remover função
+router.delete('/funcoes/:id', async (req, res) => {
+    try {
+        const [result] = await pool.query('DELETE FROM equipes_funcoes WHERE id = ?', [req.params.id]);
+        if (result.affectedRows === 0) return res.status(404).json({ error: "Função não encontrada" });
+        res.json({ message: "Função excluída" });
+    } catch (err) {
+        console.error("Erro ao deletar função:", err);
+        res.status(500).json({ error: "Erro no servidor" });
+    }
+});
+
 module.exports = router;

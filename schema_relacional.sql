@@ -65,3 +65,7 @@ SELECT ejc.id, equipes.id FROM ejc CROSS JOIN equipes;
 -- ===== ALTERAÇÃO: campo para armazenar paróquia informada do cônjuge quando não há EJC vinculado =====
 ALTER TABLE jovens
 ADD COLUMN IF NOT EXISTS conjuge_paroquia VARCHAR(255) DEFAULT NULL;
+
+-- ===== ALTERAÇÃO: campo para armazenar a foto do jovem =====
+ALTER TABLE jovens
+ADD COLUMN IF NOT EXISTS foto_url VARCHAR(255) DEFAULT NULL;

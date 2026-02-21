@@ -9,6 +9,7 @@ const rotasUsuarios = require('./routes/usuarios');
 const rotasHistoricoEquipes = require('./routes/historicoEquipes');
 const rotasVotacao = require('./routes/votacao');
 const rotasOutrosEjcs = require('./routes/outrosEjcs');
+const rotasMontarEncontro = require('./routes/montar-encontro');
 
 app.use(express.json());
 app.use(express.static('public')); // Serve arquivos estáticos
@@ -22,6 +23,7 @@ app.get('/anexos', (req, res) => res.sendFile(path.join(__dirname, 'views', 'ane
 app.get('/usuarios', (req, res) => res.sendFile(path.join(__dirname, 'views', 'usuarios.html')));
 app.get('/votacao', (req, res) => res.sendFile(path.join(__dirname, 'views', 'votacao.html')));
 app.get('/outros-ejcs', (req, res) => res.sendFile(path.join(__dirname, 'views', 'outros-ejcs.html')));
+app.get('/montar-encontro', (req, res) => res.sendFile(path.join(__dirname, 'views', 'montar-encontro.html')));
 
 // --- API ROUTES ---
 app.use('/api/ejc', rotasEJC);
@@ -32,6 +34,7 @@ app.use('/api/equipes', rotasEquipes);
 app.use('/api/historico-equipes', rotasHistoricoEquipes);
 app.use('/api/votacao', rotasVotacao);
 app.use('/api/outros-ejcs', rotasOutrosEjcs);
+app.use('/api/montar-encontro', rotasMontarEncontro);
 
 // --- ROTAS ANTIGAS / COMPATIBILIDADE ---
 // Algumas rotas frontend chamavam URLs específicas que agora estão dentro dos módulos.

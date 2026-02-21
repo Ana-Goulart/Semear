@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <title>SemeaJovens - Montar Encontro</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="/css/velzon-theme.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="/js/menu.js"></script>
+    <style>
+        .montagem-card {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .montagem-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+            border-color: var(--vz-primary);
+        }
+
+        .grid-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .equipe-section {
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #eee;
+            margin-bottom: 20px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .equipe-header {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            cursor: pointer;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #eee;
+        }
+
+        .equipe-header:hover {
+            background: #eef2f7;
+        }
+
+        .funcao-row {
+            border-bottom: 1px solid #f1f1f1;
+            padding: 12px 20px;
+        }
+
+        .funcao-row:last-child {
+            border-bottom: none;
+        }
+
+        .membro-badge {
+            display: inline-flex;
+            align-items: center;
+            background: #e1f5fe;
+            color: #0277bd;
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            margin-right: 8px;
+            margin-bottom: 5px;
+        }
+
+        .membro-badge button {
+            background: none;
+            border: none;
+            color: #0277bd;
+            margin-left: 5px;
+            cursor: pointer;
+            padding: 0;
+            font-size: 1rem;
+            line-height: 1;
+            opacity: 0.7;
+        }
+
+        .membro-badge button:hover {
+            opacity: 1;
+            color: #d32f2f;
+        }
+
+        .busca-resultados {
+            position: absolute;
+            z-index: 1000;
+            width: 100%;
+            max-height: 250px;
+            overflow-y: auto;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 0 0 8px 8px;
+        }
+
+        .busca-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+            background: white;
+        }
+
+        .busca-item:hover {
+            background: #f8f9fa;
+            color: var(--vz-primary);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <main class="container-fluid">
+
+            <!-- VISTA 1: Lista de Montagens -->
+            <div v-if="estado === 'LISTA'">
+                <div class="d-flex justify-content-between mb-4 align-items-center">
+                    <div>
+                        <h3>🧩 Montar Encontros</h3>
+                        <p class="text-muted mb-0">Gerencie a alocação de equipes e jovens por edição do EJC.</p>
+                    </div>
+                    <button class="btn btn-primary" @click="abrirModalNovaMontagem">➕ Iniciar Montagem</button>
+                </div>
+
+                <div v-if="carregando" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+
+                <div v-else-if="montagens.length === 0" class="text-center text-muted py-5">
+                    <i class="fas fa-folder-open fa-3x mb-3 text-light"></i>
+                    <p>Nenhum encontro sendo montado no momento.</p>
+                </div>
+
+                <div v-else class="grid-cards">
+                    <div v-for="m in montagens" :key="m.id" class="montagem-card" @click="entrarMontagem(m)">
+                        <div class="d-flex justify-content-between">
+                            <h4 class="text-primary mb-1">{{ numeroParaRomano(m.numero_ejc) }} EJC</h4>
+                            <button class="btn btn-sm btn-outline-danger border-0" @click.stop="deletarMontagem(m.id)"
+                                title="Excluir Montagem"><i class="fas fa-trash"></i></button>
+                        </div>
+                        <p class="text-muted small mb-3">Encontro: <span class="fw-bold text-dark">{{
+                                formatarData(m.data_encontro) }}</span></p>
+                        <div class="text-end">
+                            <span class="btn btn-sm btn-soft-primary w-100">Abrir Montagem <i
+                                    class="fas fa-arrow-right ms-1"></i></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VISTA 2: Edição da Montagem (Alocação) -->
+            <div v-else-if="estado === 'EDICAO'">
+                <div class="d-flex justify-content-between mb-4 align-items-center border-bottom pb-3">
+                    <div>
+                        <button class="btn btn-sm btn-soft-secondary mb-2" @click="estado = 'LISTA'">← Voltar para
+                            listagem</button>
+                        <h3 class="mb-0">⚙️ Montando <span class="text-primary">{{
+                                numeroParaRomano(montagemAtiva.numero_ejc) }} EJC</span></h3>
+                        <p class="text-muted small mb-0">Data: {{ formatarData(montagemAtiva.data_encontro) }}</p>
+                    </div>
+                    <button class="btn btn-soft-primary" @click="carregarEstrutura"><i class="fas fa-sync-alt"></i>
+                        Atualizar Dados</button>
+                </div>
+
+                <div v-if="carregandoEstrutura" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2 text-muted">Carregando mapa de equipes...</p>
+                </div>
+
+                <div v-else class="row">
+                    <!-- Iteração sobre todas as equipes -->
+                    <div v-for="equipe in estrutura" :key="equipe.id" class="col-md-6 mb-3">
+                        <div class="equipe-section">
+                            <!-- Cabeçalho Acordeão da Equipe -->
+                            <div class="equipe-header" @click="toggleEquipe(equipe.id)">
+                                <span><i class="fas fa-users text-muted me-2"></i> {{ equipe.nome }}</span>
+                                <i class="fas"
+                                    :class="equipeAberta === equipe.id ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                            </div>
+
+                            <!-- Corpo Acordeão (Funções da Equipe) -->
+                            <div v-show="equipeAberta === equipe.id" class="bg-white">
+                                <div v-if="equipe.funcoes.length === 0" class="p-3 text-muted small text-center">
+                                    Esta equipe ainda não possui funções cadastradas no Menu de Equipes.
+                                </div>
+                                <div v-for="funcao in equipe.funcoes" :key="funcao.id" class="funcao-row">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="fw-bold text-dark" style="font-size: 0.9rem;">➡️ {{ funcao.nome
+                                            }}</span>
+                                        <button class="btn btn-sm btn-outline-primary py-0 px-2"
+                                            style="font-size: 0.8rem;"
+                                            @click="abrirBuscaJovem(equipe.id, funcao.id, funcao.nome)"><i
+                                                class="fas fa-plus"></i> Add Pessoa</button>
+                                    </div>
+
+                                    <!-- Membros alocados nesta função -->
+                                    <div>
+                                        <span v-if="funcao.membros.length === 0"
+                                            class="text-muted small fst-italic">Vago</span>
+                                        <div v-else class="d-flex flex-wrap">
+                                            <span v-for="membro in funcao.membros" :key="membro.membro_id"
+                                                class="membro-badge">
+                                                {{ membro.jovem_nome }}
+                                                <button @click="removerMembro(membro.membro_id)"
+                                                    title="Retirar Jovem"><i class="fas fa-times-circle"></i></button>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Modal Nova Montagem -->
+        <div class="modal fade" id="modalNovaMontagem" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title">➕ Iniciar Montagem</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label text-muted">A qual edição (Número) do EJC pertence este
+                                encontro?</label>
+                            <input type="number" v-model="formMontagem.numero_ejc" class="form-control"
+                                placeholder="Ex: 11" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-muted">Data Prevista para o Encontro</label>
+                            <input type="date" v-model="formMontagem.data_encontro" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-primary" @click="salvarNovaMontagem">Salvar e
+                            Iniciar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Buscar e Adicionar Jovem -->
+        <div class="modal fade" id="modalBuscarJovem" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header bg-light">
+                        <h5 class="modal-title">Adicionar a: <span class="fw-bold text-primary">{{ modalData.funcaoNome
+                                }}</span></h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="position-relative">
+                            <label class="form-label text-muted small">Buscar Jovem Pelo Nome</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-white"><i class="fas fa-search"></i></span>
+                                <input type="text" class="form-control" placeholder="Digite o nome..."
+                                    v-model="searchQuery" @input="onSearchInput" autocomplete="off">
+                            </div>
+
+                            <!-- Dropdown de Resultados -->
+                            <div v-if="searchResults.length > 0" class="busca-resultados bg-white border">
+                                <div v-for="jovem in searchResults" :key="jovem.id"
+                                    class="busca-item d-flex justify-content-between" @click="alocarJovem(jovem.id)">
+                                    <span>{{ jovem.nome_completo }}</span>
+                                    <span class="badge" :style="getCirculoBadgeStyle(jovem.circulo)">{{ jovem.circulo ||
+                                        'Sem Círculo' }}</span>
+                                </div>
+                            </div>
+                            <div v-if="searchQuery.trim().length >= 2 && searchResults.length === 0"
+                                class="busca-resultados bg-white border p-3 text-center text-muted small">
+                                Nenhum jovem encontrado.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            injetarMenu('#app');
+            ativarMenu('/montar-encontro');
+        });
+
+        const { createApp } = Vue;
+        createApp({
+            data() {
+                return {
+                    estado: 'LISTA', // 'LISTA', 'EDICAO'
+                    montagens: [],
+                    carregando: true,
+
+                    montagemAtiva: null,
+                    estrutura: [],
+                    carregandoEstrutura: false,
+                    equipeAberta: null, // Controla qual acordeão de equipe está aberto
+
+                    // Forms
+                    formMontagem: { numero_ejc: '', data_encontro: '' },
+                    modalMontagemInstance: null,
+
+                    // Busca Jovens
+                    modalBuscaInstance: null,
+                    modalData: { equipeId: null, funcaoId: null, funcaoNome: '' },
+                    searchQuery: '',
+                    searchResults: [],
+                    searchTimer: null
+                }
+            },
+            methods: {
+                // --- VISTA 1: LISTAGEM ---
+                async carregarMontagens() {
+                    this.carregando = true;
+                    try {
+                        const res = await fetch('/api/montar-encontro');
+                        this.montagens = await res.json();
+                    } catch (e) { console.error(e); }
+                    finally { this.carregando = false; }
+                },
+
+                abrirModalNovaMontagem() {
+                    this.formMontagem = { numero_ejc: '', data_encontro: '' };
+                    if (!this.modalMontagemInstance) this.modalMontagemInstance = new bootstrap.Modal(document.getElementById('modalNovaMontagem'));
+                    this.modalMontagemInstance.show();
+                },
+
+                async salvarNovaMontagem() {
+                    if (!this.formMontagem.numero_ejc || !this.formMontagem.data_encontro) {
+                        alert("Preencha todos os campos."); return;
+                    }
+                    try {
+                        const res = await fetch('/api/montar-encontro', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.formMontagem)
+                        });
+                        if (res.ok) {
+                            this.modalMontagemInstance.hide();
+                            this.carregarMontagens();
+                        } else {
+                            const err = await res.json(); alert(err.error);
+                        }
+                    } catch (e) { }
+                },
+
+                async deletarMontagem(id) {
+                    if (!confirm("Atenção! Isso apagará TODO o registro de montagem de encontro, desvinculando todos os jovens das funções. Tem certeza?")) return;
+                    try {
+                        const res = await fetch(`/api/montar-encontro/${id}`, { method: 'DELETE' });
+                        if (res.ok) this.carregarMontagens();
+                    } catch (e) { }
+                },
+
+                // --- VISTA 2: EDIÇÃO DE MONTAGEM ---
+                entrarMontagem(montagem) {
+                    this.montagemAtiva = montagem;
+                    this.estado = 'EDICAO';
+                    this.equipeAberta = null;
+                    this.carregarEstrutura();
+                },
+
+                async carregarEstrutura() {
+                    this.carregandoEstrutura = true;
+                    try {
+                        const res = await fetch(`/api/montar-encontro/${this.montagemAtiva.id}/estrutura`);
+                        this.estrutura = await res.json();
+                    } catch (e) { console.error(e); }
+                    finally { this.carregandoEstrutura = false; }
+                },
+
+                toggleEquipe(id) {
+                    this.equipeAberta = this.equipeAberta === id ? null : id;
+                },
+
+                // --- VISTA 3: ALOCAÇÃO DE JOVENS ---
+                abrirBuscaJovem(equipeId, funcaoId, funcaoNome) {
+                    this.modalData = { equipeId, funcaoId, funcaoNome };
+                    this.searchQuery = '';
+                    this.searchResults = [];
+                    if (!this.modalBuscaInstance) this.modalBuscaInstance = new bootstrap.Modal(document.getElementById('modalBuscarJovem'));
+                    this.modalBuscaInstance.show();
+                },
+
+                onSearchInput() {
+                    clearTimeout(this.searchTimer);
+                    if (this.searchQuery.length < 2) { this.searchResults = []; return; }
+                    this.searchTimer = setTimeout(() => this.executarBusca(), 300);
+                },
+
+                async executarBusca() {
+                    try {
+                        const res = await fetch(`/api/jovens/search?q=${encodeURIComponent(this.searchQuery)}`);
+                        if (res.ok) this.searchResults = await res.json();
+                    } catch (e) { console.error(e); }
+                },
+
+                async alocarJovem(jovemId) {
+                    try {
+                        const payload = {
+                            equipe_id: this.modalData.equipeId,
+                            funcao_id: this.modalData.funcaoId,
+                            jovem_id: jovemId
+                        };
+                        const res = await fetch(`/api/montar-encontro/${this.montagemAtiva.id}/membros`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        if (res.ok) {
+                            this.modalBuscaInstance.hide();
+                            this.carregarEstrutura(); // Recarrega o grid vivo para mostrar o jovem adicionado ao panel
+                        } else {
+                            alert("Erro ao alocar jovem.");
+                        }
+                    } catch (e) { }
+                },
+
+                async removerMembro(membroId) {
+                    if (!confirm("Deseja retirar o jovem deste cargo?")) return;
+                    try {
+                        const res = await fetch(`/api/montar-encontro/membro/${membroId}`, { method: 'DELETE' });
+                        if (res.ok) this.carregarEstrutura();
+                    } catch (e) { }
+                },
+
+                // Utilidades
+                formatarData(d) {
+                    if (!d) return '--/--/----';
+                    const data = new Date(d);
+                    if (isNaN(data.getTime())) return '--/--/----';
+                    return data.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+                },
+                numeroParaRomano(num) {
+                    if (!num) return '';
+                    const roman = [{ value: 1000, numeral: 'M' }, { value: 900, numeral: 'CM' }, { value: 500, numeral: 'D' }, { value: 400, numeral: 'CD' }, { value: 100, numeral: 'C' }, { value: 90, numeral: 'XC' }, { value: 50, numeral: 'L' }, { value: 40, numeral: 'XL' }, { value: 10, numeral: 'X' }, { value: 9, numeral: 'IX' }, { value: 5, numeral: 'V' }, { value: 4, numeral: 'IV' }, { value: 1, numeral: 'I' }];
+                    let result = '', n = parseInt(num);
+                    for (let i = 0; i < roman.length; i++) {
+                        while (n >= roman[i].value) { result += roman[i].numeral; n -= roman[i].value; }
+                    }
+                    return result;
+                },
+                getCirculoBadgeStyle(circulo) {
+                    if (!circulo) return 'background-color: #f8f9fa; color: #6c757d;';
+                    const mapaDeCores = {
+                        'Verde': 'background-color: #d4edda; color: #155724;',
+                        'Vermelho': 'background-color: #f8d7da; color: #721c24;',
+                        'Azul': 'background-color: #cce5ff; color: #004085;',
+                        'Amarelo': 'background-color: #fff3cd; color: #856404;',
+                        'Rosa': 'background-color: #f8bbd0; color: #880e4f;',
+                        'Marrom': 'background-color: #d7ccc8; color: #4e342e;'
+                    };
+                    return mapaDeCores[circulo] || 'background-color: #f8f9fa; color: #6c757d;';
+                }
+            },
+            mounted() {
+                this.carregarMontagens();
+            }
+        }).mount('#app');
+    </script>
+</body>
+
+</html>

@@ -32,14 +32,18 @@
                     <div v-for="(ejc, index) in ejcsOrdenados" :key="ejc.id" class="accordion-item">
                         <h2 class="accordion-header">
                             <button class="accordion-button" :class="{ collapsed: index !== 0 }" type="button"
-                                data-bs-toggle="collapse" :data-bs-target="`#collapse${ejc.id}`"
+                                data-bs-toggle="collapse"
+                                :data-bs-target="`#collapse${ejc.isMontagem ? 'mont_' : ''}${ejc.id}`"
                                 :aria-expanded="index === 0">
-                                <strong>{{ numeroParaRomano(ejc.numero) }}º EJC</strong>&nbsp;—&nbsp;{{ ejc.paroquia
-                                }}&nbsp;<span class="text-muted">({{ ejc.ano || 'Ano não informado' }})</span>
+                                <strong>{{ numeroParaRomano(ejc.numero) }}º EJC</strong>
+                                <span v-if="ejc.isMontagem" class="badge bg-warning text-dark ms-2">🧩 Montagem</span>
+                                <span v-else>&nbsp;—&nbsp;{{ ejc.paroquia }}&nbsp;<span class="text-muted">({{ ejc.ano
+                                        || 'Ano não informado' }})</span></span>
                             </button>
                         </h2>
-                        <div :id="`collapse${ejc.id}`" class="accordion-collapse collapse"
-                            :class="{ show: index === 0 }" data-bs-parent="#acordeaoEJCs">
+                        <div :id="`collapse${ejc.isMontagem ? 'mont_' : ''}${ejc.id}`"
+                            class="accordion-collapse collapse" :class="{ show: index === 0 }"
+                            data-bs-parent="#acordeaoEJCs">
                             <div class="accordion-body">
                                 <!-- Tabela com todas as equipes -->
                                 <table class="table table-hover table-sm">
@@ -49,7 +53,19 @@
                                             <th class="text-center">Visualizar</th>
                                         </tr>
                                     </thead>
-                                    <tbody>
+                                    <tbody v-if="ejc.isMontagem">
+                                        <tr v-for="equipe in ejc.estrutura" :key="equipe.id">
+                                            <td><strong>{{ equipe.nome }}</strong></td>
+                                            <td class="text-center">
+                                                <button class="btn btn-info btn-sm"
+                                                    @click="abrirModalMontagem(ejc, equipe)"
+                                                    title="Ver dados dessa equipe">
+                                                    👁️ Ver
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                    <tbody v-else>
                                         <tr v-for="equipe in todasEquipes" :key="equipe.id">
                                             <td><strong>{{ equipe.nome }}</strong></td>
                                             <td class="text-center">
@@ -64,7 +80,7 @@
                                 </table>
 
                                 <!-- Info do EJC -->
-                                <div class="mt-4 p-3 bg-light border rounded">
+                                <div class="mt-4 p-3 bg-light border rounded" v-if="!ejc.isMontagem">
                                     <h6>Informações da Edição</h6>
                                     <div class="row text-sm">
                                         <div class="col-md-3"><small><strong>Paróquia:</strong> {{ ejc.paroquia
@@ -78,6 +94,13 @@
                                     </div>
                                     <div class="mt-2" v-if="ejc.descricao">
                                         <small><strong>Descrição:</strong> {{ ejc.descricao }}</small>
+                                    </div>
+                                </div>
+                                <div class="mt-4 p-3 bg-light border rounded" v-else>
+                                    <h6>Status da Montagem</h6>
+                                    <div class="row text-sm">
+                                        <div class="col-md-6"><small><strong>Data Prevista:</strong> {{
+                                                formatarData(ejc.data_encontro) }}</small></div>
                                     </div>
                                 </div>
                             </div>
@@ -144,21 +167,50 @@
                 },
                 computed: {
                     ejcsOrdenados() {
-                        return [...this.ejcs].sort((a, b) => a.numero - b.numero);
+                        return [...this.ejcs].sort((a, b) => {
+                            let numA = parseFloat(a.numero) || 0;
+                            let numB = parseFloat(b.numero) || 0;
+                            if (numA === numB) return a.isMontagem ? -1 : 1;
+                            return numA - numB;
+                        });
                     }
                 },
                 methods: {
                     async buscarEJCs() {
                         try {
-                            const res = await fetch('/api/ejcs');
-                            this.ejcs = await res.json();
-                            // Buscar equipes de cada EJC
-                            for (let ejc of this.ejcs) {
-                                await this.buscarEquipesDoEJC(ejc.id);
+                            const [resEjcs, resMontagens] = await Promise.all([
+                                fetch('/api/ejcs').then(res => res.json()),
+                                fetch('/api/montar-encontro').then(res => res.json())
+                            ]);
+
+                            const combined = [];
+                            for (let ejc of resEjcs) {
+                                combined.push({ ...ejc, isMontagem: false });
+                            }
+                            for (let mont of resMontagens) {
+                                combined.push({
+                                    ...mont,
+                                    numero: mont.numero_ejc,
+                                    isMontagem: true,
+                                    estrutura: []
+                                });
+                            }
+                            this.ejcs = combined;
+
+                            // Buscar equipes de cada EJC ou Montagem
+                            for (let item of this.ejcs) {
+                                if (item.isMontagem) {
+                                    try {
+                                        const r = await fetch(`/api/montar-encontro/${item.id}/estrutura`);
+                                        if (r.ok) item.estrutura = await r.json();
+                                    } catch (e) { }
+                                } else {
+                                    await this.buscarEquipesDoEJC(item.id);
+                                }
                             }
                         } catch (err) {
-                            console.error("Erro ao buscar EJCs:", err);
-                            alert("Erro ao buscar EJCs");
+                            console.error("Erro ao buscar EJCs combinados:", err);
+                            alert("Erro ao buscar dados do histórico.");
                         }
                     },
                     async buscarEquipesDoEJC(ejcId) {
@@ -261,6 +313,32 @@
                             console.error("Erro na requisição:", error);
                             alert("Erro de conexão ao buscar integrantes.");
                         }
+                    },
+                    abrirModalMontagem(ejc, equipe) {
+                        this.nomeEquipeSelecionada = equipe.nome;
+                        this.nomeEJCSelecionado = `${this.numeroParaRomano(ejc.numero)}º EJC (Montagem)`;
+                        this.jovensEquipe = [];
+
+                        let membrosFlat = [];
+                        if (equipe.funcoes) {
+                            for (let f of equipe.funcoes) {
+                                if (f.membros) {
+                                    for (let m of f.membros) {
+                                        membrosFlat.push({
+                                            id: m.membro_id,
+                                            nome_completo: m.jovem_nome,
+                                            telefone: m.telefone || '-',
+                                            papel: f.nome
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                        this.jovensEquipe = membrosFlat;
+
+                        const modalEl = document.getElementById('modalJovens');
+                        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+                        modal.show();
                     },
                     numeroParaRomano(num) {
                         if (!num) return '';

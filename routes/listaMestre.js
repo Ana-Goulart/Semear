@@ -1,6 +1,25 @@
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
+const multer = require('multer');
+const fs = require('fs');
+const path = require('path');
+
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const uploadDir = 'public/uploads/fotos_jovens';
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        cb(null, uploadDir);
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, uniqueSuffix + '-' + file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_'));
+    }
+});
+const upload = multer({ storage: storage });
+
 
 // GET - Listar todos (API principal da Lista Mestre)
 router.get('/', async (req, res) => {
@@ -24,7 +43,7 @@ router.get('/search', async (req, res) => {
     if (!q) return res.json([]);
     try {
         const like = `%${q}%`;
-        const [rows] = await pool.query(`SELECT id, nome_completo, telefone, numero_ejc_fez FROM jovens WHERE nome_completo LIKE ? ORDER BY nome_completo LIMIT 20`, [like]);
+        const [rows] = await pool.query(`SELECT id, nome_completo, circulo, telefone, numero_ejc_fez FROM jovens WHERE nome_completo LIKE ? ORDER BY nome_completo LIMIT 20`, [like]);
         res.json(rows);
     } catch (err) {
         console.error('Erro na busca de jovens:', err);
@@ -81,15 +100,15 @@ router.post('/', async (req, res) => {
     }
 
     try {
-        const { nome_completo, telefone, data_nascimento, numero_ejc_fez, instagram, estado_civil, data_casamento, circulo, deficiencia, qual_deficiencia } = req.body;
+        const { nome_completo, telefone, data_nascimento, numero_ejc_fez, instagram, estado_civil, data_casamento, circulo, deficiencia, qual_deficiencia, restricao_alimentar, detalhes_restricao } = req.body;
 
         if (!nome_completo || !telefone) {
             return res.status(400).json({ error: "Nome completo e telefone são obrigatórios" });
         }
 
         const [result] = await pool.query(
-            `INSERT INTO jovens (nome_completo, telefone, data_nascimento, numero_ejc_fez, instagram, estado_civil, data_casamento, circulo, deficiencia, qual_deficiencia) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO jovens (nome_completo, telefone, data_nascimento, numero_ejc_fez, instagram, estado_civil, data_casamento, circulo, deficiencia, qual_deficiencia, restricao_alimentar, detalhes_restricao) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 nome_completo,
                 telefone,
@@ -100,7 +119,9 @@ router.post('/', async (req, res) => {
                 normalizeDate(data_casamento),
                 circulo || null,
                 deficiencia ? 1 : 0,
-                qual_deficiencia || null
+                qual_deficiencia || null,
+                restricao_alimentar ? 1 : 0,
+                detalhes_restricao || null
             ]
         );
 
@@ -146,10 +167,13 @@ router.put('/:id', async (req, res) => {
             circulo: req.body.circulo !== undefined ? req.body.circulo : atual.circulo,
             deficiencia: req.body.deficiencia !== undefined ? (req.body.deficiencia ? 1 : 0) : (typeof atual.deficiencia === 'number' ? atual.deficiencia : (atual.deficiencia ? 1 : 0)),
             qual_deficiencia: req.body.qual_deficiencia !== undefined ? req.body.qual_deficiencia : atual.qual_deficiencia,
+            restricao_alimentar: req.body.restricao_alimentar !== undefined ? (req.body.restricao_alimentar ? 1 : 0) : (atual.restricao_alimentar ? 1 : 0),
+            detalhes_restricao: req.body.detalhes_restricao !== undefined ? req.body.detalhes_restricao : atual.detalhes_restricao,
             conjuge_id: req.body.conjuge_id !== undefined ? req.body.conjuge_id : atual.conjuge_id,
             conjuge_nome: req.body.conjuge_nome !== undefined ? req.body.conjuge_nome : atual.conjuge_nome,
             conjuge_telefone: req.body.conjuge_telefone !== undefined ? req.body.conjuge_telefone : actualValueOrNull(atual.conjuge_telefone),
             conjuge_ejc_id: req.body.conjuge_ejc_id !== undefined ? req.body.conjuge_ejc_id : atual.conjuge_ejc_id,
+            conjuge_outro_ejc_id: req.body.conjuge_outro_ejc_id !== undefined ? req.body.conjuge_outro_ejc_id : atual.conjuge_outro_ejc_id,
             conjuge_paroquia: req.body.conjuge_paroquia !== undefined ? req.body.conjuge_paroquia : atual.conjuge_paroquia,
             observacoes_extras: req.body.observacoes_extras !== undefined ? req.body.observacoes_extras : atual.observacoes_extras
         };
@@ -176,8 +200,8 @@ router.put('/:id', async (req, res) => {
         `);
         const hasConjugeParoquia = (colCheck && colCheck[0] && colCheck[0].cnt > 0) || false;
 
-        let updateFields = `nome_completo=?, telefone=?, data_nascimento=?, numero_ejc_fez=?, instagram=?, estado_civil=?, data_casamento=?, circulo=?, deficiencia=?, qual_deficiencia=?, conjuge_id=?, conjuge_nome=?, conjuge_telefone=?, conjuge_ejc_id=?, observacoes_extras=?`;
-        const params = [merged.nome_completo, merged.telefone, merged.data_nascimento, merged.numero_ejc_fez, merged.instagram, merged.estado_civil, merged.data_casamento, merged.circulo, merged.deficiencia, merged.qual_deficiencia, merged.conjuge_id || null, merged.conjuge_nome || null, merged.conjuge_telefone || null, merged.conjuge_ejc_id || null, merged.observacoes_extras || null];
+        let updateFields = `nome_completo=?, telefone=?, data_nascimento=?, numero_ejc_fez=?, instagram=?, estado_civil=?, data_casamento=?, circulo=?, deficiencia=?, qual_deficiencia=?, restricao_alimentar=?, detalhes_restricao=?, conjuge_id=?, conjuge_nome=?, conjuge_telefone=?, conjuge_ejc_id=?, conjuge_outro_ejc_id=?, observacoes_extras=?`;
+        const params = [merged.nome_completo, merged.telefone, merged.data_nascimento, merged.numero_ejc_fez, merged.instagram, merged.estado_civil, merged.data_casamento, merged.circulo, merged.deficiencia, merged.qual_deficiencia, merged.restricao_alimentar, merged.detalhes_restricao, merged.conjuge_id || null, merged.conjuge_nome || null, merged.conjuge_telefone || null, merged.conjuge_ejc_id || null, merged.conjuge_outro_ejc_id || null, merged.observacoes_extras || null];
         if (hasConjugeParoquia) {
             updateFields += ', conjuge_paroquia=?';
             params.push(merged.conjuge_paroquia || null);
@@ -191,7 +215,7 @@ router.put('/:id', async (req, res) => {
         const newConjugeId = merged.conjuge_id || null;
 
         if (previousConjugeId && previousConjugeId !== newConjugeId) {
-            let clearFields = 'conjuge_id=NULL, conjuge_nome=NULL, conjuge_telefone=NULL, conjuge_ejc_id=NULL';
+            let clearFields = 'conjuge_id=NULL, conjuge_nome=NULL, conjuge_telefone=NULL, conjuge_ejc_id=NULL, conjuge_outro_ejc_id=NULL';
             if (hasConjugeParoquia) clearFields += ', conjuge_paroquia=NULL';
             await pool.query(`UPDATE jovens SET ${clearFields} WHERE id = ?`, [previousConjugeId]);
         }
@@ -208,8 +232,8 @@ router.put('/:id', async (req, res) => {
                     const finalDataCasamento = merged.data_casamento || parceiroDataCasamento || null;
 
                     await pool.query(
-                        `UPDATE jovens SET conjuge_id=?, conjuge_nome=?, conjuge_telefone=?, conjuge_ejc_id=?, estado_civil=?, data_casamento=? WHERE id=?`,
-                        [id, merged.nome_completo || atual.nome_completo, merged.telefone || actualValueOrNull(atual.telefone), merged.numero_ejc_fez || atual.numero_ejc_fez, finalEstado, finalDataCasamento, newConjugeId]
+                        `UPDATE jovens SET conjuge_id=?, conjuge_nome=?, conjuge_telefone=?, conjuge_ejc_id=?, conjuge_outro_ejc_id=?, estado_civil=?, data_casamento=? WHERE id=?`,
+                        [id, merged.nome_completo || atual.nome_completo, merged.telefone || actualValueOrNull(atual.telefone), null, null, finalEstado, finalDataCasamento, newConjugeId]
                     );
                 }
             } catch (e) {
@@ -221,7 +245,7 @@ router.put('/:id', async (req, res) => {
             const linkedId = atual.conjuge_id || merged.conjuge_id || null;
             try {
                 if (linkedId) {
-                    let clearPartnerFields = "conjuge_id=NULL, conjuge_nome=NULL, conjuge_telefone=NULL, conjuge_ejc_id=NULL";
+                    let clearPartnerFields = "conjuge_id=NULL, conjuge_nome=NULL, conjuge_telefone=NULL, conjuge_ejc_id=NULL, conjuge_outro_ejc_id=NULL";
                     if (hasConjugeParoquia) clearPartnerFields += ', conjuge_paroquia=NULL';
                     clearPartnerFields += ", estado_civil='Solteiro', data_casamento=NULL";
                     await pool.query(
@@ -229,7 +253,7 @@ router.put('/:id', async (req, res) => {
                         [linkedId]
                     );
                 }
-                let clearSelfFields = 'conjuge_id=NULL, conjuge_nome=NULL, conjuge_telefone=NULL, conjuge_ejc_id=NULL';
+                let clearSelfFields = 'conjuge_id=NULL, conjuge_nome=NULL, conjuge_telefone=NULL, conjuge_ejc_id=NULL, conjuge_outro_ejc_id=NULL';
                 if (hasConjugeParoquia) clearSelfFields += ', conjuge_paroquia=NULL';
                 await pool.query(`UPDATE jovens SET ${clearSelfFields} WHERE id = ?`, [id]);
             } catch (e) {
@@ -249,6 +273,16 @@ router.delete('/:id', async (req, res) => {
     const { id } = req.params;
     try {
         await pool.query('DELETE FROM historico_equipes WHERE jovem_id = ?', [id]);
+
+        // Deletar a imagem caso exista
+        const [rows] = await pool.query('SELECT foto_url FROM jovens WHERE id = ?', [id]);
+        if (rows.length > 0 && rows[0].foto_url) {
+            const filepath = path.join(__dirname, '..', 'public', rows[0].foto_url);
+            if (fs.existsSync(filepath)) {
+                fs.unlinkSync(filepath);
+            }
+        }
+
         const [result] = await pool.query('DELETE FROM jovens WHERE id = ?', [id]);
 
         if (result.affectedRows === 0) {
@@ -259,6 +293,43 @@ router.delete('/:id', async (req, res) => {
     } catch (err) {
         console.error("Erro ao deletar jovem:", err);
         res.status(500).json({ error: "Erro ao deletar jovem" });
+    }
+});
+
+// POST - Upload da foto do Jovem
+router.post('/:id/foto', upload.single('foto'), async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: "Nenhuma imagem selecionada" });
+
+    const { id } = req.params;
+    const fotoUrl = `/uploads/fotos_jovens/${req.file.filename}`;
+
+    try {
+        // Obter a foto anterior, se existir, para deletar
+        const [rows] = await pool.query('SELECT foto_url FROM jovens WHERE id = ?', [id]);
+        if (rows.length > 0 && rows[0].foto_url) {
+            const filepath = path.join(__dirname, '..', 'public', rows[0].foto_url);
+            if (fs.existsSync(filepath)) {
+                try {
+                    fs.unlinkSync(filepath);
+                } catch (e) {
+                    console.error("Não foi possível excluir foto anterior", e);
+                }
+            }
+        }
+
+        // Atualizar banco
+        const [result] = await pool.query('UPDATE jovens SET foto_url = ? WHERE id = ?', [fotoUrl, id]);
+
+        if (result.affectedRows === 0) {
+            // Se o jovem não existe, exclui a foto upada e retorna erro
+            fs.unlinkSync(req.file.path);
+            return res.status(404).json({ error: 'Jovem não encontrado' });
+        }
+
+        res.json({ message: 'Foto salva com sucesso', foto_url: fotoUrl });
+    } catch (err) {
+        console.error("Erro ao salvar foto do jovem:", err);
+        res.status(500).json({ error: "Erro ao salvar foto" });
     }
 });
 
@@ -297,16 +368,18 @@ router.post('/importacao', async (req, res) => {
                             circulo = COALESCE(?, circulo),
                             deficiencia = COALESCE(?, deficiencia),
                             qual_deficiencia = COALESCE(?, qual_deficiencia),
+                            restricao_alimentar = COALESCE(?, restricao_alimentar),
+                            detalhes_restricao = COALESCE(?, detalhes_restricao),
                             conjuge_nome = COALESCE(?, conjuge_nome)
                         WHERE id = ?`,
-                        [j.telefone, j.data_nascimento, j.numero_ejc_fez, j.instagram, j.estado_civil, j.data_casamento, j.circulo, j.deficiencia, j.qual_deficiencia, j.conjuge_nome, jovemId]
+                        [j.telefone, j.data_nascimento, j.numero_ejc_fez, j.instagram, j.estado_civil, j.data_casamento, j.circulo, j.deficiencia, j.qual_deficiencia, j.restricao_alimentar, j.detalhes_restricao, j.conjuge_nome, jovemId]
                     );
                     atualizados++;
                 } else {
                     const [resInsert] = await connection.query(
-                        `INSERT INTO jovens (nome_completo, telefone, data_nascimento, numero_ejc_fez, instagram, estado_civil, data_casamento, circulo, deficiencia, qual_deficiencia, conjuge_nome)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                        [j.nome_completo, j.telefone, j.data_nascimento, j.numero_ejc_fez, j.instagram, j.estado_civil, j.data_casamento, j.circulo, j.deficiencia, j.qual_deficiencia, j.conjuge_nome]
+                        `INSERT INTO jovens (nome_completo, telefone, data_nascimento, numero_ejc_fez, instagram, estado_civil, data_casamento, circulo, deficiencia, qual_deficiencia, restricao_alimentar, detalhes_restricao, conjuge_nome)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                        [j.nome_completo, j.telefone, j.data_nascimento, j.numero_ejc_fez, j.instagram, j.estado_civil, j.data_casamento, j.circulo, j.deficiencia, j.qual_deficiencia, j.restricao_alimentar, j.detalhes_restricao, j.conjuge_nome]
                     );
                     jovemId = resInsert.insertId;
                     criados++;

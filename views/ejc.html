@@ -34,12 +34,13 @@
                                 <th>Ano</th>
                                 <th>Data Início</th>
                                 <th>Data Fim</th>
+                                <th>Encontristas</th>
                                 <th>Ações</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr v-if="ejcs.length === 0">
-                                <td colspan="6" class="text-muted py-4">Nenhum EJC cadastrado</td>
+                                <td colspan="7" class="text-muted py-4">Nenhum EJC cadastrado</td>
                             </tr>
                             <tr v-for="e in ejcsOrdenados" :key="e.id">
                                 <td><strong>{{ numeroParaRomano(e.numero) }}</strong></td>
@@ -47,6 +48,10 @@
                                 <td>{{ e.ano }}</td>
                                 <td>{{ formatarData(e.data_inicio) }}</td>
                                 <td>{{ formatarData(e.data_fim) }}</td>
+                                <td>
+                                    <button class="btn btn-info btn-sm text-white"
+                                        @click="abrirModalEncontristas(e)">👁️ Ver</button>
+                                </td>
                                 <td>
                                     <button class="btn btn-warning btn-sm text-white" @click="abrirModalEditar(e)">✏️
                                         Editar</button>
@@ -56,6 +61,52 @@
                     </table>
                 </div>
             </main>
+
+            <!-- Modal Encontristas -->
+            <div class="modal fade" id="modalEncontristas" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content border-0 shadow">
+                        <div class="modal-header bg-info text-white">
+                            <h5 class="modal-title">👁️ Encontristas <span v-if="ejcSelecionado">({{
+                                    numeroParaRomano(ejcSelecionado.numero) }} EJC)</span></h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body p-0">
+                            <div v-if="carregandoEncontristas" class="text-center py-5">
+                                <div class="spinner-border text-info" role="status"></div>
+                                <div class="mt-2 text-muted">Carregando encontristas...</div>
+                            </div>
+                            <div v-else-if="encontristas.length === 0" class="text-center text-muted py-5">
+                                <i class="fas fa-users fa-3x mb-3 text-light"></i>
+                                <p>Nenhum encontrista registrado para este EJC.</p>
+                            </div>
+                            <div v-else class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                <table class="table table-hover table-sm text-center align-middle mb-0">
+                                    <thead class="table-light sticky-top shadow-sm">
+                                        <tr>
+                                            <th class="text-start ps-3">Nome</th>
+                                            <th>Círculo</th>
+                                            <th>Telefone</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="enc in encontristas" :key="enc.id">
+                                            <td class="text-start ps-3 fw-medium">{{ enc.nome_completo }}</td>
+                                            <td><span class="badge bg-secondary">{{ enc.circulo || '-' }}</span></td>
+                                            <td>{{ enc.telefone || '-' }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="modal-footer d-flex justify-content-between bg-light">
+                            <span class="text-muted fw-bold">Total: <span class="text-primary">{{ encontristas.length
+                                    }}</span></span>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <!-- Modal Adicionar/Editar EJC -->
             <div class="modal fade" id="modalEJC" tabindex="-1" aria-hidden="true">
@@ -101,7 +152,8 @@
                             </form>
                         </div>
                         <div class="modal-footer">
-                            <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="button" class="btn btn-soft-secondary"
+                                data-bs-dismiss="modal">Cancelar</button>
                             <button type="button" class="btn btn-danger me-auto" v-if="editando"
                                 @click="deletarEJCModal">🗑️ Deletar</button>
                             <button type="button" class="btn btn-primary" @click="salvar">{{ editando ? 'Atualizar' :
@@ -133,7 +185,10 @@
                             data_inicio: '',
                             data_fim: '',
                             descricao: ''
-                        }
+                        },
+                        encontristas: [],
+                        ejcSelecionado: null,
+                        carregandoEncontristas: false
                     }
                 },
                 computed: {
@@ -149,6 +204,26 @@
                         } catch (err) {
                             console.error("Erro ao buscar EJCs:", err);
                             alert("Erro ao buscar EJCs");
+                        }
+                    },
+                    async abrirModalEncontristas(ejc) {
+                        this.ejcSelecionado = ejc;
+                        this.encontristas = [];
+                        this.carregandoEncontristas = true;
+                        new bootstrap.Modal(document.getElementById('modalEncontristas')).show();
+
+                        try {
+                            const res = await fetch(`/api/ejc/${ejc.id}/encontristas`);
+                            if (res.ok) {
+                                this.encontristas = await res.json();
+                            } else {
+                                alert("Erro ao carregar encontristas");
+                            }
+                        } catch (err) {
+                            console.error(err);
+                            alert("Erro de conexão ao buscar encontristas");
+                        } finally {
+                            this.carregandoEncontristas = false;
                         }
                     },
                     abrirModalAdicionar() {
