@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Outros EJCs - SemeaJovens</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Theme CSS -->
+    <link rel="stylesheet" href="/css/velzon-theme.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/style.css">
+
+    <!-- Vue -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+    <style>
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <main class="container-fluid py-4">
+            <div class="row mb-4">
+                <div class="col-12 px-2">
+                    <div
+                        class="page-header d-flex justify-content-between align-items-center bg-white p-3 rounded shadow-sm">
+                        <h2 class="h4 mb-0 text-gray-800">
+                            <i class="fas fa-globe text-primary me-2"></i>Outros EJCs
+                        </h2>
+                        <button class="btn btn-primary" onclick="window.OutrosEjcsApp.openCreateModal()">
+                            <i class="fas fa-plus me-1"></i> Cadastrar Novo
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lista de Outros EJCs -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                            <h6 class="m-0 font-weight-bold text-primary">EJCs Cadastrados</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-hover" id="dataTable" width="100%"
+                                    cellspacing="0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Nome do EJC</th>
+                                            <th>Paróquia</th>
+                                            <th>Bairro</th>
+                                            <th class="text-center" style="width: 150px;">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="outrosEjcsTableBody">
+                                        <tr>
+                                            <td colspan="5" class="text-center">Carregando...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Modal Form -->
+        <div class="modal fade" id="formModal" tabindex="-1" aria-labelledby="formModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="formModalLabel">Cadastrar Outro EJC</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form id="outrosEjcsForm" onsubmit="window.OutrosEjcsApp.saveRecord(event)">
+                        <div class="modal-body">
+                            <input type="hidden" id="recordId">
+
+                            <div class="mb-3">
+                                <label for="nome" class="form-label">Nome do EJC <span
+                                        class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="nome" required
+                                    placeholder="Ex: 1º EJC de São Paulo">
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="paroquia" class="form-label">Paróquia</label>
+                                <input type="text" class="form-control" id="paroquia"
+                                    placeholder="Ex: Paróquia São José">
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="bairro" class="form-label">Bairro</label>
+                                <input type="text" class="form-control" id="bairro" placeholder="Ex: Centro">
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary" id="btnSalvar">Salvar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Scripts -->
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Menu Component -->
+    <script src="/js/menu.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            injetarMenu('#app');
+            ativarMenu('/outros-ejcs');
+
+            // Inicializar a aplicação
+            window.OutrosEjcsApp.loadData();
+        });
+    </script>
+
+    <!-- Lógica da Página -->
+    <script>
+        window.OutrosEjcsApp = (() => {
+            let modalInstance = null;
+            let currentEjcs = [];
+
+            // Inicializar o modal do Bootstrap quando disparado o carregamento das functions
+            document.addEventListener('DOMContentLoaded', () => {
+                const modalEl = document.getElementById('formModal');
+                if (modalEl) {
+                    modalInstance = new bootstrap.Modal(modalEl);
+                }
+            });
+
+            async function loadData() {
+                const tbody = document.getElementById('outrosEjcsTableBody');
+                try {
+                    const response = await fetch('/api/outros-ejcs');
+                    if (!response.ok) throw new Error('Falha ao carregar dados');
+
+                    currentEjcs = await response.json();
+                    renderTable(currentEjcs);
+                } catch (error) {
+                    console.error(error);
+                    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Erro ao carregar dados.</td></tr>`;
+                    Swal.fire('Erro', 'Não foi possível carregar a lista de EJCs.', 'error');
+                }
+            }
+
+            function renderTable(data) {
+                const tbody = document.getElementById('outrosEjcsTableBody');
+
+                if (data.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">Nenhum registro encontrado.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = data.map(registro => `
+                    <tr>
+                        <td class="align-middle fw-medium">${registro.nome || '-'}</td>
+                        <td class="align-middle">${registro.paroquia || '-'}</td>
+                        <td class="align-middle">${registro.bairro || '-'}</td>
+                        <td class="align-middle text-center">
+                            <button class="btn btn-sm btn-info text-white me-1" onclick="window.OutrosEjcsApp.openEditModal(${registro.id})" title="Editar">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="window.OutrosEjcsApp.deleteRecord(${registro.id})" title="Excluir">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+
+            function openCreateModal() {
+                document.getElementById('outrosEjcsForm').reset();
+                document.getElementById('recordId').value = '';
+                document.getElementById('formModalLabel').textContent = 'Cadastrar Outro EJC';
+                document.getElementById('btnSalvar').textContent = 'Cadastrar';
+
+                if (modalInstance) {
+                    modalInstance.show();
+                } else {
+                    // Fallback
+                    modalInstance = new bootstrap.Modal(document.getElementById('formModal'));
+                    modalInstance.show();
+                }
+            }
+
+            function openEditModal(id) {
+                const registro = currentEjcs.find(e => e.id === id);
+                if (!registro) return;
+
+                document.getElementById('recordId').value = registro.id;
+                document.getElementById('nome').value = registro.nome;
+                document.getElementById('paroquia').value = registro.paroquia || '';
+                document.getElementById('bairro').value = registro.bairro || '';
+
+                document.getElementById('formModalLabel').textContent = 'Editar Outro EJC';
+                document.getElementById('btnSalvar').textContent = 'Salvar Alterações';
+
+                if (modalInstance) {
+                    modalInstance.show();
+                } else {
+                    modalInstance = new bootstrap.Modal(document.getElementById('formModal'));
+                    modalInstance.show();
+                }
+            }
+
+            async function saveRecord(event) {
+                event.preventDefault();
+
+                const id = document.getElementById('recordId').value;
+                const nome = document.getElementById('nome').value;
+                const paroquia = document.getElementById('paroquia').value;
+                const bairro = document.getElementById('bairro').value;
+
+                const isEdit = id !== '';
+                const url = isEdit ? `/api/outros-ejcs/${id}` : '/api/outros-ejcs';
+                const method = isEdit ? 'PUT' : 'POST';
+                const payload = { nome, paroquia, bairro };
+
+                try {
+                    const btn = document.getElementById('btnSalvar');
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
+                    btn.disabled = true;
+
+                    const response = await fetch(url, {
+                        method: method,
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const err = await response.json();
+                        throw new Error(err.error || 'Erro ao salvar');
+                    }
+
+                    if (modalInstance) modalInstance.hide();
+                    await loadData();
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Sucesso!',
+                        text: isEdit ? 'Registro atualizado.' : 'EJC cadastrado com sucesso!',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+
+                } catch (error) {
+                    console.error(error);
+                    Swal.fire('Erro', error.message, 'error');
+                } finally {
+                    const btn = document.getElementById('btnSalvar');
+                    if (btn) {
+                        btn.innerHTML = id ? 'Salvar Alterações' : 'Cadastrar';
+                        btn.disabled = false;
+                    }
+                }
+            }
+
+            async function deleteRecord(id) {
+                const result = await Swal.fire({
+                    title: 'Tem certeza?',
+                    text: 'Esta ação não pode ser desfeita!',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Sim, excluir!',
+                    cancelButtonText: 'Cancelar'
+                });
+
+                if (result.isConfirmed) {
+                    try {
+                        const response = await fetch(`/api/outros-ejcs/${id}`, { method: 'DELETE' });
+                        if (!response.ok) throw new Error('Erro ao excluir');
+
+                        await loadData();
+                        Swal.fire('Excluído!', 'O registro foi removido.', 'success');
+                    } catch (error) {
+                        console.error(error);
+                        Swal.fire('Erro', 'Não foi possível excluir o EJC.', 'error');
+                    }
+                }
+            }
+
+            return {
+                loadData,
+                openCreateModal,
+                openEditModal,
+                saveRecord,
+                deleteRecord
+            };
+        })();
+    </script>
+</body>
+
+</html>

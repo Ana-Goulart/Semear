@@ -164,6 +164,10 @@
                                 <button class="nav-link" :class="{ active: tabEdicao === 'comissoes' }"
                                     @click="carregarComissoes">📜 Histórico / Comissões</button>
                             </li>
+                            <li class="nav-item">
+                                <button class="nav-link" :class="{ active: tabEdicao === 'observacoes' }"
+                                    @click="carregarObservacoes">📝 Observações</button>
+                            </li>
                         </ul>
 
                         <!-- TAB 1: DADOS PESSOAIS -->
@@ -379,6 +383,53 @@
                             </div>
                         </div>
 
+                        <!-- TAB 3: OBSERVAÇÕES -->
+                        <div v-show="tabEdicao === 'observacoes'">
+                            <div class="row g-3">
+
+                                <div class="col-12">
+                                    <h6 class="m-0 mb-3">Histórico de Observações e Informações Especiais</h6>
+
+                                    <!-- LISTA DE OBSERVAÇÕES -->
+                                    <div class="list-group mb-3">
+                                        <div v-for="obs in observacoesExtras" :key="obs.id" class="list-group-item">
+                                            <div class="d-flex justify-content-between align-items-start mb-1">
+                                                <small class="text-muted"><i class="far fa-clock"></i> {{
+                                                    formatarDataHora(obs.created_at) }}</small>
+                                            </div>
+                                            <p class="mb-0" style="white-space: pre-wrap;">{{ obs.texto }}</p>
+                                        </div>
+                                        <div v-if="observacoesExtras.length === 0"
+                                            class="text-center p-3 text-muted bg-light border rounded">
+                                            Nenhuma observação registrada neste perfil.
+                                        </div>
+                                    </div>
+
+                                    <!-- ADICIONAR NOVA OBSERVAÇÃO -->
+                                    <div class="card bg-light border-0">
+                                        <div class="card-body">
+                                            <h6 class="card-title">Adicionar Nova Observação</h6>
+                                            <label class="form-label small text-muted">A observação ficará salva como
+                                                uma anotação permanente de histórico na linha do tempo. Ela não pode ser
+                                                deletada.</label>
+                                            <textarea v-model="novaObservacaoExtra" class="form-control mb-2" rows="3"
+                                                placeholder="Digite aqui a informação especial..."></textarea>
+                                            <div class="text-end">
+                                                <button class="btn btn-success btn-sm" @click="adicionarObservacaoExtra"
+                                                    :disabled="!novaObservacaoExtra.trim()">➕ Adicionar ao
+                                                    Histórico</button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                            <div class="mt-4 d-flex justify-content-end">
+                                <button type="button" class="btn btn-soft-secondary ms-auto"
+                                    data-bs-dismiss="modal">Fechar</button>
+                            </div>
+                        </div>
+
                         <!-- TAB 2: HISTÓRICO / COMISSÕES -->
                         <div v-show="tabEdicao === 'comissoes'">
                             <div class="row g-3">
@@ -401,8 +452,14 @@
                                                             <span v-if="com.circulo">({{ com.circulo }})</span>
                                                         </span>
                                                         <span v-else>
-                                                            {{ com.ejc_numero ? com.ejc_numero + 'º EJC' : '' }}
-                                                            {{ com.paroquia ? '- ' + com.paroquia : '' }}
+                                                            <template v-if="com.outro_ejc_id">
+                                                                {{ com.outro_ejc_nome }} - Bairro {{
+                                                                com.outro_ejc_paroquia || '-' }}
+                                                            </template>
+                                                            <template v-else>
+                                                                {{ com.ejc_numero ? com.ejc_numero + 'º EJC' : '' }}
+                                                                {{ com.paroquia ? '- ' + com.paroquia : '' }}
+                                                            </template>
                                                             <span v-if="com.funcao_garcom">({{ com.funcao_garcom
                                                                 }})</span>
                                                             <br v-if="com.data_inicio">
@@ -463,9 +520,20 @@
                                                             class="form-control" placeholder="Ex: 25">
                                                     </div>
                                                     <div class="col-md-5">
-                                                        <label class="form-label small">Paróquia</label>
+                                                        <label class="form-label small">Selecione o EJC</label>
+                                                        <select v-model="novaComissao.outro_ejc_id" class="form-select"
+                                                            @change="novaComissao.paroquia=''">
+                                                            <option value="">Não listado...</option>
+                                                            <option v-for="oe in outrosEjcsList" :key="oe.id"
+                                                                :value="oe.id">
+                                                                {{ oe.nome }} - {{ oe.paroquia || '-' }}
+                                                            </option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-4" v-if="!novaComissao.outro_ejc_id">
+                                                        <label class="form-label small">Ou digite a Paróquia</label>
                                                         <input type="text" v-model="novaComissao.paroquia"
-                                                            class="form-control">
+                                                            class="form-control" placeholder="Opcional">
                                                     </div>
                                                     <div v-if="novaComissao.tipo === 'GARCOM_OUTRO'" class="col-md-4">
                                                         <label class="form-label small">Função</label>
@@ -631,11 +699,16 @@
                     searchQuery: '',
                     searchResults: [],
                     searchTimer: null,
+                    observacoesExtras: [],
+                    novaObservacaoExtra: '',
                     comissoes: [], // Lista de comissões do jovem
+                    outrosEjcsList: [], // Lista de EJCs de fora
                     novaComissao: {
                         tipo: '',
+                        modo_outro_ejc: 'selecionar',
                         ejc_numero: '',
                         paroquia: '',
+                        outro_ejc_id: '',
                         data_inicio: '',
                         data_fim: '',
                         funcao_garcom: 'Jovem',
@@ -1134,6 +1207,7 @@
                     // Carregar dados necessários para os dropdowns do histórico e edição
                     this.carregarEjcs();
                     this.carregarTodasEquipes();
+                    this.carregarOutrosEjcs();
 
                     // Normalizar formatos de data para inputs do tipo date (YYYY-MM-DD)
                     if (this.jovemEditando.data_nascimento) this.jovemEditando.data_nascimento = String(this.jovemEditando.data_nascimento).split('T')[0];
@@ -1205,6 +1279,14 @@
                         this.ejcsList = Array.isArray(data) ? data.filter(i => i) : [];
                     } catch (e) { this.ejcsList = []; }
                 },
+                async carregarOutrosEjcs() {
+                    if (this.outrosEjcsList.length) return;
+                    try {
+                        const r = await fetch('/api/outros-ejcs');
+                        const data = await r.json();
+                        this.outrosEjcsList = Array.isArray(data) ? data.filter(i => i) : [];
+                    } catch (e) { this.outrosEjcsList = []; }
+                },
                 numeroParaRomano(num) {
                     if (!num) return '';
                     const roman = [
@@ -1260,7 +1342,7 @@
 
                         // Limpar form e recarregar
                         this.novaComissao = {
-                            tipo: '', ejc_numero: '', paroquia: '', data_inicio: '', data_fim: '',
+                            tipo: '', modo_outro_ejc: 'selecionar', ejc_numero: '', paroquia: '', outro_ejc_id: '', data_inicio: '', data_fim: '',
                             funcao_garcom: 'Jovem', semestre: '', circulo: '', observacao: ''
                         };
                         await this.carregarComissoes();
@@ -1382,6 +1464,49 @@
                         'Coordenador': 'bg-danger'
                     };
                     return map[papel] || 'bg-secondary';
+                },
+                formatarDataHora(dataHoraString) {
+                    if (!dataHoraString) return '';
+                    const d = new Date(dataHoraString);
+                    if (isNaN(d.getTime())) return '';
+                    const dia = String(d.getDate()).padStart(2, '0');
+                    const mes = String(d.getMonth() + 1).padStart(2, '0');
+                    const ano = d.getFullYear();
+                    const hora = String(d.getHours()).padStart(2, '0');
+                    const min = String(d.getMinutes()).padStart(2, '0');
+                    return `${dia}/${mes}/${ano} às ${hora}:${min}`;
+                },
+                async carregarObservacoes() {
+                    this.tabEdicao = 'observacoes';
+                    if (!this.jovemEditando || !this.jovemEditando.id) return;
+                    try {
+                        const res = await fetch(`/api/lista-mestre/observacoes/${this.jovemEditando.id}`);
+                        const data = await res.json();
+                        this.observacoesExtras = Array.isArray(data) ? data.filter(i => i) : [];
+                    } catch (err) {
+                        console.error("Erro ao carregar observações", err);
+                        this.observacoesExtras = [];
+                    }
+                },
+                async adicionarObservacaoExtra() {
+                    if (!this.novaObservacaoExtra.trim()) return;
+                    try {
+                        const payload = { jovem_id: this.jovemEditando.id, texto: this.novaObservacaoExtra };
+
+                        const res = await fetch('/api/lista-mestre/observacoes', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+
+                        if (!res.ok) throw new Error("Erro ao salvar observação");
+
+                        this.novaObservacaoExtra = '';
+                        await this.carregarObservacoes();
+                    } catch (err) {
+                        console.error(err);
+                        alert("Erro ao adicionar observação.");
+                    }
                 }
             },
             mounted() {

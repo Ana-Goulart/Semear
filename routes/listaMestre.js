@@ -150,7 +150,8 @@ router.put('/:id', async (req, res) => {
             conjuge_nome: req.body.conjuge_nome !== undefined ? req.body.conjuge_nome : atual.conjuge_nome,
             conjuge_telefone: req.body.conjuge_telefone !== undefined ? req.body.conjuge_telefone : actualValueOrNull(atual.conjuge_telefone),
             conjuge_ejc_id: req.body.conjuge_ejc_id !== undefined ? req.body.conjuge_ejc_id : atual.conjuge_ejc_id,
-            conjuge_paroquia: req.body.conjuge_paroquia !== undefined ? req.body.conjuge_paroquia : atual.conjuge_paroquia
+            conjuge_paroquia: req.body.conjuge_paroquia !== undefined ? req.body.conjuge_paroquia : atual.conjuge_paroquia,
+            observacoes_extras: req.body.observacoes_extras !== undefined ? req.body.observacoes_extras : atual.observacoes_extras
         };
 
         let resolvedConjugeId = merged.conjuge_id || null;
@@ -175,8 +176,8 @@ router.put('/:id', async (req, res) => {
         `);
         const hasConjugeParoquia = (colCheck && colCheck[0] && colCheck[0].cnt > 0) || false;
 
-        let updateFields = `nome_completo=?, telefone=?, data_nascimento=?, numero_ejc_fez=?, instagram=?, estado_civil=?, data_casamento=?, circulo=?, deficiencia=?, qual_deficiencia=?, conjuge_id=?, conjuge_nome=?, conjuge_telefone=?, conjuge_ejc_id=?`;
-        const params = [merged.nome_completo, merged.telefone, merged.data_nascimento, merged.numero_ejc_fez, merged.instagram, merged.estado_civil, merged.data_casamento, merged.circulo, merged.deficiencia, merged.qual_deficiencia, merged.conjuge_id || null, merged.conjuge_nome || null, merged.conjuge_telefone || null, merged.conjuge_ejc_id || null];
+        let updateFields = `nome_completo=?, telefone=?, data_nascimento=?, numero_ejc_fez=?, instagram=?, estado_civil=?, data_casamento=?, circulo=?, deficiencia=?, qual_deficiencia=?, conjuge_id=?, conjuge_nome=?, conjuge_telefone=?, conjuge_ejc_id=?, observacoes_extras=?`;
+        const params = [merged.nome_completo, merged.telefone, merged.data_nascimento, merged.numero_ejc_fez, merged.instagram, merged.estado_civil, merged.data_casamento, merged.circulo, merged.deficiencia, merged.qual_deficiencia, merged.conjuge_id || null, merged.conjuge_nome || null, merged.conjuge_telefone || null, merged.conjuge_ejc_id || null, merged.observacoes_extras || null];
         if (hasConjugeParoquia) {
             updateFields += ', conjuge_paroquia=?';
             params.push(merged.conjuge_paroquia || null);
@@ -398,7 +399,13 @@ router.delete('/historico/:id', async (req, res) => {
 // GET - Listar comissões de um jovem
 router.get('/comissoes/:jovemId', async (req, res) => {
     try {
-        const [rows] = await pool.query('SELECT * FROM jovens_comissoes WHERE jovem_id = ? ORDER BY id DESC', [req.params.jovemId]);
+        const [rows] = await pool.query(`
+            SELECT jc.*, oe.nome as outro_ejc_nome, oe.paroquia as outro_ejc_paroquia 
+            FROM jovens_comissoes jc 
+            LEFT JOIN outros_ejcs oe ON jc.outro_ejc_id = oe.id 
+            WHERE jc.jovem_id = ? 
+            ORDER BY jc.id DESC
+        `, [req.params.jovemId]);
         res.json(rows);
     } catch (err) {
         console.error("Erro ao buscar comissões:", err);
@@ -408,7 +415,7 @@ router.get('/comissoes/:jovemId', async (req, res) => {
 
 // POST - Adicionar comissão
 router.post('/comissoes', async (req, res) => {
-    const { jovem_id, tipo, ejc_numero, paroquia, data_inicio, data_fim, funcao_garcom, semestre, circulo, observacao } = req.body;
+    const { jovem_id, tipo, ejc_numero, paroquia, data_inicio, data_fim, funcao_garcom, semestre, circulo, observacao, outro_ejc_id } = req.body;
 
     if (!jovem_id || !tipo) {
         return res.status(400).json({ error: "Jovem e Tipo são obrigatórios" });
@@ -416,9 +423,9 @@ router.post('/comissoes', async (req, res) => {
 
     try {
         const [result] = await pool.query(
-            `INSERT INTO jovens_comissoes (jovem_id, tipo, ejc_numero, paroquia, data_inicio, data_fim, funcao_garcom, semestre, circulo, observacao)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [jovem_id, tipo, ejc_numero || null, paroquia || null, data_inicio || null, data_fim || null, funcao_garcom || null, semestre || null, circulo || null, observacao || null]
+            `INSERT INTO jovens_comissoes (jovem_id, tipo, ejc_numero, paroquia, data_inicio, data_fim, funcao_garcom, semestre, circulo, observacao, outro_ejc_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [jovem_id, tipo, ejc_numero || null, paroquia || null, data_inicio || null, data_fim || null, funcao_garcom || null, semestre || null, circulo || null, observacao || null, outro_ejc_id || null]
         );
         res.json({ id: result.insertId, message: "Histórico adicionado com sucesso" });
     } catch (err) {
@@ -435,6 +442,37 @@ router.delete('/comissoes/:id', async (req, res) => {
     } catch (err) {
         console.error("Erro ao remover comissão:", err);
         res.status(500).json({ error: "Erro ao remover item" });
+    }
+});
+
+// GET - Listar observações de um jovem
+router.get('/observacoes/:jovemId', async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT * FROM jovens_observacoes WHERE jovem_id = ? ORDER BY created_at DESC', [req.params.jovemId]);
+        res.json(rows);
+    } catch (err) {
+        console.error("Erro ao buscar observacoes:", err);
+        res.status(500).json({ error: "Erro ao buscar observações" });
+    }
+});
+
+// POST - Adicionar observação
+router.post('/observacoes', async (req, res) => {
+    const { jovem_id, texto } = req.body;
+
+    if (!jovem_id || !texto || !texto.trim()) {
+        return res.status(400).json({ error: "Jovem e Texto são obrigatórios" });
+    }
+
+    try {
+        const [result] = await pool.query(
+            `INSERT INTO jovens_observacoes (jovem_id, texto) VALUES (?, ?)`,
+            [jovem_id, texto.trim()]
+        );
+        res.json({ id: result.insertId, message: "Observação adicionada com sucesso" });
+    } catch (err) {
+        console.error("Erro ao adicionar observacao:", err);
+        res.status(500).json({ error: "Erro ao salvar observação" });
     }
 });
 

@@ -22,6 +22,9 @@ const menuTemplate = `
             <a href="/historico-equipes" class="nav-link" title="Histórico de Equipes">
                 <span class="fs-5">📜</span> <span class="link-text">Histórico</span>
             </a>
+            <a href="/outros-ejcs" class="nav-link" title="Outros EJCs">
+                <span class="fs-5">🌍</span> <span class="link-text">Outros EJCs</span>
+            </a>
             <a href="/anexos" class="nav-link" title="Anexos">
                 <span class="fs-5">📁</span> <span class="link-text">Anexos</span>
             </a>
