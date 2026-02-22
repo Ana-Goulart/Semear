@@ -61,6 +61,13 @@ router.post('/', async (req, res) => {
             [numero, paroquia, ano || new Date().getFullYear(), data_inicio || null, data_fim || null, descricao || null]
         );
 
+        // Ao criar um novo EJC, vincula automaticamente todas as equipes já cadastradas.
+        await pool.query(
+            `INSERT IGNORE INTO equipes_ejc (ejc_id, equipe_id)
+             SELECT ?, id FROM equipes`,
+            [result.insertId]
+        );
+
         await registrarLog('sistema', 'CREATE', `EJC ${numero} criado`);
 
         res.status(201).json({

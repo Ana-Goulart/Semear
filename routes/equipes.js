@@ -2,6 +2,167 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
 
+const PAPEIS_PADRAO = ['Membro', 'Tio', 'Coordenador'];
+let hasPapelBaseColumnCache = null;
+let hasFuncoesPadraoTableCache = null;
+let hasOrigemPadraoColumnCache = null;
+let hasPapeisTableCache = null;
+let hasIconeClasseColumnCache = null;
+let hasCorIconeColumnCache = null;
+
+async function hasPapelBaseColumn() {
+    if (hasPapelBaseColumnCache !== null) return hasPapelBaseColumnCache;
+    const [rows] = await pool.query(`
+        SELECT COUNT(*) AS cnt
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'equipes_funcoes'
+          AND COLUMN_NAME = 'papel_base'
+    `);
+    hasPapelBaseColumnCache = !!(rows && rows[0] && rows[0].cnt > 0);
+    return hasPapelBaseColumnCache;
+}
+
+async function hasFuncoesPadraoTable() {
+    if (hasFuncoesPadraoTableCache !== null) return hasFuncoesPadraoTableCache;
+    const [rows] = await pool.query(`
+        SELECT COUNT(*) AS cnt
+        FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'equipes_funcoes_padrao'
+    `);
+    hasFuncoesPadraoTableCache = !!(rows && rows[0] && rows[0].cnt > 0);
+    return hasFuncoesPadraoTableCache;
+}
+
+async function hasOrigemPadraoColumn() {
+    if (hasOrigemPadraoColumnCache !== null) return hasOrigemPadraoColumnCache;
+    const [rows] = await pool.query(`
+        SELECT COUNT(*) AS cnt
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'equipes_funcoes'
+          AND COLUMN_NAME = 'origem_padrao_id'
+    `);
+    hasOrigemPadraoColumnCache = !!(rows && rows[0] && rows[0].cnt > 0);
+    return hasOrigemPadraoColumnCache;
+}
+
+async function hasPapeisTable() {
+    if (hasPapeisTableCache !== null) return hasPapeisTableCache;
+    const [rows] = await pool.query(`
+        SELECT COUNT(*) AS cnt
+        FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'equipes_papeis'
+    `);
+    hasPapeisTableCache = !!(rows && rows[0] && rows[0].cnt > 0);
+    return hasPapeisTableCache;
+}
+
+async function hasIconeClasseColumn() {
+    if (hasIconeClasseColumnCache !== null) return hasIconeClasseColumnCache;
+    const [rows] = await pool.query(`
+        SELECT COUNT(*) AS cnt
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'equipes'
+          AND COLUMN_NAME = 'icone_classe'
+    `);
+    hasIconeClasseColumnCache = !!(rows && rows[0] && rows[0].cnt > 0);
+    return hasIconeClasseColumnCache;
+}
+
+async function hasCorIconeColumn() {
+    if (hasCorIconeColumnCache !== null) return hasCorIconeColumnCache;
+    const [rows] = await pool.query(`
+        SELECT COUNT(*) AS cnt
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'equipes'
+          AND COLUMN_NAME = 'cor_icone'
+    `);
+    hasCorIconeColumnCache = !!(rows && rows[0] && rows[0].cnt > 0);
+    return hasCorIconeColumnCache;
+}
+
+async function listarPapeisConfigurados() {
+    const tabelaExiste = await hasPapeisTable();
+    if (!tabelaExiste) return PAPEIS_PADRAO.map((nome, i) => ({ id: i + 1, nome }));
+    const [rows] = await pool.query('SELECT id, nome FROM equipes_papeis ORDER BY ordem ASC, nome ASC');
+    if (!rows || rows.length === 0) return PAPEIS_PADRAO.map((nome, i) => ({ id: i + 1, nome }));
+    return rows;
+}
+
+async function normalizarPapelBase(papel) {
+    const valor = (papel || '').toString().trim();
+    if (!valor) return 'Membro';
+    const papeis = await listarPapeisConfigurados();
+    const match = papeis.find(p => (p.nome || '').toLowerCase() === valor.toLowerCase());
+    return match ? match.nome : null;
+}
+
+async function aplicarFuncoesPadraoNaEquipe(equipeId) {
+    const tabelaPadraoExiste = await hasFuncoesPadraoTable();
+    if (!tabelaPadraoExiste || !equipeId) return;
+
+    const comPapelBase = await hasPapelBaseColumn();
+    const comOrigemPadrao = await hasOrigemPadraoColumn();
+    const [padroes] = await pool.query('SELECT id, nome, papel_base FROM equipes_funcoes_padrao ORDER BY id ASC');
+    for (const p of padroes) {
+        const [exists] = comOrigemPadrao
+            ? await pool.query(
+                'SELECT id FROM equipes_funcoes WHERE equipe_id = ? AND origem_padrao_id = ? LIMIT 1',
+                [equipeId, p.id]
+            )
+            : await pool.query(
+                comPapelBase
+                    ? 'SELECT id FROM equipes_funcoes WHERE equipe_id = ? AND nome = ? AND COALESCE(papel_base, "Membro") = ? LIMIT 1'
+                    : 'SELECT id FROM equipes_funcoes WHERE equipe_id = ? AND nome = ? LIMIT 1',
+                comPapelBase ? [equipeId, p.nome, p.papel_base || 'Membro'] : [equipeId, p.nome]
+            );
+
+        if (exists.length > 0) continue;
+
+        if (comOrigemPadrao && comPapelBase) {
+            await pool.query(
+                'INSERT INTO equipes_funcoes (equipe_id, nome, papel_base, origem_padrao_id) VALUES (?, ?, ?, ?)',
+                [equipeId, p.nome, p.papel_base || 'Membro', p.id]
+            );
+        } else if (comPapelBase) {
+            await pool.query(
+                'INSERT INTO equipes_funcoes (equipe_id, nome, papel_base) VALUES (?, ?, ?)',
+                [equipeId, p.nome, p.papel_base || 'Membro']
+            );
+        } else {
+            await pool.query(
+                'INSERT INTO equipes_funcoes (equipe_id, nome) VALUES (?, ?)',
+                [equipeId, p.nome]
+            );
+        }
+    }
+}
+
+async function vincularTodasEquipesSeEjcSemVinculo(ejcId) {
+    const ejcIdNumero = Number(ejcId);
+    if (!Number.isInteger(ejcIdNumero) || ejcIdNumero <= 0) return;
+
+    const [ejcRows] = await pool.query('SELECT id FROM ejc WHERE id = ? LIMIT 1', [ejcIdNumero]);
+    if (!ejcRows || ejcRows.length === 0) return;
+
+    const [countRows] = await pool.query(
+        'SELECT COUNT(*) AS cnt FROM equipes_ejc WHERE ejc_id = ?',
+        [ejcIdNumero]
+    );
+    if (countRows && countRows[0] && Number(countRows[0].cnt) > 0) return;
+
+    await pool.query(
+        `INSERT IGNORE INTO equipes_ejc (ejc_id, equipe_id)
+         SELECT ?, id FROM equipes`,
+        [ejcIdNumero]
+    );
+}
+
 // GET - Listar todas as equipes
 router.get('/', async (req, res) => {
     try {
@@ -16,6 +177,7 @@ router.get('/', async (req, res) => {
 // GET - Equipes por EJC (para dropdowns ou filtro no frontend)
 router.get('/por-ejc/:ejcId', async (req, res) => {
     try {
+        await vincularTodasEquipesSeEjcSemVinculo(req.params.ejcId);
         const [rows] = await pool.query(`
             SELECT DISTINCT eq.id, eq.nome, eq.descricao 
             FROM equipes eq 
@@ -30,9 +192,97 @@ router.get('/por-ejc/:ejcId', async (req, res) => {
     }
 });
 
+// GET - Listar papéis base disponíveis (ex.: Membro, Tio, Coordenador)
+router.get('/papeis', async (req, res) => {
+    try {
+        const papeis = await listarPapeisConfigurados();
+        res.json(papeis);
+    } catch (err) {
+        console.error("Erro ao listar papéis:", err);
+        res.status(500).json({ error: "Erro no servidor" });
+    }
+});
+
+// POST - Criar novo papel base
+router.post('/papeis', async (req, res) => {
+    const nome = (req.body.nome || '').toString().trim();
+    if (!nome) return res.status(400).json({ error: "Nome do papel é obrigatório" });
+
+    try {
+        const tabelaExiste = await hasPapeisTable();
+        if (!tabelaExiste) {
+            return res.status(500).json({ error: "Tabela de papéis não encontrada. Rode a migração." });
+        }
+
+        const [exists] = await pool.query(
+            'SELECT id FROM equipes_papeis WHERE LOWER(nome) = LOWER(?) LIMIT 1',
+            [nome]
+        );
+        if (exists.length > 0) {
+            return res.status(409).json({ error: "Esse papel já existe." });
+        }
+
+        const [maxRows] = await pool.query('SELECT COALESCE(MAX(ordem), 0) AS max_ordem FROM equipes_papeis');
+        const ordem = (maxRows && maxRows[0] && maxRows[0].max_ordem ? Number(maxRows[0].max_ordem) : 0) + 1;
+        const [result] = await pool.query(
+            'INSERT INTO equipes_papeis (nome, ordem) VALUES (?, ?)',
+            [nome, ordem]
+        );
+
+        res.json({ id: result.insertId, message: "Papel criado com sucesso" });
+    } catch (err) {
+        console.error("Erro ao criar papel:", err);
+        res.status(500).json({ error: "Erro no servidor" });
+    }
+});
+
+// DELETE - Excluir papel base
+router.delete('/papeis/:id', async (req, res) => {
+    try {
+        const tabelaExiste = await hasPapeisTable();
+        if (!tabelaExiste) {
+            return res.status(404).json({ error: "Papéis não configurados no banco." });
+        }
+
+        const [rows] = await pool.query('SELECT id, nome FROM equipes_papeis WHERE id = ?', [req.params.id]);
+        if (rows.length === 0) return res.status(404).json({ error: "Papel não encontrado" });
+        const papel = rows[0];
+
+        const [qtdRows] = await pool.query('SELECT COUNT(*) AS cnt FROM equipes_papeis');
+        if ((qtdRows && qtdRows[0] && qtdRows[0].cnt <= 1)) {
+            return res.status(409).json({ error: "É necessário manter ao menos 1 papel cadastrado." });
+        }
+
+        const [usoFuncoes] = await pool.query(
+            'SELECT COUNT(*) AS cnt FROM equipes_funcoes WHERE COALESCE(papel_base, "Membro") = ?',
+            [papel.nome]
+        );
+        if (usoFuncoes && usoFuncoes[0] && usoFuncoes[0].cnt > 0) {
+            return res.status(409).json({ error: "Não é possível excluir: papel em uso nas funções das equipes." });
+        }
+
+        const tabelaPadraoExiste = await hasFuncoesPadraoTable();
+        if (tabelaPadraoExiste) {
+            const [usoPadrao] = await pool.query(
+                'SELECT COUNT(*) AS cnt FROM equipes_funcoes_padrao WHERE COALESCE(papel_base, "Membro") = ?',
+                [papel.nome]
+            );
+            if (usoPadrao && usoPadrao[0] && usoPadrao[0].cnt > 0) {
+                return res.status(409).json({ error: "Não é possível excluir: papel em uso nas funções padrão." });
+            }
+        }
+
+        await pool.query('DELETE FROM equipes_papeis WHERE id = ?', [req.params.id]);
+        res.json({ message: "Papel removido com sucesso" });
+    } catch (err) {
+        console.error("Erro ao remover papel:", err);
+        res.status(500).json({ error: "Erro no servidor" });
+    }
+});
+
 // POST - Criar equipe
 router.post('/', async (req, res) => {
-    const { nome, descricao, ejc_id } = req.body;
+    const { nome, descricao, ejc_id, icone_classe, cor_icone } = req.body;
 
     if (!nome) {
         return res.status(400).json({ error: "Nome da equipe é obrigatório" });
@@ -45,14 +295,27 @@ router.post('/', async (req, res) => {
         );
 
         let equipeId;
+        let equipeCriada = false;
         if (checkEquipe.length > 0) {
             equipeId = checkEquipe[0].id;
         } else {
-            const [createResult] = await pool.query(
-                'INSERT INTO equipes (nome, descricao) VALUES (?, ?)',
-                [nome, descricao || null]
-            );
+            const comIconeClasse = await hasIconeClasseColumn();
+            const comCorIcone = await hasCorIconeColumn();
+            const [createResult] = (comIconeClasse && comCorIcone)
+                ? await pool.query(
+                    'INSERT INTO equipes (nome, descricao, icone_classe, cor_icone) VALUES (?, ?, ?, ?)',
+                    [nome, descricao || null, icone_classe || null, cor_icone || '#2563eb']
+                )
+                : await pool.query(
+                    'INSERT INTO equipes (nome, descricao) VALUES (?, ?)',
+                    [nome, descricao || null]
+                );
             equipeId = createResult.insertId;
+            equipeCriada = true;
+        }
+
+        if (equipeCriada) {
+            await aplicarFuncoesPadraoNaEquipe(equipeId);
         }
 
         if (ejc_id) {
@@ -78,7 +341,7 @@ router.post('/', async (req, res) => {
 
 // PUT - Atualizar equipe
 router.put('/:id', async (req, res) => {
-    const { nome, descricao } = req.body;
+    const { nome, descricao, icone_classe, cor_icone } = req.body;
     const { id } = req.params;
 
     if (!nome) {
@@ -86,10 +349,17 @@ router.put('/:id', async (req, res) => {
     }
 
     try {
-        const [result] = await pool.query(
-            'UPDATE equipes SET nome = ?, descricao = ? WHERE id = ?',
-            [nome, descricao || null, id]
-        );
+        const comIconeClasse = await hasIconeClasseColumn();
+        const comCorIcone = await hasCorIconeColumn();
+        const [result] = (comIconeClasse && comCorIcone)
+            ? await pool.query(
+                'UPDATE equipes SET nome = ?, descricao = ?, icone_classe = ?, cor_icone = ? WHERE id = ?',
+                [nome, descricao || null, icone_classe || null, cor_icone || '#2563eb', id]
+            )
+            : await pool.query(
+                'UPDATE equipes SET nome = ?, descricao = ? WHERE id = ?',
+                [nome, descricao || null, id]
+            );
 
         if (result.affectedRows === 0) {
             return res.status(404).json({ error: "Equipe não encontrada" });
@@ -139,10 +409,114 @@ router.delete('/:id', async (req, res) => {
 
 // --- FUNÇÕES DA EQUIPE ---
 
+// GET - Listar funções padrão globais
+router.get('/funcoes-padrao', async (req, res) => {
+    try {
+        const tabelaPadraoExiste = await hasFuncoesPadraoTable();
+        if (!tabelaPadraoExiste) return res.json([]);
+        const [rows] = await pool.query(`
+            SELECT id, nome, COALESCE(papel_base, 'Membro') AS papel_base, created_at
+            FROM equipes_funcoes_padrao
+            ORDER BY nome ASC
+        `);
+        res.json(rows);
+    } catch (err) {
+        console.error("Erro ao listar funções padrão:", err);
+        res.status(500).json({ error: "Erro no servidor" });
+    }
+});
+
+// POST - Criar função padrão global e aplicar a todas as equipes
+router.post('/funcoes-padrao', async (req, res) => {
+    const { nome, papel_base } = req.body;
+    const nomeNormalizado = (nome || '').toString().trim();
+    if (!nomeNormalizado) return res.status(400).json({ error: "Nome da função padrão é obrigatório" });
+
+    const papelBaseNormalizado = await normalizarPapelBase(papel_base);
+    if (!papelBaseNormalizado) {
+        return res.status(400).json({ error: "Papel base inválido. Cadastre o papel desejado em 'Papéis' no menu Equipes." });
+    }
+
+    try {
+        const tabelaPadraoExiste = await hasFuncoesPadraoTable();
+        if (!tabelaPadraoExiste) {
+            return res.status(500).json({ error: "Tabela de funções padrão não encontrada. Rode a migração." });
+        }
+
+        const [existsPadrao] = await pool.query(
+            'SELECT id FROM equipes_funcoes_padrao WHERE nome = ? AND COALESCE(papel_base, "Membro") = ? LIMIT 1',
+            [nomeNormalizado, papelBaseNormalizado]
+        );
+        if (existsPadrao.length > 0) {
+            return res.status(409).json({ error: "Essa função padrão já existe para este papel." });
+        }
+
+        const [result] = await pool.query(
+            'INSERT INTO equipes_funcoes_padrao (nome, papel_base) VALUES (?, ?)',
+            [nomeNormalizado, papelBaseNormalizado]
+        );
+
+        const [equipesRows] = await pool.query('SELECT id FROM equipes');
+        for (const eq of equipesRows) {
+            await aplicarFuncoesPadraoNaEquipe(eq.id);
+        }
+
+        res.json({ id: result.insertId, message: "Função padrão criada e aplicada às equipes" });
+    } catch (err) {
+        console.error("Erro ao criar função padrão:", err);
+        res.status(500).json({ error: "Erro no servidor" });
+    }
+});
+
+// DELETE - Remover função padrão global e remover vínculos das equipes
+router.delete('/funcoes-padrao/:id', async (req, res) => {
+    try {
+        const tabelaPadraoExiste = await hasFuncoesPadraoTable();
+        if (!tabelaPadraoExiste) {
+            return res.status(404).json({ error: "Funções padrão não configuradas no banco." });
+        }
+
+        const [rows] = await pool.query(
+            'SELECT id, nome, COALESCE(papel_base, "Membro") AS papel_base FROM equipes_funcoes_padrao WHERE id = ?',
+            [req.params.id]
+        );
+        if (rows.length === 0) return res.status(404).json({ error: "Função padrão não encontrada" });
+        const padrao = rows[0];
+
+        const comOrigemPadrao = await hasOrigemPadraoColumn();
+        const comPapelBase = await hasPapelBaseColumn();
+        if (comOrigemPadrao) {
+            await pool.query('DELETE FROM equipes_funcoes WHERE origem_padrao_id = ?', [padrao.id]);
+        } else {
+            await pool.query(
+                comPapelBase
+                    ? 'DELETE FROM equipes_funcoes WHERE nome = ? AND COALESCE(papel_base, "Membro") = ?'
+                    : 'DELETE FROM equipes_funcoes WHERE nome = ?',
+                comPapelBase ? [padrao.nome, padrao.papel_base] : [padrao.nome]
+            );
+        }
+
+        await pool.query('DELETE FROM equipes_funcoes_padrao WHERE id = ?', [padrao.id]);
+        res.json({ message: "Função padrão removida com sucesso" });
+    } catch (err) {
+        console.error("Erro ao remover função padrão:", err);
+        res.status(500).json({ error: "Erro no servidor" });
+    }
+});
+
 // GET - Listar funções de uma equipe
 router.get('/:id/funcoes', async (req, res) => {
     try {
-        const [rows] = await pool.query('SELECT * FROM equipes_funcoes WHERE equipe_id = ? ORDER BY nome ASC', [req.params.id]);
+        const comPapelBase = await hasPapelBaseColumn();
+        const comOrigemPadrao = await hasOrigemPadraoColumn();
+        const sql = comPapelBase
+            ? (comOrigemPadrao
+                ? 'SELECT id, equipe_id, nome, COALESCE(papel_base, "Membro") AS papel_base, origem_padrao_id, CASE WHEN origem_padrao_id IS NULL THEN 0 ELSE 1 END AS is_padrao FROM equipes_funcoes WHERE equipe_id = ? ORDER BY nome ASC'
+                : 'SELECT id, equipe_id, nome, COALESCE(papel_base, "Membro") AS papel_base, NULL AS origem_padrao_id, 0 AS is_padrao FROM equipes_funcoes WHERE equipe_id = ? ORDER BY nome ASC')
+            : (comOrigemPadrao
+                ? 'SELECT id, equipe_id, nome, "Membro" AS papel_base, origem_padrao_id, CASE WHEN origem_padrao_id IS NULL THEN 0 ELSE 1 END AS is_padrao FROM equipes_funcoes WHERE equipe_id = ? ORDER BY nome ASC'
+                : 'SELECT id, equipe_id, nome, "Membro" AS papel_base, NULL AS origem_padrao_id, 0 AS is_padrao FROM equipes_funcoes WHERE equipe_id = ? ORDER BY nome ASC');
+        const [rows] = await pool.query(sql, [req.params.id]);
         res.json(rows);
     } catch (err) {
         console.error("Erro ao buscar funções:", err);
@@ -152,11 +526,30 @@ router.get('/:id/funcoes', async (req, res) => {
 
 // POST - Criar função para uma equipe
 router.post('/:id/funcoes', async (req, res) => {
-    const { nome } = req.body;
+    const { nome, papel_base } = req.body;
     if (!nome) return res.status(400).json({ error: "Nome da função é obrigatório" });
+    const papelBaseNormalizado = await normalizarPapelBase(papel_base);
+    if (!papelBaseNormalizado) {
+        return res.status(400).json({ error: "Papel base inválido. Cadastre o papel desejado em 'Papéis' no menu Equipes." });
+    }
 
     try {
-        const [result] = await pool.query('INSERT INTO equipes_funcoes (equipe_id, nome) VALUES (?, ?)', [req.params.id, nome]);
+        const comPapelBase = await hasPapelBaseColumn();
+        const comOrigemPadrao = await hasOrigemPadraoColumn();
+        const [result] = comPapelBase
+            ? (comOrigemPadrao
+                ? await pool.query(
+                    'INSERT INTO equipes_funcoes (equipe_id, nome, papel_base, origem_padrao_id) VALUES (?, ?, ?, NULL)',
+                    [req.params.id, nome, papelBaseNormalizado]
+                )
+                : await pool.query(
+                    'INSERT INTO equipes_funcoes (equipe_id, nome, papel_base) VALUES (?, ?, ?)',
+                    [req.params.id, nome, papelBaseNormalizado]
+                ))
+            : await pool.query(
+                'INSERT INTO equipes_funcoes (equipe_id, nome) VALUES (?, ?)',
+                [req.params.id, nome]
+            );
         res.json({ id: result.insertId, message: "Função criada" });
     } catch (err) {
         console.error("Erro ao criar função:", err);

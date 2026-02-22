@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SemeaJovens - Calendário</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="/css/velzon-theme.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="/js/menu.js"></script>
+    <style>
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+        }
+
+        .calendar-weekday {
+            text-align: center;
+            font-weight: 600;
+            color: #6c757d;
+            font-size: 0.9rem;
+            padding: 6px 0;
+        }
+
+        .calendar-day {
+            min-height: 96px;
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+            background: #fff;
+            padding: 8px;
+            transition: all 0.2s;
+        }
+
+        .calendar-day:hover {
+            border-color: #c9d5e8;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .calendar-day.muted {
+            opacity: 0.45;
+            background: #f8f9fb;
+        }
+
+        .calendar-day.today {
+            border-color: #0d6efd;
+            background: #eef4ff;
+        }
+
+        .day-number {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .day-events {
+            margin-top: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .event-chip {
+            font-size: 0.72rem;
+            line-height: 1.2;
+            border-radius: 6px;
+            background: #e7f1ff;
+            color: #0a58ca;
+            padding: 2px 6px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .mini-month {
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+            padding: 12px;
+            background: #fff;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .mini-month:hover {
+            border-color: #c9d5e8;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .folder-card {
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+            padding: 14px;
+            background: #fff;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .folder-card:hover {
+            border-color: #c9d5e8;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <main class="container-fluid">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h3>📅 Calendário</h3>
+                    <p class="text-muted mb-0">Visualização mensal do calendário.</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-secondary" @click="anterior">◀</button>
+                    <button class="btn btn-outline-primary" @click="irHoje">Hoje</button>
+                    <button class="btn btn-outline-secondary" @click="proximo">▶</button>
+                </div>
+            </div>
+
+            <ul class="nav nav-tabs mb-3">
+                <li class="nav-item">
+                    <button class="nav-link" :class="{ active: abaPrincipal === 'calendario' }"
+                        @click="abaPrincipal = 'calendario'">Calendário</button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" :class="{ active: abaPrincipal === 'gerenciar' }"
+                        @click="abaPrincipal = 'gerenciar'">Gerenciar</button>
+                </li>
+            </ul>
+
+            <template v-if="abaPrincipal === 'calendario'">
+            <ul class="nav nav-tabs mb-3">
+                <li class="nav-item">
+                    <button class="nav-link" :class="{ active: modoVisualizacao === 'dia' }" @click="definirModoVisualizacao('dia')">Dia</button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" :class="{ active: modoVisualizacao === 'semana' }" @click="definirModoVisualizacao('semana')">Semana</button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" :class="{ active: modoVisualizacao === 'mes' }" @click="definirModoVisualizacao('mes')">Mês</button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" :class="{ active: modoVisualizacao === 'ano' }" @click="definirModoVisualizacao('ano')">Ano</button>
+                </li>
+            </ul>
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-light text-center fw-semibold fs-5">
+                    {{ tituloAtual }}
+                </div>
+                <div class="card-body" v-if="modoVisualizacao === 'mes'">
+                    <div class="calendar-grid mb-2">
+                        <div class="calendar-weekday" v-for="d in diasSemana" :key="d">{{ d }}</div>
+                    </div>
+                    <div class="calendar-grid">
+                        <div class="calendar-day" :class="{ muted: !dia.noMesAtual, today: dia.ehHoje }"
+                            v-for="dia in diasCalendario" :key="dia.chave">
+                            <div class="day-number">{{ dia.numero }}</div>
+                            <div class="day-events">
+                                <div class="event-chip" v-for="ev in eventosPorData(dia.iso).slice(0, 2)" :key="`mes-ev-${dia.iso}-${ev.evento_id}-${ev.hora_inicio_aprox || ''}`">
+                                    {{ formatarHoraCurta(ev.hora_inicio_aprox) }} {{ ev.nome_evento }}
+                                </div>
+                                <div class="small text-muted" v-if="eventosPorData(dia.iso).length > 2">
+                                    +{{ eventosPorData(dia.iso).length - 2 }} evento(s)
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body" v-else-if="modoVisualizacao === 'dia'">
+                    <div class="calendar-day today">
+                        <div class="day-number mb-2">{{ dataSelecionada.toLocaleDateString('pt-BR', { weekday: 'long' }) }}</div>
+                        <h5 class="mb-1">{{ formatarDataLonga(dataSelecionada) }}</h5>
+                        <small class="text-muted">Visualização diária.</small>
+                        <div class="mt-3">
+                            <div v-if="!eventosPorData(dataSelecionadaISO).length" class="text-muted small">Sem eventos neste dia.</div>
+                            <ul v-else class="list-group list-group-flush">
+                                <li class="list-group-item px-0" v-for="ev in eventosPorData(dataSelecionadaISO)" :key="`dia-ev-${ev.evento_id}-${ev.data}-${ev.hora_inicio_aprox || ''}`">
+                                    <div class="fw-semibold">{{ ev.nome_evento }}</div>
+                                    <small class="text-muted">
+                                        {{ formatarHoraCurta(ev.hora_inicio_aprox) || '--:--' }} - {{ formatarHoraCurta(ev.hora_fim_aprox) || '--:--' }}
+                                        <span v-if="ev.responsavel_nome"> • {{ ev.responsavel_nome }}</span>
+                                    </small>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body" v-else-if="modoVisualizacao === 'semana'">
+                    <div class="calendar-grid mb-2">
+                        <div class="calendar-weekday" v-for="d in diasSemana" :key="`sem-${d}`">{{ d }}</div>
+                    </div>
+                    <div class="calendar-grid">
+                        <div class="calendar-day" :class="{ today: dia.ehHoje }"
+                            v-for="dia in diasSemanaAtual" :key="dia.chave">
+                            <div class="day-number">{{ dia.numero }}</div>
+                            <small class="text-muted">{{ dia.mes }}</small>
+                            <div class="day-events">
+                                <div class="event-chip" v-for="ev in eventosPorData(dia.iso).slice(0, 1)" :key="`sem-ev-${dia.iso}-${ev.evento_id}-${ev.hora_inicio_aprox || ''}`">
+                                    {{ formatarHoraCurta(ev.hora_inicio_aprox) }} {{ ev.nome_evento }}
+                                </div>
+                                <div class="small text-muted" v-if="eventosPorData(dia.iso).length > 1">
+                                    +{{ eventosPorData(dia.iso).length - 1 }} evento(s)
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body" v-else>
+                    <div class="row g-3">
+                        <div class="col-6 col-md-4 col-xl-3" v-for="m in mesesDoAno" :key="`ano-mes-${m.mes}`">
+                            <div class="mini-month" @click="abrirMesDoAno(m.mes)">
+                                <div class="fw-semibold">{{ m.nome }}</div>
+                                <small class="text-muted">{{ m.totalDias }} dias</small>
+                                <div class="small text-primary mt-1">
+                                    {{ totalEventosDoMes(m.mes) }} evento(s)
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </template>
+
+            <div v-else class="card border-0 shadow-sm">
+                <div class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+                    <span>⚙️ Gerenciar Calendário</span>
+                    <button v-if="pastaGerenciarSelecionada" class="btn btn-sm btn-outline-secondary"
+                        @click="voltarGerenciar">Voltar</button>
+                </div>
+                <div class="card-body" v-if="!pastaGerenciarSelecionada">
+                    <div class="row g-3">
+                        <div class="col-6 col-md-4 col-xl-3" v-for="pasta in pastasGerenciar" :key="`pg-${pasta.id}`">
+                            <div class="folder-card" @click="abrirPastaGerenciar(pasta)">
+                                <div class="fs-3">📁</div>
+                                <div class="fw-semibold">{{ pasta.nome }}</div>
+                            </div>
+                        </div>
+                        <div v-if="!pastasGerenciar.length" class="text-muted">Nenhuma pasta disponível.</div>
+                    </div>
+                </div>
+                <div class="card-body" v-else>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h6 class="mb-0">{{ pastaGerenciarSelecionada.nome }}</h6>
+                            <small class="text-muted">Eventos recorrentes padrão</small>
+                        </div>
+                        <button class="btn btn-primary btn-sm" @click="abrirModalNovoEventoPadrao">➕ Criar Evento Padrão</button>
+                    </div>
+                    <div v-if="!eventosPadrao.length" class="text-muted">Nenhum evento padrão cadastrado.</div>
+                    <div v-else class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Evento</th>
+                                    <th>Recorrência</th>
+                                    <th>Hora aprox.</th>
+                                    <th>Período</th>
+                                    <th>Meses sem evento</th>
+                                    <th>Responsável</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="ev in eventosPadrao" :key="`ev-${ev.id}`">
+                                    <td>{{ ev.nome_evento }}</td>
+                                    <td>{{ ev.recorrencia }}</td>
+                                    <td>{{ formatarHoraCurta(ev.hora_inicio_aprox) || '--:--' }} - {{ formatarHoraCurta(ev.hora_fim_aprox) || '--:--' }}</td>
+                                    <td>{{ formatarData(ev.data_inicio) || '-' }} a {{ formatarData(ev.data_fim) || '-' }}</td>
+                                    <td>{{ formatarMesesExcluidos(ev.meses_excluidos) }}</td>
+                                    <td>{{ ev.responsavel_nome || '-' }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <div class="modal fade" id="modalNovoEventoPadrao" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title">➕ Novo Evento Padrão</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Nome do evento *</label>
+                                <input type="text" class="form-control" v-model="formEventoPadrao.nome_evento"
+                                    placeholder="Ex: Reunião de Planejamento">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Responsável</label>
+                                <select class="form-select" v-model="formEventoPadrao.responsavel_pasta_id">
+                                    <option :value="null">(Sem responsável)</option>
+                                    <option v-for="r in responsaveisEvento" :key="`resp-ev-${r.id}`" :value="r.id">{{ r.nome }}</option>
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Regra de recorrência *</label>
+                                <div class="row g-2">
+                                    <div class="col-md-4">
+                                        <select class="form-select" v-model="formEventoPadrao.recorrencia_tipo">
+                                            <option value="SEMANAL">Semanal</option>
+                                            <option value="MENSAL_NTH">Mensal por semana</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <select class="form-select" v-model.number="formEventoPadrao.dia_semana">
+                                            <option v-for="d in diasSemanaRecorrencia" :key="`rec-dia-${d.value}`" :value="d.value">{{ d.label }}</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4" v-if="formEventoPadrao.recorrencia_tipo === 'MENSAL_NTH'">
+                                        <select class="form-select" v-model.number="formEventoPadrao.ordinal_semana">
+                                            <option :value="1">Primeiro</option>
+                                            <option :value="2">Segundo</option>
+                                            <option :value="3">Terceiro</option>
+                                            <option :value="4">Quarto</option>
+                                            <option :value="5">Quinto</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <small class="text-muted">Resumo: {{ resumoRecorrenciaForm }}</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Hora aproximada de início</label>
+                                <input type="time" class="form-control" v-model="formEventoPadrao.hora_inicio_aprox">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Hora aproximada de fim</label>
+                                <input type="time" class="form-control" v-model="formEventoPadrao.hora_fim_aprox">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Data início</label>
+                                <input type="date" class="form-control" v-model="formEventoPadrao.data_inicio">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Data fim</label>
+                                <input type="date" class="form-control" v-model="formEventoPadrao.data_fim">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Meses sem evento</label>
+                                <div class="row g-2">
+                                    <div class="col-6 col-md-3" v-for="m in mesesReferencia" :key="`mes-sem-${m.value}`">
+                                        <div class="form-check border rounded px-2 py-1">
+                                            <input class="form-check-input" type="checkbox"
+                                                :id="`mes-sem-${m.value}`"
+                                                :checked="formEventoPadrao.meses_excluidos.includes(m.value)"
+                                                @change="toggleMesExcluido(m.value)">
+                                            <label class="form-check-label" :for="`mes-sem-${m.value}`">{{ m.label }}</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button class="btn btn-primary" @click="salvarEventoPadrao" :disabled="salvandoEventoPadrao">
+                            {{ salvandoEventoPadrao ? 'Salvando...' : 'Salvar Evento' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            injetarMenu('#app');
+            ativarMenu('/calendario');
+        });
+
+        const { createApp } = Vue;
+        createApp({
+            data() {
+                const hoje = new Date();
+                return {
+                    hoje,
+                    dataSelecionada: new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()),
+                    abaPrincipal: 'calendario',
+                    modoVisualizacao: 'mes',
+                    diasSemana: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'],
+                    pastasGerenciar: [],
+                    pastaGerenciarSelecionada: null,
+                    eventosPadrao: [],
+                    ocorrenciasCalendario: [],
+                    responsaveisEvento: [],
+                    modalNovoEventoPadrao: null,
+                    salvandoEventoPadrao: false,
+                    formEventoPadrao: {
+                        nome_evento: '',
+                        recorrencia_tipo: 'SEMANAL',
+                        dia_semana: 2,
+                        ordinal_semana: 1,
+                        hora_inicio_aprox: '',
+                        hora_fim_aprox: '',
+                        data_inicio: '',
+                        data_fim: '',
+                        meses_excluidos: [],
+                        responsavel_pasta_id: null
+                    },
+                    mesesReferencia: [
+                        { value: 1, label: 'Janeiro' },
+                        { value: 2, label: 'Fevereiro' },
+                        { value: 3, label: 'Março' },
+                        { value: 4, label: 'Abril' },
+                        { value: 5, label: 'Maio' },
+                        { value: 6, label: 'Junho' },
+                        { value: 7, label: 'Julho' },
+                        { value: 8, label: 'Agosto' },
+                        { value: 9, label: 'Setembro' },
+                        { value: 10, label: 'Outubro' },
+                        { value: 11, label: 'Novembro' },
+                        { value: 12, label: 'Dezembro' }
+                    ],
+                    diasSemanaRecorrencia: [
+                        { value: 0, label: 'Domingo' },
+                        { value: 1, label: 'Segunda-feira' },
+                        { value: 2, label: 'Terça-feira' },
+                        { value: 3, label: 'Quarta-feira' },
+                        { value: 4, label: 'Quinta-feira' },
+                        { value: 5, label: 'Sexta-feira' },
+                        { value: 6, label: 'Sábado' }
+                    ]
+                };
+            },
+            computed: {
+                ano() {
+                    return this.dataSelecionada.getFullYear();
+                },
+                mes() {
+                    return this.dataSelecionada.getMonth();
+                },
+                tituloAtual() {
+                    if (this.modoVisualizacao === 'dia') {
+                        return this.formatarDataLonga(this.dataSelecionada);
+                    }
+                    if (this.modoVisualizacao === 'semana') {
+                        const inicio = this.inicioDaSemana(this.dataSelecionada);
+                        const fim = new Date(inicio);
+                        fim.setDate(inicio.getDate() + 6);
+                        return `${inicio.toLocaleDateString('pt-BR')} a ${fim.toLocaleDateString('pt-BR')}`;
+                    }
+                    if (this.modoVisualizacao === 'ano') {
+                        return String(this.ano);
+                    }
+                    const data = new Date(this.ano, this.mes, 1);
+                    return data.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                },
+                diasCalendario() {
+                    const primeiroDia = new Date(this.ano, this.mes, 1);
+                    const ultimoDia = new Date(this.ano, this.mes + 1, 0);
+                    const inicioSemana = primeiroDia.getDay();
+                    const totalDiasMes = ultimoDia.getDate();
+
+                    const dias = [];
+
+                    for (let i = inicioSemana - 1; i >= 0; i--) {
+                        const d = new Date(this.ano, this.mes, -i);
+                        dias.push(this.criarDia(d, false));
+                    }
+
+                    for (let d = 1; d <= totalDiasMes; d++) {
+                        dias.push(this.criarDia(new Date(this.ano, this.mes, d), true));
+                    }
+
+                    while (dias.length % 7 !== 0) {
+                        const offset = dias.length - (inicioSemana + totalDiasMes) + 1;
+                        const d = new Date(this.ano, this.mes + 1, offset);
+                        dias.push(this.criarDia(d, false));
+                    }
+
+                    return dias;
+                },
+                diasSemanaAtual() {
+                    const inicio = this.inicioDaSemana(this.dataSelecionada);
+                    const dias = [];
+                    for (let i = 0; i < 7; i++) {
+                        const d = new Date(inicio);
+                        d.setDate(inicio.getDate() + i);
+                        dias.push({
+                            chave: `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`,
+                            numero: d.getDate(),
+                            mes: d.toLocaleDateString('pt-BR', { month: 'short' }),
+                            ehHoje:
+                                d.getFullYear() === this.hoje.getFullYear() &&
+                                d.getMonth() === this.hoje.getMonth() &&
+                                d.getDate() === this.hoje.getDate()
+                        });
+                    }
+                    return dias;
+                },
+                mesesDoAno() {
+                    const meses = [];
+                    for (let m = 0; m < 12; m++) {
+                        const totalDias = new Date(this.ano, m + 1, 0).getDate();
+                        meses.push({
+                            mes: m,
+                            nome: new Date(this.ano, m, 1).toLocaleDateString('pt-BR', { month: 'long' }),
+                            totalDias
+                        });
+                    }
+                    return meses;
+                },
+                dataSelecionadaISO() {
+                    const y = this.dataSelecionada.getFullYear();
+                    const m = String(this.dataSelecionada.getMonth() + 1).padStart(2, '0');
+                    const d = String(this.dataSelecionada.getDate()).padStart(2, '0');
+                    return `${y}-${m}-${d}`;
+                },
+                resumoRecorrenciaForm() {
+                    const dia = this.diasSemanaRecorrencia.find(d => d.value === Number(this.formEventoPadrao.dia_semana));
+                    const diaNome = dia ? dia.label.toLowerCase() : 'dia';
+                    if (this.formEventoPadrao.recorrencia_tipo === 'MENSAL_NTH') {
+                        const ord = { 1: 'primeiro', 2: 'segundo', 3: 'terceiro', 4: 'quarto', 5: 'quinto' };
+                        const nomeOrd = ord[Number(this.formEventoPadrao.ordinal_semana)] || `${this.formEventoPadrao.ordinal_semana}º`;
+                        return `Todo ${nomeOrd} ${diaNome} do mês`;
+                    }
+                    return `Toda ${diaNome}`;
+                }
+            },
+            methods: {
+                inicioDaSemana(dataBase) {
+                    const d = new Date(dataBase.getFullYear(), dataBase.getMonth(), dataBase.getDate());
+                    d.setDate(d.getDate() - d.getDay());
+                    return d;
+                },
+                formatarDataLonga(data) {
+                    return data.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+                },
+                formatarHoraCurta(hora) {
+                    if (!hora) return '';
+                    return String(hora).substring(0, 5);
+                },
+                criarDia(data, noMesAtual) {
+                    const ehHoje =
+                        data.getFullYear() === this.hoje.getFullYear() &&
+                        data.getMonth() === this.hoje.getMonth() &&
+                        data.getDate() === this.hoje.getDate();
+
+                    return {
+                        chave: `${data.getFullYear()}-${data.getMonth()}-${data.getDate()}`,
+                        iso: `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`,
+                        numero: data.getDate(),
+                        noMesAtual,
+                        ehHoje
+                    };
+                },
+                eventosPorData(isoDate) {
+                    return this.ocorrenciasCalendario.filter(ev => ev.data === isoDate);
+                },
+                totalEventosDoMes(mesZeroBased) {
+                    const alvo = `${this.ano}-${String(mesZeroBased + 1).padStart(2, '0')}`;
+                    return this.ocorrenciasCalendario.filter(ev => String(ev.data || '').startsWith(alvo)).length;
+                },
+                periodoVisualizacao() {
+                    if (this.modoVisualizacao === 'dia') {
+                        return { start: this.dataSelecionadaISO, end: this.dataSelecionadaISO };
+                    }
+                    if (this.modoVisualizacao === 'semana') {
+                        const ini = this.inicioDaSemana(this.dataSelecionada);
+                        const fim = new Date(ini);
+                        fim.setDate(ini.getDate() + 6);
+                        return {
+                            start: `${ini.getFullYear()}-${String(ini.getMonth() + 1).padStart(2, '0')}-${String(ini.getDate()).padStart(2, '0')}`,
+                            end: `${fim.getFullYear()}-${String(fim.getMonth() + 1).padStart(2, '0')}-${String(fim.getDate()).padStart(2, '0')}`
+                        };
+                    }
+                    if (this.modoVisualizacao === 'ano') {
+                        return { start: `${this.ano}-01-01`, end: `${this.ano}-12-31` };
+                    }
+                    const ini = new Date(this.ano, this.mes, 1);
+                    const fim = new Date(this.ano, this.mes + 1, 0);
+                    return {
+                        start: `${ini.getFullYear()}-${String(ini.getMonth() + 1).padStart(2, '0')}-${String(ini.getDate()).padStart(2, '0')}`,
+                        end: `${fim.getFullYear()}-${String(fim.getMonth() + 1).padStart(2, '0')}-${String(fim.getDate()).padStart(2, '0')}`
+                    };
+                },
+                async carregarOcorrencias() {
+                    try {
+                        const periodo = this.periodoVisualizacao();
+                        const res = await fetch(`/api/calendario/ocorrencias?start=${encodeURIComponent(periodo.start)}&end=${encodeURIComponent(periodo.end)}`);
+                        this.ocorrenciasCalendario = res.ok ? await res.json() : [];
+                    } catch (err) {
+                        console.error(err);
+                        this.ocorrenciasCalendario = [];
+                    }
+                },
+                async definirModoVisualizacao(modo) {
+                    this.modoVisualizacao = modo;
+                    await this.carregarOcorrencias();
+                },
+                anterior() {
+                    const d = new Date(this.dataSelecionada);
+                    if (this.modoVisualizacao === 'dia') d.setDate(d.getDate() - 1);
+                    else if (this.modoVisualizacao === 'semana') d.setDate(d.getDate() - 7);
+                    else if (this.modoVisualizacao === 'ano') d.setFullYear(d.getFullYear() - 1);
+                    else d.setMonth(d.getMonth() - 1);
+                    this.dataSelecionada = d;
+                    this.carregarOcorrencias();
+                },
+                proximo() {
+                    const d = new Date(this.dataSelecionada);
+                    if (this.modoVisualizacao === 'dia') d.setDate(d.getDate() + 1);
+                    else if (this.modoVisualizacao === 'semana') d.setDate(d.getDate() + 7);
+                    else if (this.modoVisualizacao === 'ano') d.setFullYear(d.getFullYear() + 1);
+                    else d.setMonth(d.getMonth() + 1);
+                    this.dataSelecionada = d;
+                    this.carregarOcorrencias();
+                },
+                abrirMesDoAno(mes) {
+                    this.dataSelecionada = new Date(this.ano, mes, 1);
+                    this.modoVisualizacao = 'mes';
+                    this.carregarOcorrencias();
+                },
+                irHoje() {
+                    this.dataSelecionada = new Date(this.hoje.getFullYear(), this.hoje.getMonth(), this.hoje.getDate());
+                    this.carregarOcorrencias();
+                },
+                async carregarPastasGerenciar() {
+                    try {
+                        const res = await fetch('/api/calendario/pastas');
+                        this.pastasGerenciar = res.ok ? await res.json() : [];
+                    } catch (err) {
+                        console.error(err);
+                        this.pastasGerenciar = [];
+                    }
+                },
+                async carregarResponsaveisEvento() {
+                    try {
+                        const res = await fetch('/api/calendario/responsaveis');
+                        this.responsaveisEvento = res.ok ? await res.json() : [];
+                    } catch (err) {
+                        console.error(err);
+                        this.responsaveisEvento = [];
+                    }
+                },
+                async abrirPastaGerenciar(pasta) {
+                    this.pastaGerenciarSelecionada = pasta;
+                    await this.carregarEventosPadrao();
+                },
+                voltarGerenciar() {
+                    this.pastaGerenciarSelecionada = null;
+                    this.eventosPadrao = [];
+                },
+                async carregarEventosPadrao() {
+                    if (!this.pastaGerenciarSelecionada) return;
+                    try {
+                        const res = await fetch(`/api/calendario/eventos-padrao?pasta_id=${this.pastaGerenciarSelecionada.id}`);
+                        this.eventosPadrao = res.ok ? await res.json() : [];
+                    } catch (err) {
+                        console.error(err);
+                        this.eventosPadrao = [];
+                    }
+                },
+                resetFormEventoPadrao() {
+                    this.formEventoPadrao = {
+                        nome_evento: '',
+                        recorrencia_tipo: 'SEMANAL',
+                        dia_semana: 2,
+                        ordinal_semana: 1,
+                        hora_inicio_aprox: '',
+                        hora_fim_aprox: '',
+                        data_inicio: '',
+                        data_fim: '',
+                        meses_excluidos: [],
+                        responsavel_pasta_id: null
+                    };
+                },
+                abrirModalNovoEventoPadrao() {
+                    this.resetFormEventoPadrao();
+                    if (!this.modalNovoEventoPadrao) this.modalNovoEventoPadrao = new bootstrap.Modal(document.getElementById('modalNovoEventoPadrao'));
+                    this.modalNovoEventoPadrao.show();
+                },
+                toggleMesExcluido(mes) {
+                    if (this.formEventoPadrao.meses_excluidos.includes(mes)) {
+                        this.formEventoPadrao.meses_excluidos = this.formEventoPadrao.meses_excluidos.filter(m => m !== mes);
+                    } else {
+                        this.formEventoPadrao.meses_excluidos.push(mes);
+                    }
+                },
+                formatarMesesExcluidos(meses) {
+                    if (!Array.isArray(meses) || !meses.length) return '-';
+                    const nomes = this.mesesReferencia
+                        .filter(m => meses.includes(m.value))
+                        .map(m => m.label);
+                    return nomes.length ? nomes.join(', ') : '-';
+                },
+                async salvarEventoPadrao() {
+                    if (!this.pastaGerenciarSelecionada) return;
+                    if (!String(this.formEventoPadrao.nome_evento || '').trim()) {
+                        alert('Informe o nome do evento.');
+                        return;
+                    }
+                    if (this.formEventoPadrao.recorrencia_tipo === 'MENSAL_NTH' && !this.formEventoPadrao.ordinal_semana) {
+                        alert('Selecione qual semana do mês.');
+                        return;
+                    }
+
+                    this.salvandoEventoPadrao = true;
+                    try {
+                        const res = await fetch('/api/calendario/eventos-padrao', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                pasta_id: this.pastaGerenciarSelecionada.id,
+                                nome_evento: this.formEventoPadrao.nome_evento,
+                                recorrencia_tipo: this.formEventoPadrao.recorrencia_tipo,
+                                dia_semana: this.formEventoPadrao.dia_semana,
+                                ordinal_semana: this.formEventoPadrao.recorrencia_tipo === 'MENSAL_NTH' ? this.formEventoPadrao.ordinal_semana : null,
+                                hora_inicio_aprox: this.formEventoPadrao.hora_inicio_aprox || null,
+                                hora_fim_aprox: this.formEventoPadrao.hora_fim_aprox || null,
+                                data_inicio: this.formEventoPadrao.data_inicio || null,
+                                data_fim: this.formEventoPadrao.data_fim || null,
+                                meses_excluidos: this.formEventoPadrao.meses_excluidos,
+                                responsavel_pasta_id: this.formEventoPadrao.responsavel_pasta_id || null
+                            })
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                            alert(data.error || 'Erro ao salvar evento padrão.');
+                            return;
+                        }
+                        if (this.modalNovoEventoPadrao) this.modalNovoEventoPadrao.hide();
+                        await this.carregarEventosPadrao();
+                    } catch (err) {
+                        console.error(err);
+                        alert('Erro ao salvar evento padrão.');
+                    } finally {
+                        this.salvandoEventoPadrao = false;
+                    }
+                }
+            },
+            async mounted() {
+                await this.carregarPastasGerenciar();
+                await this.carregarResponsaveisEvento();
+                await this.carregarOcorrencias();
+            }
+        }).mount('#app');
+    </script>
+</body>
+
+</html>

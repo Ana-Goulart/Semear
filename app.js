@@ -10,13 +10,20 @@ const rotasHistoricoEquipes = require('./routes/historicoEquipes');
 const rotasVotacao = require('./routes/votacao');
 const rotasOutrosEjcs = require('./routes/outrosEjcs');
 const rotasMontarEncontro = require('./routes/montar-encontro');
+const rotasFinanceiro = require('./routes/financeiro');
+const rotasCoordenadores = require('./routes/coordenadores');
+const rotasGarcons = require('./routes/garcons');
+const rotasMoita = require('./routes/moita');
+const rotasAtaReunioes = require('./routes/ataReunioes');
+const rotasFuncoesDirigencia = require('./routes/funcoesDirigencia');
+const rotasCalendario = require('./routes/calendario');
 
 app.use(express.json());
 app.use(express.static('public')); // Serve arquivos estáticos
 
 // --- VIEW ROUTES ---
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'views', 'listaMestre.html')));
-app.get('/ejc', (req, res) => res.sendFile(path.join(__dirname, 'views', 'ejc.html')));
+app.get('/ejc', (req, res) => res.redirect('/historico-equipes'));
 app.get('/equipes', (req, res) => res.sendFile(path.join(__dirname, 'views', 'equipes.html')));
 app.get('/historico-equipes', (req, res) => res.sendFile(path.join(__dirname, 'views', 'historico-equipes.html')));
 app.get('/anexos', (req, res) => res.sendFile(path.join(__dirname, 'views', 'anexos.html')));
@@ -24,6 +31,13 @@ app.get('/usuarios', (req, res) => res.sendFile(path.join(__dirname, 'views', 'u
 app.get('/votacao', (req, res) => res.sendFile(path.join(__dirname, 'views', 'votacao.html')));
 app.get('/outros-ejcs', (req, res) => res.sendFile(path.join(__dirname, 'views', 'outros-ejcs.html')));
 app.get('/montar-encontro', (req, res) => res.sendFile(path.join(__dirname, 'views', 'montar-encontro.html')));
+app.get('/financeiro', (req, res) => res.sendFile(path.join(__dirname, 'views', 'financeiro.html')));
+app.get('/coordenadores', (req, res) => res.sendFile(path.join(__dirname, 'views', 'coordenadores.html')));
+app.get('/garcons', (req, res) => res.sendFile(path.join(__dirname, 'views', 'garcons.html')));
+app.get('/moita', (req, res) => res.sendFile(path.join(__dirname, 'views', 'moita.html')));
+app.get('/ata-reunioes', (req, res) => res.sendFile(path.join(__dirname, 'views', 'ata-reunioes.html')));
+app.get('/funcoes-dirigencia', (req, res) => res.sendFile(path.join(__dirname, 'views', 'funcoes-dirigencia.html')));
+app.get('/calendario', (req, res) => res.sendFile(path.join(__dirname, 'views', 'calendario.html')));
 
 // --- API ROUTES ---
 app.use('/api/ejc', rotasEJC);
@@ -35,6 +49,13 @@ app.use('/api/historico-equipes', rotasHistoricoEquipes);
 app.use('/api/votacao', rotasVotacao);
 app.use('/api/outros-ejcs', rotasOutrosEjcs);
 app.use('/api/montar-encontro', rotasMontarEncontro);
+app.use('/api/financeiro', rotasFinanceiro);
+app.use('/api/coordenadores', rotasCoordenadores);
+app.use('/api/garcons', rotasGarcons);
+app.use('/api/moita', rotasMoita);
+app.use('/api/ata-reunioes', rotasAtaReunioes);
+app.use('/api/funcoes-dirigencia', rotasFuncoesDirigencia);
+app.use('/api/calendario', rotasCalendario);
 
 // --- ROTAS ANTIGAS / COMPATIBILIDADE ---
 // Algumas rotas frontend chamavam URLs específicas que agora estão dentro dos módulos.

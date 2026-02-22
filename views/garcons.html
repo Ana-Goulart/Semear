@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <title>SemeaJovens - Garçons</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="/css/velzon-theme.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="/js/menu.js"></script>
+    <style>
+        .equipe-card {
+            border: 1px solid #e6ecf5;
+            border-radius: 12px;
+            background: #fff;
+        }
+
+        .equipe-header {
+            padding: 14px 16px;
+            border-bottom: 1px solid #eef2f7;
+        }
+
+        .busca-resultados {
+            position: absolute;
+            z-index: 1000;
+            width: 100%;
+            max-height: 260px;
+            overflow-y: auto;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+            border-radius: 0 0 8px 8px;
+            border: 1px solid #dee2e6;
+            border-top: 0;
+            background: #fff;
+        }
+
+        .busca-item {
+            padding: 10px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .busca-item:hover {
+            background: #f8f9fa;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <main class="container-fluid">
+            <div class="d-flex justify-content-between mb-4 align-items-center">
+                <div>
+                    <h3>🍽️ Garçons</h3>
+                    <p class="text-muted mb-0">Crie equipes de garçom por EJC e gerencie os jovens com os mesmos papéis das equipes.</p>
+                </div>
+                <button class="btn btn-primary" @click="abrirModalNovaEquipe">➕ Nova Equipe de Garçom</button>
+            </div>
+
+            <div v-if="carregando" class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+            </div>
+
+            <div v-else-if="!equipes.length" class="card border-0 shadow-sm">
+                <div class="card-body text-muted">Nenhuma equipe de garçom cadastrada.</div>
+            </div>
+
+            <div v-else class="row g-3">
+                <div class="col-12" v-for="equipe in equipes" :key="equipe.id">
+                    <div class="equipe-card">
+                        <div class="equipe-header d-flex justify-content-between align-items-start">
+                            <div>
+                                <h5 class="mb-1">Equipe de Garçom - {{ equipe.ejc_numero }}º EJC</h5>
+                                <div class="small text-muted">
+                                    <strong>{{ equipe.outro_ejc_nome }}</strong>
+                                    <span v-if="equipe.outro_ejc_paroquia"> • {{ equipe.outro_ejc_paroquia }}</span>
+                                    <span v-if="equipe.data_inicio || equipe.data_fim">
+                                        • {{ formatarData(equipe.data_inicio) || '-' }} a {{ formatarData(equipe.data_fim) || 'Atual' }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-soft-secondary" @click="toggleMembros(equipe.id)" :title="membrosAbertos[equipe.id] ? 'Ocultar jovens' : 'Ver jovens'">
+                                    {{ membrosAbertos[equipe.id] ? '▾ Jovens' : '▸ Jovens' }}
+                                </button>
+                                <button class="btn btn-sm btn-soft-primary" @click="abrirModalAdicionarJovem(equipe)">➕ Adicionar Jovem</button>
+                                <button v-if="equipe.reserva_ativa" class="btn btn-sm btn-soft-warning" @click="abrirModalAdicionarJovem(equipe, 'RESERVA')">➕ Adicionar Reserva</button>
+                                <button v-if="!equipe.reserva_ativa" class="btn btn-sm btn-outline-warning" @click="criarListaReserva(equipe)">🗂️ Criar Lista de Reserva</button>
+                                <button class="btn btn-sm btn-outline-danger" @click="removerEquipe(equipe)">🗑️</button>
+                            </div>
+                        </div>
+                        <div class="p-3">
+                            <div v-if="!membrosAbertos[equipe.id]" class="text-muted small">Jovens ocultos. Clique em "Jovens" para visualizar.</div>
+                            <div v-else-if="!equipe.membros || !equipe.membros.length" class="text-muted small">Nenhum jovem nesta equipe.</div>
+                            <div v-else>
+                                <h6 class="mb-2">Titulares</h6>
+                                <div v-if="!membrosTitulares(equipe).length" class="text-muted small mb-3">Nenhum titular.</div>
+                                <div v-else class="table-responsive mb-3">
+                                    <table class="table table-sm align-middle mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Nome</th>
+                                                <th>Papel</th>
+                                                <th>Telefone</th>
+                                                <th>Círculo</th>
+                                                <th class="text-end">Ações</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr v-for="m in membrosTitulares(equipe)" :key="`tit-${m.id}`">
+                                                <td>{{ m.nome_completo }}</td>
+                                                <td><span class="badge bg-soft-info text-info">{{ m.papel }}</span></td>
+                                                <td>{{ m.telefone || '-' }}</td>
+                                                <td>{{ m.circulo || '-' }}</td>
+                                                <td class="text-end">
+                                                    <button class="btn btn-sm btn-outline-danger" @click="removerMembro(m.id)">Remover</button>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <h6 class="mb-2">Reserva</h6>
+                                <div v-if="!equipe.reserva_ativa && !membrosReserva(equipe).length" class="text-muted small">
+                                    Lista de reserva ainda não criada.
+                                </div>
+                                <div v-else-if="!membrosReserva(equipe).length" class="text-muted small">Nenhum jovem na reserva.</div>
+                                <div v-else class="table-responsive">
+                                    <table class="table table-sm align-middle mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Nome</th>
+                                                <th>Papel</th>
+                                                <th>Telefone</th>
+                                                <th>Círculo</th>
+                                                <th class="text-end">Ações</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr v-for="m in membrosReserva(equipe)" :key="`res-${m.id}`">
+                                                <td>{{ m.nome_completo }}</td>
+                                                <td><span class="badge bg-soft-warning text-warning">{{ m.papel }}</span></td>
+                                                <td>{{ m.telefone || '-' }}</td>
+                                                <td>{{ m.circulo || '-' }}</td>
+                                                <td class="text-end">
+                                                    <button class="btn btn-sm btn-soft-primary me-1" @click="alterarSituacaoMembro(m.id, 'TITULAR')">Promover</button>
+                                                    <button class="btn btn-sm btn-outline-danger" @click="removerMembro(m.id)">Remover</button>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <div class="modal fade" id="modalEquipeGarcom" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title">Nova Equipe de Garçom</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Número do EJC *</label>
+                            <input type="number" min="1" class="form-control" v-model.number="formEquipe.ejc_numero" placeholder="Ex: 25">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Qual EJC? *</label>
+                            <select class="form-select" v-model.number="formEquipe.outro_ejc_id">
+                                <option :value="null">Selecione...</option>
+                                <option v-for="oe in outrosEjcs" :key="oe.id" :value="oe.id">
+                                    {{ oe.nome }}<span v-if="oe.paroquia"> - {{ oe.paroquia }}</span>
+                                </option>
+                            </select>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <label class="form-label">Data Início</label>
+                                <input type="date" class="form-control" v-model="formEquipe.data_inicio">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Data Fim</label>
+                                <input type="date" class="form-control" v-model="formEquipe.data_fim">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-primary" @click="salvarEquipe">Salvar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="modalAdicionarJovemGarcom" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header bg-light">
+                        <h5 class="modal-title">Adicionar jovem na equipe</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Papel *</label>
+                            <select class="form-select" v-model="formMembro.papel">
+                                <option value="">Selecione...</option>
+                                <option v-for="p in papeis" :key="p.id || p.nome" :value="p.nome">{{ p.nome }}</option>
+                            </select>
+                        </div>
+                        <div class="position-relative">
+                            <label class="form-label text-muted small">Buscar jovem</label>
+                            <input type="text" class="form-control" v-model="searchQuery" @input="onSearchInput" placeholder="Digite o nome...">
+                            <div v-if="searchResults.length" class="busca-resultados">
+                                <div class="busca-item d-flex justify-content-between" v-for="j in searchResults" :key="j.id" @click="adicionarJovem(j)">
+                                    <span>{{ j.nome_completo }}</span>
+                                    <span class="small text-muted">{{ j.circulo || '-' }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            injetarMenu('#app');
+            ativarMenu('/garcons');
+        });
+
+        const { createApp } = Vue;
+        createApp({
+            data() {
+                return {
+                    carregando: true,
+                    equipes: [],
+                    outrosEjcs: [],
+                    papeis: [],
+                    formEquipe: { ejc_numero: null, outro_ejc_id: null, data_inicio: '', data_fim: '' },
+                    formMembro: { papel: '', situacao: 'TITULAR' },
+                    equipeSelecionada: null,
+                    modalEquipe: null,
+                    modalAdicionar: null,
+                    membrosAbertos: {},
+                    searchQuery: '',
+                    searchResults: [],
+                    searchTimer: null
+                };
+            },
+            methods: {
+                toggleMembros(id) {
+                    this.membrosAbertos[id] = !this.membrosAbertos[id];
+                },
+                membrosTitulares(equipe) {
+                    return (equipe?.membros || []).filter(m => String(m.situacao || 'TITULAR').toUpperCase() === 'TITULAR');
+                },
+                membrosReserva(equipe) {
+                    return (equipe?.membros || []).filter(m => String(m.situacao || 'TITULAR').toUpperCase() === 'RESERVA');
+                },
+                async carregarTudo() {
+                    this.carregando = true;
+                    try {
+                        const [resEquipes, resOutros, resPapeis] = await Promise.all([
+                            fetch('/api/garcons/equipes'),
+                            fetch('/api/outros-ejcs'),
+                            fetch('/api/equipes/papeis')
+                        ]);
+                        this.equipes = resEquipes.ok ? await resEquipes.json() : [];
+                        this.outrosEjcs = resOutros.ok ? await resOutros.json() : [];
+                        this.papeis = resPapeis.ok ? await resPapeis.json() : [];
+                    } finally {
+                        this.carregando = false;
+                    }
+                },
+                formatarData(d) {
+                    if (!d) return '';
+                    const dt = new Date(d);
+                    if (Number.isNaN(dt.getTime())) return '';
+                    return dt.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+                },
+                abrirModalNovaEquipe() {
+                    this.formEquipe = { ejc_numero: null, outro_ejc_id: null, data_inicio: '', data_fim: '' };
+                    if (!this.modalEquipe) this.modalEquipe = new bootstrap.Modal(document.getElementById('modalEquipeGarcom'));
+                    this.modalEquipe.show();
+                },
+                async salvarEquipe() {
+                    if (!this.formEquipe.ejc_numero || !this.formEquipe.outro_ejc_id) {
+                        alert('Preencha número do EJC e qual EJC.');
+                        return;
+                    }
+                    const res = await fetch('/api/garcons/equipes', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(this.formEquipe)
+                    });
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        alert(err.error || 'Erro ao criar equipe.');
+                        return;
+                    }
+                    this.modalEquipe.hide();
+                    await this.carregarTudo();
+                },
+                async removerEquipe(equipe) {
+                    if (!confirm(`Remover equipe de garçom do ${equipe.ejc_numero}º EJC?`)) return;
+                    const res = await fetch(`/api/garcons/equipes/${equipe.id}`, { method: 'DELETE' });
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        alert(err.error || 'Erro ao remover equipe.');
+                        return;
+                    }
+                    await this.carregarTudo();
+                },
+                abrirModalAdicionarJovem(equipe, situacao = 'TITULAR') {
+                    this.equipeSelecionada = equipe;
+                    this.formMembro = { papel: this.papeis[0]?.nome || '', situacao };
+                    this.searchQuery = '';
+                    this.searchResults = [];
+                    if (!this.modalAdicionar) this.modalAdicionar = new bootstrap.Modal(document.getElementById('modalAdicionarJovemGarcom'));
+                    this.modalAdicionar.show();
+                },
+                async criarListaReserva(equipe) {
+                    const res = await fetch(`/api/garcons/equipes/${equipe.id}/reserva`, { method: 'PATCH' });
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        alert(err.error || 'Erro ao criar lista de reserva.');
+                        return;
+                    }
+                    await this.carregarTudo();
+                    const equipeAtualizada = this.equipes.find(e => Number(e.id) === Number(equipe.id)) || equipe;
+                    this.abrirModalAdicionarJovem(equipeAtualizada, 'RESERVA');
+                },
+                onSearchInput() {
+                    clearTimeout(this.searchTimer);
+                    if (!this.searchQuery || this.searchQuery.trim().length < 2) {
+                        this.searchResults = [];
+                        return;
+                    }
+                    this.searchTimer = setTimeout(() => this.executarBusca(), 250);
+                },
+                async executarBusca() {
+                    const res = await fetch(`/api/jovens/search?q=${encodeURIComponent(this.searchQuery)}`);
+                    this.searchResults = res.ok ? await res.json() : [];
+                },
+                async adicionarJovem(jovem) {
+                    if (!this.equipeSelecionada) return;
+                    if (!this.formMembro.papel) {
+                        alert('Selecione o papel antes de adicionar.');
+                        return;
+                    }
+                    const res = await fetch(`/api/garcons/equipes/${this.equipeSelecionada.id}/membros`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ jovem_id: jovem.id, papel: this.formMembro.papel, situacao: this.formMembro.situacao })
+                    });
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        alert(err.error || 'Erro ao adicionar jovem.');
+                        return;
+                    }
+                    this.searchResults = [];
+                    this.searchQuery = '';
+                    await this.carregarTudo();
+                },
+                async removerMembro(membroId) {
+                    if (!confirm('Remover este jovem da equipe?')) return;
+                    const res = await fetch(`/api/garcons/membros/${membroId}`, { method: 'DELETE' });
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        alert(err.error || 'Erro ao remover jovem.');
+                        return;
+                    }
+                    await this.carregarTudo();
+                },
+                async alterarSituacaoMembro(membroId, situacao) {
+                    const res = await fetch(`/api/garcons/membros/${membroId}/situacao`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ situacao })
+                    });
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        alert(err.error || 'Erro ao atualizar situação do jovem.');
+                        return;
+                    }
+                    await this.carregarTudo();
+                }
+            },
+            mounted() {
+                this.carregarTudo();
+            }
+        }).mount('#app');
+    </script>
+</body>
+
+</html>

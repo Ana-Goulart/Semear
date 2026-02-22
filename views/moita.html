@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <title>SemeaJovens - Moita</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="/css/velzon-theme.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="/js/menu.js"></script>
+    <style>
+        .busca-resultados {
+            position: absolute;
+            z-index: 1000;
+            width: 100%;
+            max-height: 240px;
+            overflow-y: auto;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.12);
+            border-radius: 0 0 8px 8px;
+            border: 1px solid #dee2e6;
+            border-top: 0;
+            background: #fff;
+        }
+
+        .busca-item {
+            padding: 10px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .busca-item:hover {
+            background: #f8f9fa;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <main class="container-fluid">
+            <div class="d-flex justify-content-between mb-4 align-items-center">
+                <div>
+                    <h3>🌿 Moita</h3>
+                    <p class="text-muted mb-0">Histórico de jovens que serviram no moita.</p>
+                </div>
+                <button class="btn btn-success" @click="abrirModalFuncao">➕ Criar Função</button>
+            </div>
+
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="mb-2">Funções de Moita</h6>
+                    <div v-if="!funcoes.length" class="text-muted small">Nenhuma função cadastrada.</div>
+                    <div v-else class="d-flex flex-wrap gap-2">
+                        <span class="badge bg-soft-success text-success d-inline-flex align-items-center gap-2 px-3 py-2"
+                            v-for="f in funcoes" :key="f.id">
+                            {{ f.nome }}
+                            <button class="btn btn-sm p-0 border-0 text-danger" @click="removerFuncao(f.id)" title="Remover função">×</button>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="mb-0">Lista de Reserva - Mulheres</h6>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-sm btn-outline-secondary" @click="abrirModalVisualizacao('MULHERES')"
+                                        title="Visualizar lista">
+                                        👁️
+                                    </button>
+                                    <button class="btn btn-sm btn-soft-primary" @click="abrirModalReserva('MULHERES')">➕ Adicionar</button>
+                                </div>
+                            </div>
+                            <div class="text-muted small">
+                                {{ reservasMulheres.length }} pessoa(s) na lista.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="mb-0">Lista de Reserva - Homens</h6>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-sm btn-outline-secondary" @click="abrirModalVisualizacao('HOMENS')"
+                                        title="Visualizar lista">
+                                        👁️
+                                    </button>
+                                    <button class="btn btn-sm btn-soft-primary" @click="abrirModalReserva('HOMENS')">➕ Adicionar</button>
+                                </div>
+                            </div>
+                            <div class="text-muted small">
+                                {{ reservasHomens.length }} pessoa(s) na lista.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="carregando" class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+            </div>
+
+            <div v-else class="card border-0 shadow-sm">
+                <div v-if="erroApi" class="card-body text-danger">
+                    {{ erroApi }}
+                </div>
+                <div v-else-if="!registros.length" class="card-body text-muted">
+                    Nenhum registro de moita encontrado.
+                </div>
+                <div v-else class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Nome Completo</th>
+                                <th>Telefone</th>
+                                <th>EJC de Origem</th>
+                                <th>Nº EJC</th>
+                                <th>Paróquia</th>
+                                <th>Função</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="r in registros" :key="r.id">
+                                <td>{{ r.nome_completo }}</td>
+                                <td>{{ r.telefone || '-' }}</td>
+                                <td>{{ formatarEjcOrigem(r) }}</td>
+                                <td>{{ r.ejc_numero ? (r.ejc_numero + 'º EJC') : '-' }}</td>
+                                <td>{{ r.paroquia || '-' }}</td>
+                                <td>{{ r.funcao_moita || '-' }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+
+        <div class="modal fade" id="modalFuncaoMoita" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title">➕ Criar Função de Moita</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <label class="form-label">Nome da função *</label>
+                        <input type="text" v-model="novaFuncao" class="form-control" placeholder="Ex: Patricinha">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-success" @click="salvarFuncao">Salvar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="modalReservaMoita" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title">Adicionar jovem na reserva de moita</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-2">
+                            <span class="badge bg-soft-info text-info">
+                                Lista: {{ listaReservaSelecionada === 'MULHERES' ? 'Mulheres' : 'Homens' }}
+                            </span>
+                        </div>
+                        <div class="position-relative">
+                            <label class="form-label text-muted small">Buscar jovem da Lista Mestre</label>
+                            <input type="text" class="form-control" v-model="searchQuery" @input="onSearchInput"
+                                placeholder="Digite o nome...">
+                            <div v-if="searchResults.length" class="busca-resultados">
+                                <div class="busca-item d-flex justify-content-between"
+                                    v-for="j in searchResults" :key="j.id" @click="adicionarReserva(j)">
+                                    <span>{{ j.nome_completo }}</span>
+                                    <span class="small text-muted">{{ resumoNascimento(j) }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="modalVisualizarReservaMoita" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header bg-info text-white">
+                        <h5 class="modal-title">👁️ {{ tituloVisualizacao }}</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div v-if="!reservasVisualizacao.length" class="text-muted">
+                            Nenhuma pessoa nesta lista.
+                        </div>
+                        <ul v-else class="list-group list-group-flush">
+                            <li class="list-group-item d-flex justify-content-between align-items-center"
+                                v-for="r in reservasVisualizacao" :key="`rv-${r.id}`">
+                                <div>
+                                    <div class="fw-semibold">{{ r.nome_completo }}</div>
+                                    <small class="text-muted">
+                                        {{ r.telefone || '-' }} • {{ resumoNascimento(r) }} • EJC de origem: {{ formatarEjcOrigem(r) }}
+                                    </small>
+                                </div>
+                                <button class="btn btn-sm btn-outline-danger" @click="removerReserva(r.id)">Remover</button>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            injetarMenu('#app');
+            ativarMenu('/moita');
+        });
+
+        const { createApp } = Vue;
+        createApp({
+            data() {
+                return {
+                    carregando: true,
+                    registros: [],
+                    erroApi: '',
+                    funcoes: [],
+                    novaFuncao: '',
+                    modalFuncao: null,
+                    reservasMulheres: [],
+                    reservasHomens: [],
+                    modalReserva: null,
+                    modalVisualizacao: null,
+                    listaVisualizacao: 'MULHERES',
+                    listaReservaSelecionada: 'MULHERES',
+                    searchQuery: '',
+                    searchResults: [],
+                    searchTimer: null
+                };
+            },
+            computed: {
+                reservasVisualizacao() {
+                    return this.listaVisualizacao === 'HOMENS' ? this.reservasHomens : this.reservasMulheres;
+                },
+                tituloVisualizacao() {
+                    return this.listaVisualizacao === 'HOMENS'
+                        ? 'Lista de Reserva - Homens'
+                        : 'Lista de Reserva - Mulheres';
+                }
+            },
+            methods: {
+                abrirModalFuncao() {
+                    this.novaFuncao = '';
+                    if (!this.modalFuncao) this.modalFuncao = new bootstrap.Modal(document.getElementById('modalFuncaoMoita'));
+                    this.modalFuncao.show();
+                },
+                async carregarFuncoes() {
+                    const res = await fetch('/api/moita/funcoes');
+                    this.funcoes = res.ok ? await res.json() : [];
+                },
+                async salvarFuncao() {
+                    if (!String(this.novaFuncao || '').trim()) {
+                        alert('Informe o nome da função.');
+                        return;
+                    }
+                    const res = await fetch('/api/moita/funcoes', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ nome: this.novaFuncao.trim() })
+                    });
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        alert(err.error || 'Erro ao criar função.');
+                        return;
+                    }
+                    if (this.modalFuncao) this.modalFuncao.hide();
+                    await this.carregarFuncoes();
+                },
+                async removerFuncao(id) {
+                    if (!confirm('Remover esta função?')) return;
+                    const res = await fetch(`/api/moita/funcoes/${id}`, { method: 'DELETE' });
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        alert(err.error || 'Erro ao remover função.');
+                        return;
+                    }
+                    await this.carregarFuncoes();
+                },
+                async carregarReservas() {
+                    const res = await fetch('/api/moita/reservas');
+                    if (!res.ok) {
+                        this.reservasMulheres = [];
+                        this.reservasHomens = [];
+                        return;
+                    }
+                    const data = await res.json();
+                    this.reservasMulheres = Array.isArray(data.mulheres) ? data.mulheres : [];
+                    this.reservasHomens = Array.isArray(data.homens) ? data.homens : [];
+                },
+                abrirModalReserva(lista) {
+                    this.listaReservaSelecionada = lista;
+                    this.searchQuery = '';
+                    this.searchResults = [];
+                    if (!this.modalReserva) this.modalReserva = new bootstrap.Modal(document.getElementById('modalReservaMoita'));
+                    this.modalReserva.show();
+                },
+                abrirModalVisualizacao(lista) {
+                    this.listaVisualizacao = lista;
+                    if (!this.modalVisualizacao) this.modalVisualizacao = new bootstrap.Modal(document.getElementById('modalVisualizarReservaMoita'));
+                    this.modalVisualizacao.show();
+                },
+                onSearchInput() {
+                    clearTimeout(this.searchTimer);
+                    if (!this.searchQuery || this.searchQuery.trim().length < 2) {
+                        this.searchResults = [];
+                        return;
+                    }
+                    this.searchTimer = setTimeout(() => this.executarBusca(), 250);
+                },
+                formatarData(dataIso) {
+                    if (!dataIso) return '-';
+                    const data = new Date(dataIso);
+                    if (Number.isNaN(data.getTime())) return '-';
+                    return data.toLocaleDateString('pt-BR');
+                },
+                calcularIdade(dataIso) {
+                    if (!dataIso) return null;
+                    const hoje = new Date();
+                    const nasc = new Date(dataIso);
+                    if (Number.isNaN(nasc.getTime())) return null;
+                    let idade = hoje.getFullYear() - nasc.getFullYear();
+                    const m = hoje.getMonth() - nasc.getMonth();
+                    if (m < 0 || (m === 0 && hoje.getDate() < nasc.getDate())) idade--;
+                    return idade >= 0 ? idade : null;
+                },
+                resumoNascimento(jovem) {
+                    const idade = this.calcularIdade(jovem?.data_nascimento);
+                    const aniversario = this.formatarData(jovem?.data_nascimento);
+                    if (idade === null && aniversario === '-') return 'Idade e aniversário não informados';
+                    if (idade === null) return `Aniversário: ${aniversario}`;
+                    return `${idade} anos • Aniversário: ${aniversario}`;
+                },
+                formatarEjcOrigem(item) {
+                    const numero = item?.ejc_origem_numero || item?.numero_ejc_fez;
+                    return numero ? `${numero}º EJC` : '-';
+                },
+                async executarBusca() {
+                    const res = await fetch(`/api/jovens/search?q=${encodeURIComponent(this.searchQuery)}`);
+                    if (!res.ok) {
+                        this.searchResults = [];
+                        return;
+                    }
+                    const rows = await res.json();
+                    this.searchResults = rows.filter(j => {
+                        if (!j.sexo) return true;
+                        if (this.listaReservaSelecionada === 'MULHERES') return j.sexo === 'Feminino';
+                        return j.sexo === 'Masculino';
+                    });
+                },
+                async adicionarReserva(jovem) {
+                    const res = await fetch('/api/moita/reservas', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ jovem_id: jovem.id, lista: this.listaReservaSelecionada })
+                    });
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        alert(err.error || 'Erro ao adicionar jovem na reserva.');
+                        return;
+                    }
+                    this.searchQuery = '';
+                    this.searchResults = [];
+                    await this.carregarReservas();
+                },
+                async removerReserva(id) {
+                    if (!confirm('Remover jovem da lista de reserva?')) return;
+                    const res = await fetch(`/api/moita/reservas/${id}`, { method: 'DELETE' });
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        alert(err.error || 'Erro ao remover da reserva.');
+                        return;
+                    }
+                    await this.carregarReservas();
+                },
+                async carregarRegistros() {
+                    this.carregando = true;
+                    this.erroApi = '';
+                    try {
+                        let res = await fetch('/api/moita/registros');
+                        if (!res.ok) {
+                            res = await fetch('/api/lista-mestre/moita/registros');
+                        }
+                        if (!res.ok) {
+                            const err = await res.json().catch(() => ({}));
+                            this.erroApi = err.error || 'Não foi possível carregar os registros de moita.';
+                            this.registros = [];
+                            return;
+                        }
+                        this.registros = await res.json();
+                    } finally {
+                        this.carregando = false;
+                    }
+                }
+            },
+            mounted() {
+                this.carregarFuncoes();
+                this.carregarReservas();
+                this.carregarRegistros();
+            }
+        }).mount('#app');
+    </script>
+</body>
+
+</html>

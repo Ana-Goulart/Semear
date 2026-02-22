@@ -20,6 +20,129 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
+let hasSubfuncaoColumnCache = null;
+let hasHistoricoCreatedAtColumnCache = null;
+let hasEhMusicoColumnCache = null;
+let hasInstrumentosMusicaisColumnCache = null;
+let hasSexoColumnCache = null;
+async function hasSubfuncaoColumn() {
+    if (hasSubfuncaoColumnCache !== null) return hasSubfuncaoColumnCache;
+    const [rows] = await pool.query(`
+        SELECT COUNT(*) as cnt
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'historico_equipes'
+          AND COLUMN_NAME = 'subfuncao'
+    `);
+    hasSubfuncaoColumnCache = !!(rows && rows[0] && rows[0].cnt > 0);
+    return hasSubfuncaoColumnCache;
+}
+
+async function hasHistoricoCreatedAtColumn() {
+    if (hasHistoricoCreatedAtColumnCache !== null) return hasHistoricoCreatedAtColumnCache;
+    const [rows] = await pool.query(`
+        SELECT COUNT(*) as cnt
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'historico_equipes'
+          AND COLUMN_NAME = 'created_at'
+    `);
+    hasHistoricoCreatedAtColumnCache = !!(rows && rows[0] && rows[0].cnt > 0);
+    return hasHistoricoCreatedAtColumnCache;
+}
+
+async function hasEhMusicoColumn() {
+    if (hasEhMusicoColumnCache !== null) return hasEhMusicoColumnCache;
+    const [rows] = await pool.query(`
+        SELECT COUNT(*) as cnt
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'jovens'
+          AND COLUMN_NAME = 'eh_musico'
+    `);
+    hasEhMusicoColumnCache = !!(rows && rows[0] && rows[0].cnt > 0);
+    return hasEhMusicoColumnCache;
+}
+
+async function hasInstrumentosMusicaisColumn() {
+    if (hasInstrumentosMusicaisColumnCache !== null) return hasInstrumentosMusicaisColumnCache;
+    const [rows] = await pool.query(`
+        SELECT COUNT(*) as cnt
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'jovens'
+          AND COLUMN_NAME = 'instrumentos_musicais'
+    `);
+    hasInstrumentosMusicaisColumnCache = !!(rows && rows[0] && rows[0].cnt > 0);
+    return hasInstrumentosMusicaisColumnCache;
+}
+
+async function hasSexoColumn() {
+    if (hasSexoColumnCache !== null) return hasSexoColumnCache;
+
+    const [rows] = await pool.query(`
+        SELECT COUNT(*) as cnt
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'jovens'
+          AND COLUMN_NAME = 'sexo'
+    `);
+    const existe = !!(rows && rows[0] && rows[0].cnt > 0);
+    if (existe) {
+        hasSexoColumnCache = true;
+        return true;
+    }
+
+    try {
+        await pool.query("ALTER TABLE jovens ADD COLUMN sexo ENUM('Feminino','Masculino') NULL");
+    } catch (e) { }
+
+    const [rows2] = await pool.query(`
+        SELECT COUNT(*) as cnt
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'jovens'
+          AND COLUMN_NAME = 'sexo'
+    `);
+    hasSexoColumnCache = !!(rows2 && rows2[0] && rows2[0].cnt > 0);
+    return hasSexoColumnCache;
+}
+
+async function hasColumn(tableName, columnName) {
+    const [rows] = await pool.query(`
+        SELECT COUNT(*) as cnt
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = ?
+          AND COLUMN_NAME = ?
+    `, [tableName, columnName]);
+    return !!(rows && rows[0] && rows[0].cnt > 0);
+}
+
+function serializarInstrumentos(value, ehMusico) {
+    if (!ehMusico) return null;
+    let lista = [];
+    if (Array.isArray(value)) {
+        lista = value.map(v => String(v || '').trim()).filter(Boolean);
+    } else if (typeof value === 'string') {
+        const texto = value.trim();
+        if (texto) {
+            try {
+                const parsed = JSON.parse(texto);
+                if (Array.isArray(parsed)) {
+                    lista = parsed.map(v => String(v || '').trim()).filter(Boolean);
+                } else {
+                    lista = texto.split(',').map(v => v.trim()).filter(Boolean);
+                }
+            } catch (e) {
+                lista = texto.split(',').map(v => v.trim()).filter(Boolean);
+            }
+        }
+    }
+    if (!lista.length) return null;
+    return JSON.stringify(lista);
+}
+
 
 // GET - Listar todos (API principal da Lista Mestre)
 router.get('/', async (req, res) => {
@@ -43,7 +166,7 @@ router.get('/search', async (req, res) => {
     if (!q) return res.json([]);
     try {
         const like = `%${q}%`;
-        const [rows] = await pool.query(`SELECT id, nome_completo, circulo, telefone, numero_ejc_fez FROM jovens WHERE nome_completo LIKE ? ORDER BY nome_completo LIMIT 20`, [like]);
+        const [rows] = await pool.query(`SELECT id, nome_completo, circulo, telefone, numero_ejc_fez, sexo, data_nascimento FROM jovens WHERE nome_completo LIKE ? ORDER BY nome_completo LIMIT 20`, [like]);
         res.json(rows);
     } catch (err) {
         console.error('Erro na busca de jovens:', err);
@@ -51,11 +174,50 @@ router.get('/search', async (req, res) => {
     }
 });
 
+// GET - Registros de moita (para menu Moita)
+router.get('/moita/registros', async (req, res) => {
+    try {
+        const comParoquiaCol = await hasColumn('jovens_comissoes', 'paroquia');
+        const comFuncaoCol = await hasColumn('jovens_comissoes', 'funcao_garcom');
+        const selectParoquia = comParoquiaCol
+            ? 'COALESCE(oe.paroquia, jc.paroquia) AS paroquia'
+            : 'oe.paroquia AS paroquia';
+        const selectFuncao = comFuncaoCol
+            ? "COALESCE(jc.funcao_garcom, '-') AS funcao_moita"
+            : "'-' AS funcao_moita";
+
+        const [rows] = await pool.query(`
+            SELECT 
+                jc.id,
+                jc.jovem_id,
+                j.nome_completo,
+                j.telefone,
+                j.numero_ejc_fez,
+                eorig.numero AS ejc_origem_numero,
+                jc.ejc_numero,
+                ${selectParoquia},
+                ${selectFuncao}
+            FROM jovens_comissoes jc
+            JOIN jovens j ON j.id = jc.jovem_id
+            LEFT JOIN ejc eorig ON eorig.id = j.numero_ejc_fez
+            LEFT JOIN outros_ejcs oe ON oe.id = jc.outro_ejc_id
+            WHERE jc.tipo = 'MOITA_OUTRO'
+            ORDER BY jc.id DESC
+        `);
+        res.json(rows);
+    } catch (err) {
+        console.error("Erro ao listar registros de moita:", err);
+        res.status(500).json({ error: "Erro ao listar registros de moita" });
+    }
+});
+
 // GET - Relatório completo de histórico para exportação
 router.get('/relatorio/historico-completo', async (req, res) => {
     try {
+        const comSubfuncao = await hasSubfuncaoColumn();
+        const subfuncaoSelect = comSubfuncao ? 'he.subfuncao' : 'NULL as subfuncao';
         const [rows] = await pool.query(`
-            SELECT he.jovem_id, he.equipe, he.papel, e.numero as numero_ejc, e.id as ejc_id
+            SELECT he.jovem_id, he.equipe, he.papel, ${subfuncaoSelect}, e.numero as numero_ejc, e.id as ejc_id
             FROM historico_equipes he
             JOIN ejc e ON he.ejc_id = e.id
             ORDER BY he.jovem_id, e.numero
@@ -100,29 +262,64 @@ router.post('/', async (req, res) => {
     }
 
     try {
-        const { nome_completo, telefone, data_nascimento, numero_ejc_fez, instagram, estado_civil, data_casamento, circulo, deficiencia, qual_deficiencia, restricao_alimentar, detalhes_restricao } = req.body;
+        const { nome_completo, telefone, data_nascimento, numero_ejc_fez, instagram, estado_civil, data_casamento, circulo, deficiencia, qual_deficiencia, restricao_alimentar, detalhes_restricao, sexo } = req.body;
 
         if (!nome_completo || !telefone) {
             return res.status(400).json({ error: "Nome completo e telefone são obrigatórios" });
         }
 
+        const comEhMusico = await hasEhMusicoColumn();
+        const comInstrumentos = await hasInstrumentosMusicaisColumn();
+        const comSexo = await hasSexoColumn();
+        const ehMusico = !!req.body.eh_musico;
+
+        const campos = [
+            'nome_completo',
+            'telefone',
+            'data_nascimento',
+            'numero_ejc_fez',
+            'instagram',
+            'estado_civil',
+            'data_casamento',
+            'circulo',
+            'deficiencia',
+            'qual_deficiencia',
+            'restricao_alimentar',
+            'detalhes_restricao'
+        ];
+        const valores = [
+            nome_completo,
+            telefone,
+            normalizeDate(data_nascimento),
+            numero_ejc_fez || null,
+            instagram || null,
+            estado_civil || 'Solteiro',
+            normalizeDate(data_casamento),
+            circulo || null,
+            deficiencia ? 1 : 0,
+            qual_deficiencia || null,
+            restricao_alimentar ? 1 : 0,
+            detalhes_restricao || null
+        ];
+
+        if (comSexo) {
+            campos.push('sexo');
+            valores.push((sexo === 'Feminino' || sexo === 'Masculino') ? sexo : null);
+        }
+
+        if (comEhMusico) {
+            campos.push('eh_musico');
+            valores.push(ehMusico ? 1 : 0);
+        }
+        if (comInstrumentos) {
+            campos.push('instrumentos_musicais');
+            valores.push(serializarInstrumentos(req.body.instrumentos_musicais, ehMusico));
+        }
+
+        const placeholders = campos.map(() => '?').join(', ');
         const [result] = await pool.query(
-            `INSERT INTO jovens (nome_completo, telefone, data_nascimento, numero_ejc_fez, instagram, estado_civil, data_casamento, circulo, deficiencia, qual_deficiencia, restricao_alimentar, detalhes_restricao) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                nome_completo,
-                telefone,
-                normalizeDate(data_nascimento),
-                numero_ejc_fez || null,
-                instagram || null,
-                estado_civil || 'Solteiro',
-                normalizeDate(data_casamento),
-                circulo || null,
-                deficiencia ? 1 : 0,
-                qual_deficiencia || null,
-                restricao_alimentar ? 1 : 0,
-                detalhes_restricao || null
-            ]
+            `INSERT INTO jovens (${campos.join(', ')}) VALUES (${placeholders})`,
+            valores
         );
 
         res.json({ id: result.insertId, message: "Jovem criado com sucesso" });
@@ -159,6 +356,7 @@ router.put('/:id', async (req, res) => {
         const merged = {
             nome_completo: req.body.nome_completo !== undefined ? req.body.nome_completo : atual.nome_completo,
             telefone: req.body.telefone !== undefined ? req.body.telefone : atual.telefone,
+            sexo: req.body.sexo !== undefined ? req.body.sexo : atual.sexo,
             data_nascimento: req.body.data_nascimento !== undefined ? normalizeDate(req.body.data_nascimento) : (atual.data_nascimento ? normalizeDate(atual.data_nascimento) : null),
             numero_ejc_fez: req.body.numero_ejc_fez !== undefined ? req.body.numero_ejc_fez : atual.numero_ejc_fez,
             instagram: req.body.instagram !== undefined ? req.body.instagram : (atual.instagram === undefined ? null : atual.instagram),
@@ -175,8 +373,14 @@ router.put('/:id', async (req, res) => {
             conjuge_ejc_id: req.body.conjuge_ejc_id !== undefined ? req.body.conjuge_ejc_id : atual.conjuge_ejc_id,
             conjuge_outro_ejc_id: req.body.conjuge_outro_ejc_id !== undefined ? req.body.conjuge_outro_ejc_id : atual.conjuge_outro_ejc_id,
             conjuge_paroquia: req.body.conjuge_paroquia !== undefined ? req.body.conjuge_paroquia : atual.conjuge_paroquia,
+            eh_musico: req.body.eh_musico !== undefined ? (req.body.eh_musico ? 1 : 0) : (atual.eh_musico ? 1 : 0),
+            instrumentos_musicais: req.body.instrumentos_musicais !== undefined ? req.body.instrumentos_musicais : atual.instrumentos_musicais,
             observacoes_extras: req.body.observacoes_extras !== undefined ? req.body.observacoes_extras : atual.observacoes_extras
         };
+
+        if (!merged.eh_musico) {
+            merged.instrumentos_musicais = [];
+        }
 
         let resolvedConjugeId = merged.conjuge_id || null;
         if (!resolvedConjugeId && merged.conjuge_nome) {
@@ -199,12 +403,27 @@ router.put('/:id', async (req, res) => {
             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'jovens' AND COLUMN_NAME = 'conjuge_paroquia'
         `);
         const hasConjugeParoquia = (colCheck && colCheck[0] && colCheck[0].cnt > 0) || false;
+        const hasEhMusico = await hasEhMusicoColumn();
+        const hasInstrumentosMusicais = await hasInstrumentosMusicaisColumn();
+        const hasSexo = await hasSexoColumn();
 
         let updateFields = `nome_completo=?, telefone=?, data_nascimento=?, numero_ejc_fez=?, instagram=?, estado_civil=?, data_casamento=?, circulo=?, deficiencia=?, qual_deficiencia=?, restricao_alimentar=?, detalhes_restricao=?, conjuge_id=?, conjuge_nome=?, conjuge_telefone=?, conjuge_ejc_id=?, conjuge_outro_ejc_id=?, observacoes_extras=?`;
         const params = [merged.nome_completo, merged.telefone, merged.data_nascimento, merged.numero_ejc_fez, merged.instagram, merged.estado_civil, merged.data_casamento, merged.circulo, merged.deficiencia, merged.qual_deficiencia, merged.restricao_alimentar, merged.detalhes_restricao, merged.conjuge_id || null, merged.conjuge_nome || null, merged.conjuge_telefone || null, merged.conjuge_ejc_id || null, merged.conjuge_outro_ejc_id || null, merged.observacoes_extras || null];
+        if (hasSexo) {
+            updateFields += ', sexo=?';
+            params.push((merged.sexo === 'Feminino' || merged.sexo === 'Masculino') ? merged.sexo : null);
+        }
         if (hasConjugeParoquia) {
             updateFields += ', conjuge_paroquia=?';
             params.push(merged.conjuge_paroquia || null);
+        }
+        if (hasEhMusico) {
+            updateFields += ', eh_musico=?';
+            params.push(merged.eh_musico ? 1 : 0);
+        }
+        if (hasInstrumentosMusicais) {
+            updateFields += ', instrumentos_musicais=?';
+            params.push(serializarInstrumentos(merged.instrumentos_musicais, merged.eh_musico));
         }
         params.push(id);
 
@@ -217,6 +436,17 @@ router.put('/:id', async (req, res) => {
         if (previousConjugeId && previousConjugeId !== newConjugeId) {
             let clearFields = 'conjuge_id=NULL, conjuge_nome=NULL, conjuge_telefone=NULL, conjuge_ejc_id=NULL, conjuge_outro_ejc_id=NULL';
             if (hasConjugeParoquia) clearFields += ', conjuge_paroquia=NULL';
+            if (!newConjugeId) {
+                const [vinculoAtual] = await pool.query(
+                    'SELECT conjuge_id FROM jovens WHERE id = ?',
+                    [previousConjugeId]
+                );
+                const estavaVinculadoComEsteJovem = vinculoAtual && vinculoAtual[0]
+                    && Number(vinculoAtual[0].conjuge_id) === Number(id);
+                if (estavaVinculadoComEsteJovem) {
+                    clearFields += ", estado_civil='Solteiro', data_casamento=NULL";
+                }
+            }
             await pool.query(`UPDATE jovens SET ${clearFields} WHERE id = ?`, [previousConjugeId]);
         }
 
@@ -227,8 +457,9 @@ router.put('/:id', async (req, res) => {
                     const parceiro = sp[0];
                     const parceiroEstado = parceiro.estado_civil;
                     const parceiroDataCasamento = parceiro.data_casamento;
-                    const shouldSetCasado = parceiroEstado === 'Solteiro';
-                    const finalEstado = shouldSetCasado ? 'Casado' : parceiroEstado;
+                    const shouldAtualizarEstadoParceiro = parceiroEstado === 'Solteiro';
+                    const estadoRelacaoAtual = (merged.estado_civil === 'Amasiado') ? 'Amasiado' : 'Casado';
+                    const finalEstado = shouldAtualizarEstadoParceiro ? estadoRelacaoAtual : parceiroEstado;
                     const finalDataCasamento = merged.data_casamento || parceiroDataCasamento || null;
 
                     await pool.query(
@@ -345,6 +576,7 @@ router.post('/importacao', async (req, res) => {
     const connection = await pool.getConnection();
 
     try {
+        const comSubfuncao = await hasSubfuncaoColumn();
         for (const item of dados) {
             try {
                 const j = item.jovem;
@@ -387,16 +619,29 @@ router.post('/importacao', async (req, res) => {
 
                 if (item.historico && item.historico.length > 0) {
                     for (const hist of item.historico) {
+                        const papelHist = hist.papel || 'Membro';
+                        const subfuncaoHist = hist.subfuncao || null;
                         const [histExists] = await connection.query(
-                            'SELECT id FROM historico_equipes WHERE jovem_id = ? AND ejc_id = ? AND equipe = ?',
-                            [jovemId, hist.ejc_id, hist.equipe]
+                            comSubfuncao
+                                ? 'SELECT id FROM historico_equipes WHERE jovem_id = ? AND ejc_id = ? AND equipe = ? AND papel = ? AND (subfuncao <=> ?)'
+                                : 'SELECT id FROM historico_equipes WHERE jovem_id = ? AND ejc_id = ? AND equipe = ? AND papel = ?',
+                            comSubfuncao
+                                ? [jovemId, hist.ejc_id, hist.equipe, papelHist, subfuncaoHist]
+                                : [jovemId, hist.ejc_id, hist.equipe, papelHist]
                         );
 
                         if (histExists.length === 0) {
-                            await connection.query(
-                                'INSERT INTO historico_equipes (jovem_id, equipe, ejc_id, papel) VALUES (?, ?, ?, ?)',
-                                [jovemId, hist.equipe, hist.ejc_id, hist.papel || 'Membro']
-                            );
+                            if (comSubfuncao) {
+                                await connection.query(
+                                    'INSERT INTO historico_equipes (jovem_id, equipe, ejc_id, papel, subfuncao) VALUES (?, ?, ?, ?, ?)',
+                                    [jovemId, hist.equipe, hist.ejc_id, papelHist, subfuncaoHist]
+                                );
+                            } else {
+                                await connection.query(
+                                    'INSERT INTO historico_equipes (jovem_id, equipe, ejc_id, papel) VALUES (?, ?, ?, ?)',
+                                    [jovemId, hist.equipe, hist.ejc_id, papelHist]
+                                );
+                            }
                         }
                     }
                 }
@@ -418,15 +663,54 @@ router.post('/importacao', async (req, res) => {
 // GET - Histórico de equipes de um jovem
 router.get('/historico/:jovemId', async (req, res) => {
     try {
+        const comCreatedAt = await hasHistoricoCreatedAtColumn();
+        const orderBy = comCreatedAt ? 'he.created_at DESC' : 'he.id DESC';
         const [rows] = await pool.query(`
-            SELECT he.*, eq.nome as nome_equipe, e.numero as numero_ejc, e.paroquia as paroquia_ejc
+            SELECT 
+                he.*, 
+                COALESCE(e.numero, he.edicao_ejc) as display_ejc,
+                e.paroquia as paroquia_ejc
             FROM historico_equipes he 
-            LEFT JOIN equipes eq ON he.equipe = eq.nome 
             LEFT JOIN ejc e ON he.ejc_id = e.id
             WHERE he.jovem_id = ?
-            ORDER BY e.numero DESC
+            ORDER BY ${orderBy}
         `, [req.params.jovemId]);
-        res.json(rows);
+
+        const [montagensRows] = await pool.query(`
+            SELECT numero_ejc, COALESCE(data_fim, data_encontro) AS data_limite
+            FROM montagens
+        `);
+        const limitePorNumero = new Map();
+        for (const m of montagensRows || []) {
+            if (!m || m.numero_ejc === null || m.numero_ejc === undefined) continue;
+            const numero = Number(m.numero_ejc);
+            if (!Number.isFinite(numero)) continue;
+            const limite = m.data_limite ? String(m.data_limite).split('T')[0] : null;
+            if (!limite) continue;
+            const atual = limitePorNumero.get(numero);
+            if (!atual || limite > atual) limitePorNumero.set(numero, limite);
+        }
+
+        const hoje = new Date();
+        const hojeIso = new Date(Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()))
+            .toISOString()
+            .split('T')[0];
+
+        const normalizados = rows.map((r) => {
+            const item = { ...r };
+            const texto = item.display_ejc == null ? '' : String(item.display_ejc).trim();
+            const m = texto.match(/^(\d+)\s*[ºo°]?\s*EJC\s*\(Montagem\)\s*$/i);
+            if (!m) return item;
+
+            const numero = Number(m[1]);
+            const limite = limitePorNumero.get(numero);
+            if (!limite || limite >= hojeIso) return item;
+
+            item.display_ejc = `${numero}º EJC`;
+            return item;
+        });
+
+        res.json(normalizados);
     } catch (err) {
         console.error("Erro ao buscar histórico:", err);
         res.status(500).json({ error: "Erro no servidor" });
@@ -435,17 +719,23 @@ router.get('/historico/:jovemId', async (req, res) => {
 
 // POST - Adicionar histórico manualmente
 router.post('/historico', async (req, res) => {
-    const { jovem_id, equipe_nome, ejc_id, papel } = req.body;
+    const { jovem_id, equipe_nome, ejc_id, papel, subfuncao } = req.body;
 
     if (!jovem_id || !equipe_nome || !ejc_id) {
         return res.status(400).json({ error: "Jovem, Equipe e EJC são obrigatórios" });
     }
 
     try {
-        const [result] = await pool.query(
-            'INSERT INTO historico_equipes (jovem_id, equipe, ejc_id, papel) VALUES (?, ?, ?, ?)',
-            [jovem_id, equipe_nome, ejc_id, papel || 'Membro']
-        );
+        const comSubfuncao = await hasSubfuncaoColumn();
+        const [result] = comSubfuncao
+            ? await pool.query(
+                'INSERT INTO historico_equipes (jovem_id, equipe, ejc_id, papel, subfuncao) VALUES (?, ?, ?, ?, ?)',
+                [jovem_id, equipe_nome, ejc_id, papel || 'Membro', subfuncao || null]
+            )
+            : await pool.query(
+                'INSERT INTO historico_equipes (jovem_id, equipe, ejc_id, papel) VALUES (?, ?, ?, ?)',
+                [jovem_id, equipe_nome, ejc_id, papel || 'Membro']
+            );
         res.json({ id: result.insertId, message: "Equipe adicionada ao histórico com sucesso" });
     } catch (err) {
         console.error("Erro ao adicionar histórico:", err);
@@ -473,13 +763,55 @@ router.delete('/historico/:id', async (req, res) => {
 router.get('/comissoes/:jovemId', async (req, res) => {
     try {
         const [rows] = await pool.query(`
-            SELECT jc.*, oe.nome as outro_ejc_nome, oe.paroquia as outro_ejc_paroquia 
+            SELECT 
+                jc.*,
+                oe.nome as outro_ejc_nome,
+                oe.paroquia as outro_ejc_paroquia,
+                c.periodo AS coordenacao_periodo,
+                c.pasta_id AS coordenacao_pasta_id,
+                p.nome AS coordenacao_pasta_nome,
+                p.parent_id AS coordenacao_pasta_parent_id
             FROM jovens_comissoes jc 
-            LEFT JOIN outros_ejcs oe ON jc.outro_ejc_id = oe.id 
+            LEFT JOIN outros_ejcs oe ON jc.outro_ejc_id = oe.id
+            LEFT JOIN coordenacoes_membros cm ON cm.comissao_id = jc.id
+            LEFT JOIN coordenacoes c ON c.id = cm.coordenacao_id
+            LEFT JOIN coordenacoes_pastas p ON p.id = c.pasta_id
             WHERE jc.jovem_id = ? 
             ORDER BY jc.id DESC
         `, [req.params.jovemId]);
-        res.json(rows);
+
+        const idsPasta = [...new Set(
+            (rows || [])
+                .map(r => Number(r.coordenacao_pasta_id))
+                .filter(v => Number.isFinite(v) && v > 0)
+        )];
+
+        let pastasMap = new Map();
+        if (idsPasta.length) {
+            const [pastas] = await pool.query('SELECT id, nome, parent_id FROM coordenacoes_pastas');
+            pastasMap = new Map((pastas || []).map(p => [Number(p.id), p]));
+        }
+
+        const montarCaminho = (pastaId) => {
+            if (!pastaId || !pastasMap.size) return null;
+            const nomes = [];
+            const visitados = new Set();
+            let atual = pastasMap.get(Number(pastaId));
+            while (atual && !visitados.has(Number(atual.id))) {
+                nomes.unshift(String(atual.nome || '').trim());
+                visitados.add(Number(atual.id));
+                const parentId = atual.parent_id ? Number(atual.parent_id) : null;
+                atual = parentId ? pastasMap.get(parentId) : null;
+            }
+            return nomes.filter(Boolean).join(' / ') || null;
+        };
+
+        const normalizados = (rows || []).map(r => ({
+            ...r,
+            coordenacao_pasta_caminho: montarCaminho(r.coordenacao_pasta_id)
+        }));
+
+        res.json(normalizados);
     } catch (err) {
         console.error("Erro ao buscar comissões:", err);
         res.status(500).json({ error: "Erro ao buscar comissões" });
@@ -510,6 +842,18 @@ router.post('/comissoes', async (req, res) => {
 // DELETE - Remover comissão
 router.delete('/comissoes/:id', async (req, res) => {
     try {
+        const [[item]] = await pool.query(
+            'SELECT id, tipo FROM jovens_comissoes WHERE id = ? LIMIT 1',
+            [req.params.id]
+        );
+        if (!item) return res.status(404).json({ error: "Item não encontrado" });
+        if (item.tipo === 'COORDENACAO') {
+            return res.status(403).json({ error: "Itens de coordenação devem ser gerenciados na tela Cordenadores." });
+        }
+        if (item.tipo === 'GARCOM_EQUIPE') {
+            return res.status(403).json({ error: "Itens de equipe de garçom devem ser gerenciados na tela Garçons." });
+        }
+
         await pool.query('DELETE FROM jovens_comissoes WHERE id = ?', [req.params.id]);
         res.json({ message: "Histórico removido" });
     } catch (err) {

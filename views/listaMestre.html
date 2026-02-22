@@ -268,6 +268,17 @@
                                         <input v-else type="text" v-model="jovemEditando.telefone" class="form-control">
                                     </div>
                                     <div class="col-md-4">
+                                        <label class="text-muted small mb-0">Sexo</label>
+                                        <div v-if="!isEditing" class="py-1 px-2 bg-light border rounded">
+                                            {{ jovemEditando.sexo || 'Não informado' }}
+                                        </div>
+                                        <select v-else v-model="jovemEditando.sexo" class="form-select">
+                                            <option value="">(Não informado)</option>
+                                            <option value="Feminino">Feminino</option>
+                                            <option value="Masculino">Masculino</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
                                         <label class="text-muted small mb-0">Idade</label>
                                         <div class="py-1 px-2 bg-light border rounded">{{
                                             calcularIdade(jovemEditando.data_nascimento) }} anos</div>
@@ -455,6 +466,35 @@
                                         </div>
                                     </div>
 
+                                    <div class="col-md-12 mt-2">
+                                        <label class="text-muted small mb-0">É músico?</label>
+                                        <div v-if="!isEditing" class="py-1 px-2 bg-light border rounded">
+                                            {{ jovemEditando.eh_musico ? 'Sim' : 'Não' }}
+                                            <span v-if="jovemEditando.eh_musico && normalizarInstrumentos(jovemEditando.instrumentos_musicais).length">
+                                                - {{ normalizarInstrumentos(jovemEditando.instrumentos_musicais).join(', ') }}
+                                            </span>
+                                        </div>
+                                        <div v-else>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox"
+                                                    v-model="jovemEditando.eh_musico" :true-value="1" :false-value="0"
+                                                    id="checkMusicoEdicao" @change="onMusicoToggleEdicao">
+                                                <label class="form-check-label" for="checkMusicoEdicao">Sim, é músico</label>
+                                            </div>
+                                            <div v-if="jovemEditando.eh_musico" class="mt-2 border rounded p-2 bg-light">
+                                                <small class="text-muted d-block mb-1">Selecione os instrumentos (pode marcar mais de um):</small>
+                                                <div class="d-flex flex-wrap gap-2">
+                                                    <div v-for="ins in instrumentosDisponiveis" :key="`ed-${ins}`" class="form-check">
+                                                        <input class="form-check-input" type="checkbox"
+                                                            :id="`ins-ed-${ins}`" :value="ins"
+                                                            v-model="jovemEditando.instrumentos_musicais">
+                                                        <label class="form-check-label small" :for="`ins-ed-${ins}`">{{ ins }}</label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
 
                                 </div> <!-- row g-1 interno -->
                             </div> <!-- conteudo principal -->
@@ -470,9 +510,11 @@
                                         <ul v-else class="list-group list-group-flush">
                                             <li v-for="h in jovemHistoricoEquipes" :key="h.id"
                                                 class="list-group-item py-1 px-2 small">
-                                                <strong>{{ numeroParaRomano(h.numero_ejc) }} EJC</strong>:
+                                                <strong>{{ formatarDisplayEJC(h.display_ejc) }}</strong>:
                                                 {{ h.nome_equipe || h.equipe }}
                                                 <span class="badge bg-secondary ms-1">{{ h.papel }}</span>
+                                                <span v-if="h.subfuncao"
+                                                    class="badge bg-soft-info text-info ms-1">{{ h.subfuncao }}</span>
                                                 <button v-if="isEditing"
                                                     class="btn btn-link btn-sm text-danger p-0 ms-2"
                                                     @click="removerEquipeHistorico(h.id)">🗑️</button>
@@ -483,7 +525,8 @@
                                             <small class="text-muted d-block mb-1">Adicionar Equipe:</small>
                                             <div class="d-flex gap-1">
                                                 <select v-model="novaEquipeHistorico.equipe_id"
-                                                    class="form-select form-select-sm">
+                                                    class="form-select form-select-sm"
+                                                    @change="onEquipeHistoricoChange">
                                                     <option value="">Equipe...</option>
                                                     <option v-for="eq in todasEquipes" :value="eq.id">{{ eq.nome }}
                                                     </option>
@@ -495,10 +538,19 @@
                                                         numeroParaRomano(e.numero) }}</option>
                                                 </select>
                                                 <select v-model="novaEquipeHistorico.papel"
-                                                    class="form-select form-select-sm" style="width: 100px;">
-                                                    <option value="Membro">Membro</option>
-                                                    <option value="Tio">Tio</option>
-                                                    <option value="Coordenador">Coord.</option>
+                                                    class="form-select form-select-sm" style="width: 100px;"
+                                                    @change="onPapelHistoricoChange">
+                                                    <option v-for="p in papeisEquipeDisponiveis" :key="`papel-hist-${p.id}`"
+                                                        :value="p.nome">{{ p.nome }}</option>
+                                                </select>
+                                                <select v-model="novaEquipeHistorico.subfuncao"
+                                                    class="form-select form-select-sm" style="max-width: 220px;"
+                                                    :disabled="!novaEquipeHistorico.equipe_id">
+                                                    <option value="">Subfunção...</option>
+                                                    <option v-for="f in subfuncoesHistoricoDisponiveis" :key="f.id"
+                                                        :value="f.nome">
+                                                        {{ f.nome }}
+                                                    </option>
                                                 </select>
                                                 <button class="btn btn-success btn-sm" @click="adicionarEquipeHistorico"
                                                     :disabled="!novaEquipeHistorico.equipe_id || !novaEquipeHistorico.ejc_id">➕</button>
@@ -588,8 +640,25 @@
                                                     <h6 class="mb-1 text-primary">{{ formatarTipoComissao(com.tipo)
                                                         }}</h6>
                                                     <p class="mb-1 small text-muted">
+                                                        <span v-if="com.tipo === 'COORDENACAO'">
+                                                            Coordenação: <strong>{{ com.coordenacao_pasta_caminho || com.coordenacao_pasta_nome || com.coordenacao_nome || '-' }}</strong>
+                                                            <span v-if="com.coordenacao_periodo || com.semestre"> • Período: {{ com.coordenacao_periodo || com.semestre }}</span>
+                                                        </span>
+                                                        <span v-else-if="com.tipo === 'GARCOM_EQUIPE'">
+                                                            Garçom:
+                                                            <strong>
+                                                                {{ com.ejc_numero ? (com.ejc_numero + 'º EJC') : 'EJC não informado' }}
+                                                                <span v-if="com.outro_ejc_nome"> - {{ com.outro_ejc_nome }}</span>
+                                                                <span v-if="com.outro_ejc_paroquia"> - {{ com.outro_ejc_paroquia }}</span>
+                                                            </strong>
+                                                            <span v-if="com.funcao_garcom"> • Papel: {{ com.funcao_garcom }}</span>
+                                                            <br v-if="com.data_inicio || com.data_fim">
+                                                            <small v-if="com.data_inicio || com.data_fim">
+                                                                Período: {{ formatarData(com.data_inicio) || '--/--/----' }} a {{ formatarData(com.data_fim) || 'Atual' }}
+                                                            </small>
+                                                        </span>
                                                         <span
-                                                            v-if="com.tipo.includes('COORD') || com.tipo === 'DIRIGENTE'">
+                                                            v-else-if="com.tipo.includes('COORD') || com.tipo === 'DIRIGENTE'">
                                                             Semestre: {{ com.semestre }}
                                                             <span v-if="com.circulo">({{ com.circulo }})</span>
                                                         </span>
@@ -599,7 +668,8 @@
                                                                 com.outro_ejc_paroquia || '-' }}
                                                             </template>
                                                             <template v-else>
-                                                                {{ com.ejc_numero ? com.ejc_numero + 'º EJC' : '' }}
+                                                                {{ com.ejc_numero ? (numeroParaRomano(com.ejc_numero) +
+                                                                'º EJC') : '' }}
                                                                 {{ com.paroquia ? '- ' + com.paroquia : '' }}
                                                             </template>
                                                             <span v-if="com.funcao_garcom">({{ com.funcao_garcom
@@ -614,7 +684,7 @@
                                                         com.observacao
                                                         }}</small>
                                                 </div>
-                                                <button class="btn btn-sm btn-outline-danger border-0"
+                                                <button v-if="!['COORDENACAO', 'GARCOM_EQUIPE'].includes(com.tipo)" class="btn btn-sm btn-outline-danger border-0"
                                                     @click="removerComissao(com.id)">🗑️</button>
                                             </div>
                                         </div>
@@ -625,108 +695,11 @@
                                     </div>
                                 </div>
 
-                                <!-- FORMULÁRIO DE ADIÇÃO -->
+                                <!-- AÇÃO DE ADIÇÃO -->
                                 <div class="col-12">
-                                    <div class="card bg-light border-0">
-                                        <div class="card-body">
-                                            <h6 class="card-title">Adicionar Nova Informação</h6>
-                                            <div class="row g-2">
-                                                <div class="col-md-12">
-                                                    <label class="form-label small">Tipo de Atividade</label>
-                                                    <select v-model="novaComissao.tipo" class="form-select">
-                                                        <option value="">Selecione...</option>
-                                                        <option value="MOITA_OUTRO">Moita em outro EJC</option>
-                                                        <option value="GARCOM_OUTRO">Garçom em outro EJC</option>
-                                                        <optgroup label="Coordenação / Interno">
-                                                            <option value="COORD_TERCO">Coordenador do Terço
-                                                            </option>
-                                                            <option value="COORD_MARKETING">Coordenador do Marketing
-                                                            </option>
-                                                            <option value="COORD_EVENTOS">Coordenador de Eventos
-                                                            </option>
-                                                            <option value="COORD_CIRCULO">Coordenador de Círculo
-                                                            </option>
-                                                            <option value="COORD_MUSICA">Coordenador de Música
-                                                            </option>
-                                                            <option value="DIRIGENTE">Dirigente</option>
-                                                        </optgroup>
-                                                    </select>
-                                                </div>
-
-                                                <!-- CAMPOS PARA MOITA/GARÇOM -->
-                                                <template
-                                                    v-if="['MOITA_OUTRO', 'GARCOM_OUTRO'].includes(novaComissao.tipo)">
-                                                    <div class="col-md-3">
-                                                        <label class="form-label small">Nº EJC</label>
-                                                        <input type="number" v-model="novaComissao.ejc_numero"
-                                                            class="form-control" placeholder="Ex: 25">
-                                                    </div>
-                                                    <div class="col-md-5">
-                                                        <label class="form-label small">Selecione o EJC</label>
-                                                        <select v-model="novaComissao.outro_ejc_id" class="form-select"
-                                                            @change="novaComissao.paroquia=''">
-                                                            <option value="">Não listado...</option>
-                                                            <option v-for="oe in outrosEjcsList" :key="oe.id"
-                                                                :value="oe.id">
-                                                                {{ oe.nome }} - {{ oe.paroquia || '-' }}
-                                                            </option>
-                                                        </select>
-                                                    </div>
-                                                    <div class="col-md-4" v-if="!novaComissao.outro_ejc_id">
-                                                        <label class="form-label small">Ou digite a Paróquia</label>
-                                                        <input type="text" v-model="novaComissao.paroquia"
-                                                            class="form-control" placeholder="Opcional">
-                                                    </div>
-                                                    <div v-if="novaComissao.tipo === 'GARCOM_OUTRO'" class="col-md-4">
-                                                        <label class="form-label small">Função</label>
-                                                        <select v-model="novaComissao.funcao_garcom"
-                                                            class="form-select">
-                                                            <option value="Jovem">Jovem</option>
-                                                            <option value="Tio">Tio</option>
-                                                            <option value="Coordenador">Coordenador</option>
-                                                        </select>
-                                                    </div>
-                                                    <div class="col-md-6">
-                                                        <label class="form-label small">Data Início</label>
-                                                        <input type="date" v-model="novaComissao.data_inicio"
-                                                            class="form-control">
-                                                    </div>
-                                                    <div class="col-md-6">
-                                                        <label class="form-label small">Data Fim</label>
-                                                        <input type="date" v-model="novaComissao.data_fim"
-                                                            class="form-control">
-                                                    </div>
-                                                </template>
-
-                                                <!-- CAMPOS PARA COORDENAÇÃO -->
-                                                <template
-                                                    v-if="novaComissao.tipo && !['MOITA_OUTRO', 'GARCOM_OUTRO'].includes(novaComissao.tipo)">
-                                                    <div class="col-md-6">
-                                                        <label class="form-label small">Semestre/Período</label>
-                                                        <input type="text" v-model="novaComissao.semestre"
-                                                            class="form-control" placeholder="Ex: 01/2025">
-                                                    </div>
-                                                    <div v-if="novaComissao.tipo === 'COORD_CIRCULO'" class="col-md-6">
-                                                        <label class="form-label small">Círculo</label>
-                                                        <select v-model="novaComissao.circulo" class="form-select">
-                                                            <option v-for="c in cores" :value="c">{{ c }}</option>
-                                                        </select>
-                                                    </div>
-                                                </template>
-
-                                                <div class="col-12">
-                                                    <label class="form-label small">Observação</label>
-                                                    <input type="text" v-model="novaComissao.observacao"
-                                                        class="form-control" placeholder="Detalhes opcionais...">
-                                                </div>
-
-                                                <div class="col-12 text-end mt-2">
-                                                    <button class="btn btn-success" @click="adicionarComissao"
-                                                        :disabled="!novaComissao.tipo">➕ Adicionar
-                                                        Histórico</button>
-                                                </div>
-                                            </div>
-                                        </div>
+                                    <div class="text-end">
+                                        <button class="btn btn-outline-primary me-2" @click="adicionarNaReservaMoita">➕ Adicionar na Lista de Reserva de Moita</button>
+                                        <button class="btn btn-success" @click="abrirModalMoita">➕ Adicionar Moita</button>
                                     </div>
                                 </div>
                             </div>
@@ -802,6 +775,14 @@
                                 </select>
                             </div>
                             <div class="col-md-6">
+                                <label class="text-muted small">Sexo</label>
+                                <select v-model="novoJovem.sexo" class="form-select">
+                                    <option value="">(Não informado)</option>
+                                    <option value="Feminino">Feminino</option>
+                                    <option value="Masculino">Masculino</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
                                 <label class="text-muted small">Círculo</label>
                                 <select v-model="novoJovem.circulo" class="form-select">
                                     <option value="">Selecione</option>
@@ -847,12 +828,69 @@
                                     <option value="Outras">Outras (Especifique nas observações)</option>
                                 </select>
                             </div>
+
+                            <div class="col-md-6">
+                                <label class="text-muted small">É músico?</label>
+                                <select v-model="novoJovem.eh_musico" class="form-select" @change="onMusicoToggleNovo">
+                                    <option :value="false">Não</option>
+                                    <option :value="true">Sim</option>
+                                </select>
+                            </div>
+                            <div v-if="novoJovem.eh_musico" class="col-md-12">
+                                <label class="text-muted small">Instrumentos que toca (pode selecionar mais de um)</label>
+                                <div class="border rounded p-2 bg-light d-flex flex-wrap gap-2">
+                                    <div v-for="ins in instrumentosDisponiveis" :key="`novo-${ins}`" class="form-check">
+                                        <input class="form-check-input" type="checkbox" :id="`ins-novo-${ins}`"
+                                            :value="ins" v-model="novoJovem.instrumentos_musicais">
+                                        <label class="form-check-label small" :for="`ins-novo-${ins}`">{{ ins }}</label>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="modal">Cancelar</button>
                         <button type="button" class="btn btn-success" @click="salvarNovoJovem">➕ Criar
                             Jovem</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="modalMoita" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title">➕ Adicionar Moita</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Número do EJC *</label>
+                            <input type="number" min="1" v-model.number="formMoita.ejc_numero" class="form-control"
+                                placeholder="Ex: 2">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Outro EJC *</label>
+                            <select v-model.number="formMoita.outro_ejc_id" class="form-select">
+                                <option :value="null">Selecione...</option>
+                                <option v-for="oe in outrosEjcsList" :key="oe.id" :value="oe.id">
+                                    {{ oe.nome }} - {{ oe.paroquia || '-' }}
+                                </option>
+                            </select>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Função no Moita *</label>
+                            <select v-model="formMoita.funcao_moita" class="form-select">
+                                <option value="">Selecione...</option>
+                                <option v-for="f in funcoesMoita" :key="f.id" :value="f.nome">{{ f.nome }}</option>
+                            </select>
+                            <small v-if="!funcoesMoita.length" class="text-muted">Cadastre funções no menu Moita.</small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-success" @click="salvarMoitaHistorico">Salvar</button>
                     </div>
                 </div>
             </div>
@@ -885,20 +923,28 @@
                     observacoesExtras: [],
                     novaObservacaoExtra: '',
                     comissoes: [], // Lista de comissões do jovem
+                    modalMoita: null,
                     outrosEjcsList: [], // Lista de EJCs de fora
-                    novaComissao: {
-                        tipo: '',
-                        modo_outro_ejc: 'selecionar',
-                        ejc_numero: '',
-                        paroquia: '',
-                        outro_ejc_id: '',
-                        data_inicio: '',
-                        data_fim: '',
-                        funcao_garcom: 'Jovem',
-                        semestre: '',
-                        circulo: '',
-                        observacao: ''
+                    funcoesMoita: [],
+                    formMoita: {
+                        ejc_numero: null,
+                        outro_ejc_id: null,
+                        funcao_moita: ''
                     },
+                    instrumentosDisponiveis: [
+                        'Voz',
+                        'Violao',
+                        'Guitarra',
+                        'Baixo',
+                        'Teclado',
+                        'Bateria',
+                        'Percussao',
+                        'Flauta',
+                        'Saxofone',
+                        'Violino',
+                        'Cajon',
+                        'Ukulele'
+                    ],
                     novoJovem: {
                         nome_completo: '',
                         telefone: '',
@@ -906,11 +952,14 @@
                         numero_ejc_fez: '',
                         instagram: '',
                         estado_civil: 'Solteiro',
+                        sexo: '',
                         circulo: '',
                         deficiencia: false,
                         qual_deficiencia: '',
                         restricao_alimentar: false,
-                        detalhes_restricao: ''
+                        detalhes_restricao: '',
+                        eh_musico: false,
+                        instrumentos_musicais: []
                     },
                     meses: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'],
                     cores: ['Rosa', 'Azul', 'Vermelho', 'Verde', 'Amarelo', 'Marrom'],
@@ -922,7 +971,9 @@
                     filtros: { nome: '', idadeMin: null, idadeMax: null, mesNasc: '', numEjc: null, estadoCivil: '', circulo: '', deficiencia: '' },
                     jovemSelecionado: {}, jovemEditando: {}, jovemHistoricoEquipes: [],
                     todasEquipes: [], // Lista de todas as equipes para o select
-                    novaEquipeHistorico: { equipe_id: '', ejc_id: '', papel: 'Membro' }
+                    papeisEquipeDisponiveis: [],
+                    funcoesPorEquipeHistorico: {},
+                    novaEquipeHistorico: { equipe_id: '', ejc_id: '', papel: 'Membro', subfuncao: '' }
                 }
             },
             computed: {
@@ -939,6 +990,13 @@
                             (!this.filtros.circulo || j.circulo === this.filtros.circulo) &&
                             (this.filtros.deficiencia === '' || j.deficiencia == this.filtros.deficiencia);
                     });
+                },
+                subfuncoesHistoricoDisponiveis() {
+                    const equipeId = this.novaEquipeHistorico.equipe_id;
+                    if (!equipeId) return [];
+                    const funcoes = this.funcoesPorEquipeHistorico[equipeId] || [];
+                    const papelSelecionado = this.novaEquipeHistorico.papel || 'Membro';
+                    return funcoes.filter(f => (f.papel_base || 'Membro') === papelSelecionado);
                 },
 
             },
@@ -959,8 +1017,51 @@
                         this.todasEquipes = Array.isArray(data) ? data.filter(i => i) : [];
                     } catch (err) { console.error("Erro ao carregar equipes:", err); }
                 },
+                async carregarPapeisEquipe() {
+                    try {
+                        const res = await fetch('/api/equipes/papeis');
+                        const data = res.ok ? await res.json() : [];
+                        this.papeisEquipeDisponiveis = Array.isArray(data) ? data : [];
+                    } catch (err) {
+                        this.papeisEquipeDisponiveis = [];
+                    } finally {
+                        if (!this.papeisEquipeDisponiveis.length) {
+                            this.papeisEquipeDisponiveis = [
+                                { id: 1, nome: 'Membro' },
+                                { id: 2, nome: 'Tio' },
+                                { id: 3, nome: 'Coordenador' }
+                            ];
+                        }
+                        if (!this.papeisEquipeDisponiveis.some(p => p.nome === this.novaEquipeHistorico.papel)) {
+                            this.novaEquipeHistorico.papel = this.papeisEquipeDisponiveis[0].nome;
+                        }
+                    }
+                },
+                async carregarFuncoesEquipeHistorico(equipeId) {
+                    if (!equipeId || this.funcoesPorEquipeHistorico[equipeId]) return;
+                    try {
+                        const res = await fetch(`/api/equipes/${equipeId}/funcoes`);
+                        if (!res.ok) return;
+                        const data = await res.json();
+                        this.funcoesPorEquipeHistorico[equipeId] = Array.isArray(data) ? data.filter(i => i) : [];
+                    } catch (err) {
+                        console.error("Erro ao carregar funções da equipe:", err);
+                        this.funcoesPorEquipeHistorico[equipeId] = [];
+                    }
+                },
+                onEquipeHistoricoChange() {
+                    this.novaEquipeHistorico.subfuncao = '';
+                    this.carregarFuncoesEquipeHistorico(this.novaEquipeHistorico.equipe_id);
+                },
+                onPapelHistoricoChange() {
+                    this.novaEquipeHistorico.subfuncao = '';
+                },
                 async adicionarEquipeHistorico() {
                     if (!this.novaEquipeHistorico.equipe_id || !this.novaEquipeHistorico.ejc_id) return;
+                    if (this.subfuncoesHistoricoDisponiveis.length > 0 && !this.novaEquipeHistorico.subfuncao) {
+                        alert("Selecione uma subfunção cadastrada para este papel.");
+                        return;
+                    }
 
                     // Encontrar nome da equipe selecionada
                     const equipeSelecionada = this.todasEquipes.find(e => e && e.id == this.novaEquipeHistorico.equipe_id);
@@ -971,7 +1072,8 @@
                             jovem_id: this.jovemEditando.id,
                             equipe_nome: equipeSelecionada.nome,
                             ejc_id: this.novaEquipeHistorico.ejc_id,
-                            papel: this.novaEquipeHistorico.papel
+                            papel: this.novaEquipeHistorico.papel,
+                            subfuncao: this.novaEquipeHistorico.subfuncao ? this.novaEquipeHistorico.subfuncao.trim() : null
                         };
 
                         const res = await fetch('/api/lista-mestre/historico', {
@@ -985,7 +1087,7 @@
                         // Recarregar histórico e limpar campos
                         const updatedHist = await fetch(`/api/lista-mestre/historico/${this.jovemEditando.id}`);
                         this.jovemHistoricoEquipes = await updatedHist.json();
-                        this.novaEquipeHistorico = { equipe_id: '', ejc_id: '', papel: 'Membro' };
+                        this.novaEquipeHistorico = { equipe_id: '', ejc_id: '', papel: 'Membro', subfuncao: '' };
                     } catch (err) {
                         console.error(err);
                         alert("Erro ao adicionar equipe ao histórico");
@@ -1024,7 +1126,10 @@
                         // Agrupar por jovem e EJC
                         historicoCompleto.forEach(h => {
                             if (!historicoMap[h.jovem_id]) historicoMap[h.jovem_id] = {};
-                            const papelStr = h.papel && h.papel !== 'Membro' ? ` (${h.papel})` : '';
+                            const etiquetaFuncao = [h.papel && h.papel !== 'Membro' ? h.papel : '', h.subfuncao || '']
+                                .filter(Boolean)
+                                .join(' - ');
+                            const papelStr = etiquetaFuncao ? ` (${etiquetaFuncao})` : '';
                             historicoMap[h.jovem_id][h.numero_ejc] = (h.equipe || '') + papelStr;
                         });
                     } catch (e) {
@@ -1171,19 +1276,34 @@
                                     // Valor pode ser "NomeEquipe" ou "NomeEquipe (Papel)"
                                     let equipe = valorCelula;
                                     let papel = 'Membro';
+                                    let subfuncao = null;
 
                                     if (valorCelula.includes('(') && valorCelula.includes(')')) {
                                         const parts = valorCelula.match(/(.*)\s\((.*)\)/);
                                         if (parts) {
                                             equipe = parts[1].trim();
-                                            papel = parts[2].trim();
+                                            const etiqueta = parts[2].trim();
+                                            if (etiqueta.includes(' - ')) {
+                                                const [papelExtraido, ...resto] = etiqueta.split(' - ');
+                                                papel = papelExtraido.trim() || 'Membro';
+                                                subfuncao = resto.join(' - ').trim() || null;
+                                            } else {
+                                                const papelNormalizado = etiqueta.toLowerCase() === 'coord' ? 'Coordenador' : etiqueta;
+                                                if (['Membro', 'Tio', 'Coordenador'].includes(papelNormalizado)) {
+                                                    papel = papelNormalizado;
+                                                } else {
+                                                    papel = 'Membro';
+                                                    subfuncao = etiqueta || null;
+                                                }
+                                            }
                                         }
                                     }
 
                                     historico.push({
                                         ejc_id: ejc.id,
                                         equipe: equipe,
-                                        papel: papel
+                                        papel: papel,
+                                        subfuncao: subfuncao
                                     });
                                 }
                             });
@@ -1257,6 +1377,8 @@
                 async verDetalhes(j) {
                     if (!j) return;
                     this.jovemEditando = { ...j };
+                    this.jovemEditando.eh_musico = this.jovemEditando.eh_musico ? 1 : 0;
+                    this.jovemEditando.instrumentos_musicais = this.normalizarInstrumentos(this.jovemEditando.instrumentos_musicais);
                     // Normalizar formatos de data para inputs do tipo date (YYYY-MM-DD)
                     if (this.jovemEditando.data_nascimento) this.jovemEditando.data_nascimento = String(this.jovemEditando.data_nascimento).split('T')[0];
                     if (this.jovemEditando.data_casamento) this.jovemEditando.data_casamento = String(this.jovemEditando.data_casamento).split('T')[0];
@@ -1295,7 +1417,7 @@
                                     const ejcs = await r.json();
                                     const ejcOutro = ejcs.find(e => e.id == this.jovemEditando.conjuge_outro_ejc_id);
                                     let nomeParoq = ejcOutro ? (ejcOutro.paroquia + (ejcOutro.nome ? ' - ' + ejcOutro.nome : '')) : '';
-                                    this.jovemConjuge = { nome_completo: this.jovemEditando.conjuge_nome || '-', telefone: this.jovemEditando.conjuge_telefone || '-', paroquia_ejc: nomeParoq };
+                                    this.jovemConjuge = { nome_completo: this.jovemEditando.conjuge_nome || '-', telefone: null, paroquia_ejc: nomeParoq };
                                 }
                             } catch (e) { this.jovemConjuge = null; }
                         } else if (this.jovemEditando.conjuge_nome) {
@@ -1316,6 +1438,7 @@
                         this.jovemBackup = { ...this.jovemEditando };
                         this.carregarEjcs();
                         this.carregarTodasEquipes(); // Carregar equipes ao editar
+                        this.carregarPapeisEquipe();
                     }
                     this.isEditing = !this.isEditing;
                 },
@@ -1332,12 +1455,14 @@
                         paroquia: '',
                         instagram: '',
                         estado_civil: 'Solteiro',
-                        circulo: '',
+                        sexo: '',
                         circulo: '',
                         deficiencia: false,
                         qual_deficiencia: '',
                         restricao_alimentar: false,
-                        detalhes_restricao: ''
+                        detalhes_restricao: '',
+                        eh_musico: false,
+                        instrumentos_musicais: []
                     };
                     this.carregarEjcs();
                     new bootstrap.Modal(document.getElementById('modalNovoJovem')).show();
@@ -1361,11 +1486,14 @@
                             numero_ejc_fez: this.novoJovem.numero_ejc_fez || null,
                             instagram: this.novoJovem.instagram || null,
                             estado_civil: this.novoJovem.estado_civil || 'Solteiro',
+                            sexo: this.novoJovem.sexo || null,
                             circulo: this.novoJovem.circulo || null,
                             deficiencia: this.novoJovem.deficiencia ? 1 : 0,
                             qual_deficiencia: this.novoJovem.qual_deficiencia || null,
                             restricao_alimentar: this.novoJovem.restricao_alimentar ? 1 : 0,
-                            detalhes_restricao: this.novoJovem.detalhes_restricao || null
+                            detalhes_restricao: this.novoJovem.detalhes_restricao || null,
+                            eh_musico: this.novoJovem.eh_musico ? 1 : 0,
+                            instrumentos_musicais: this.novoJovem.eh_musico ? this.normalizarInstrumentos(this.novoJovem.instrumentos_musicais) : []
                         };
 
                         const res = await fetch('/api/lista-mestre', {
@@ -1390,9 +1518,25 @@
                 },
                 async salvarJovem() {
                     try {
+                        // Mantém consistência dos campos de cônjuge no salvamento geral
+                        // para não perder a seleção de "Outro EJC" ao atualizar a ficha.
+                        let conjugeId = this.jovemEditando.conjuge_id || null;
+                        let conjugeEJcId = this.jovemEditando.conjuge_ejc_id || null;
+                        let conjugeOutroEjcId = this.jovemEditando.conjuge_outro_ejc_id || null;
+                        let conjugeTelefone = this.jovemEditando.conjuge_telefone || null;
+
+                        if (conjugeOutroEjcId) {
+                            conjugeId = null;
+                            conjugeEJcId = null;
+                            conjugeTelefone = null;
+                        } else if (conjugeId) {
+                            conjugeOutroEjcId = null;
+                        }
+
                         const payload = {
                             nome_completo: this.jovemEditando.nome_completo,
                             telefone: this.jovemEditando.telefone,
+                            sexo: this.jovemEditando.sexo || null,
                             data_nascimento: this.jovemEditando.data_nascimento || null,
                             numero_ejc_fez: this.jovemEditando.numero_ejc_fez || null,
                             instagram: this.jovemEditando.instagram || null,
@@ -1403,10 +1547,13 @@
                             qual_deficiencia: this.jovemEditando.qual_deficiencia || null,
                             restricao_alimentar: this.jovemEditando.restricao_alimentar ? 1 : 0,
                             detalhes_restricao: this.jovemEditando.detalhes_restricao || null,
-                            conjuge_id: this.jovemEditando.conjuge_id || null,
+                            eh_musico: this.jovemEditando.eh_musico ? 1 : 0,
+                            instrumentos_musicais: this.jovemEditando.eh_musico ? this.normalizarInstrumentos(this.jovemEditando.instrumentos_musicais) : [],
+                            conjuge_id: conjugeId,
                             conjuge_nome: this.jovemEditando.conjuge_nome || null,
-                            conjuge_telefone: this.jovemEditando.conjuge_telefone || null,
-                            conjuge_ejc_id: this.jovemEditando.conjuge_ejc_id || null,
+                            conjuge_telefone: conjugeTelefone,
+                            conjuge_ejc_id: conjugeEJcId,
+                            conjuge_outro_ejc_id: conjugeOutroEjcId,
                             conjuge_paroquia: this.conjFezOutroEjc ? (this.jovemEditando.conjuge_paroquia || null) : null
                         };
 
@@ -1421,11 +1568,14 @@
                 },
                 async abrirEdicao(j) {
                     this.jovemEditando = { ...j };
+                    this.jovemEditando.eh_musico = this.jovemEditando.eh_musico ? 1 : 0;
+                    this.jovemEditando.instrumentos_musicais = this.normalizarInstrumentos(this.jovemEditando.instrumentos_musicais);
                     this.isEditing = false;
                     this.tabEdicao = 'dados';
                     // Carregar dados necessários para os dropdowns do histórico e edição
                     this.carregarEjcs();
                     this.carregarTodasEquipes();
+                    this.carregarPapeisEquipe();
                     this.carregarOutrosEjcs();
 
                     // Normalizar formatos de data para inputs do tipo date (YYYY-MM-DD)
@@ -1470,8 +1620,9 @@
                                     let nomeParoq = ejcOutro ? (ejcOutro.paroquia + (ejcOutro.nome ? ' (' + ejcOutro.nome + ')' : '')) : '';
                                     if (this.jovemConjuge) {
                                         this.jovemConjuge.paroquia_ejc = nomeParoq;
+                                        this.jovemConjuge.telefone = null;
                                     } else {
-                                        this.jovemConjuge = { nome_completo: this.jovemEditando.conjuge_nome || '-', telefone: this.jovemEditando.conjuge_telefone || '-', paroquia_ejc: nomeParoq };
+                                        this.jovemConjuge = { nome_completo: this.jovemEditando.conjuge_nome || '-', telefone: null, paroquia_ejc: nomeParoq };
                                     }
                                 }
                             } catch (e) { }
@@ -1552,6 +1703,46 @@
                     }
                     return result;
                 },
+                formatarDisplayEJC(display) {
+                    if (display === null || display === undefined || display === '') return '';
+                    const texto = String(display).trim();
+                    if (!texto) return '';
+
+                    if (!isNaN(texto)) {
+                        return `${this.numeroParaRomano(Number(texto))} EJC`;
+                    }
+
+                    const match = texto.match(/^(\d+)\s*[ºo°]?\s*EJC(.*)$/i);
+                    if (match) {
+                        const numero = Number(match[1]);
+                        const sufixo = match[2] || '';
+                        return `${this.numeroParaRomano(numero)}º EJC${sufixo}`;
+                    }
+
+                    return texto;
+                },
+                normalizarInstrumentos(valor) {
+                    if (Array.isArray(valor)) return valor.filter(Boolean).map(v => String(v).trim()).filter(Boolean);
+                    if (!valor) return [];
+                    if (typeof valor === 'string') {
+                        const txt = valor.trim();
+                        if (!txt) return [];
+                        try {
+                            const parsed = JSON.parse(txt);
+                            if (Array.isArray(parsed)) {
+                                return parsed.filter(Boolean).map(v => String(v).trim()).filter(Boolean);
+                            }
+                        } catch (e) { }
+                        return txt.split(',').map(v => v.trim()).filter(Boolean);
+                    }
+                    return [];
+                },
+                onMusicoToggleNovo() {
+                    if (!this.novoJovem.eh_musico) this.novoJovem.instrumentos_musicais = [];
+                },
+                onMusicoToggleEdicao() {
+                    if (!this.jovemEditando.eh_musico) this.jovemEditando.instrumentos_musicais = [];
+                },
                 // --- MÉTODOS DE COMISSÕES ---
                 async carregarComissoes() {
                     this.tabEdicao = 'comissoes';
@@ -1565,10 +1756,35 @@
                         this.comissoes = [];
                     }
                 },
-                async adicionarComissao() {
-                    if (!this.novaComissao.tipo) return;
+                abrirModalMoita() {
+                    this.formMoita = { ejc_numero: null, outro_ejc_id: null, funcao_moita: '' };
+                    this.carregarOutrosEjcs();
+                    this.carregarFuncoesMoita();
+                    if (!this.modalMoita) this.modalMoita = new bootstrap.Modal(document.getElementById('modalMoita'));
+                    this.modalMoita.show();
+                },
+                async carregarFuncoesMoita() {
                     try {
-                        const payload = { ...this.novaComissao, jovem_id: this.jovemEditando.id };
+                        const res = await fetch('/api/moita/funcoes');
+                        this.funcoesMoita = res.ok ? await res.json() : [];
+                    } catch (e) {
+                        this.funcoesMoita = [];
+                    }
+                },
+                async salvarMoitaHistorico() {
+                    if (!this.jovemEditando || !this.jovemEditando.id) return;
+                    if (!this.formMoita.ejc_numero || !this.formMoita.outro_ejc_id || !String(this.formMoita.funcao_moita || '').trim()) {
+                        alert('Preencha número do EJC, outro EJC e função no moita.');
+                        return;
+                    }
+                    try {
+                        const payload = {
+                            jovem_id: this.jovemEditando.id,
+                            tipo: 'MOITA_OUTRO',
+                            ejc_numero: this.formMoita.ejc_numero,
+                            outro_ejc_id: this.formMoita.outro_ejc_id,
+                            funcao_garcom: this.formMoita.funcao_moita.trim()
+                        };
 
                         const res = await fetch('/api/lista-mestre/comissoes', {
                             method: 'POST',
@@ -1578,21 +1794,42 @@
 
                         if (!res.ok) throw new Error("Erro ao salvar");
 
-                        // Limpar form e recarregar
-                        this.novaComissao = {
-                            tipo: '', modo_outro_ejc: 'selecionar', ejc_numero: '', paroquia: '', outro_ejc_id: '', data_inicio: '', data_fim: '',
-                            funcao_garcom: 'Jovem', semestre: '', circulo: '', observacao: ''
-                        };
+                        if (this.modalMoita) this.modalMoita.hide();
                         await this.carregarComissoes();
                     } catch (err) {
                         console.error(err);
-                        alert("Erro ao adicionar histórico.");
+                        alert("Erro ao adicionar moita.");
+                    }
+                },
+                async adicionarNaReservaMoita() {
+                    if (!this.jovemEditando || !this.jovemEditando.id) return;
+                    try {
+                        const res = await fetch('/api/moita/reservas/automatico', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ jovem_id: this.jovemEditando.id })
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                            alert(data.error || 'Erro ao adicionar jovem na reserva de moita.');
+                            return;
+                        }
+                        const destino = data.lista === 'MULHERES' ? 'Mulheres' : 'Homens';
+                        alert(`Jovem adicionado na lista de reserva de moita: ${destino}.`);
+                    } catch (err) {
+                        console.error(err);
+                        alert('Erro ao adicionar jovem na reserva de moita.');
                     }
                 },
                 async removerComissao(id) {
                     if (!confirm("Remover este item?")) return;
                     try {
-                        await fetch(`/api/lista-mestre/comissoes/${id}`, { method: 'DELETE' });
+                        const res = await fetch(`/api/lista-mestre/comissoes/${id}`, { method: 'DELETE' });
+                        if (!res.ok) {
+                            const err = await res.json().catch(() => ({}));
+                            alert(err.error || "Este item não pode ser removido por aqui.");
+                            return;
+                        }
                         await this.carregarComissoes();
                     } catch (err) {
                         console.error(err);
@@ -1603,6 +1840,8 @@
                     const mapa = {
                         'MOITA_OUTRO': '🌳 Moita em Outro EJC',
                         'GARCOM_OUTRO': '🍽️ Garçom em Outro EJC',
+                        'GARCOM_EQUIPE': '🍽️ Equipe de Garçom',
+                        'COORDENACAO': '🧭 Coordenação',
                         'COORD_TERCO': '📿 Coord. Terço',
                         'COORD_MARKETING': '📱 Coord. Marketing',
                         'COORD_EVENTOS': '🎉 Coord. Eventos',
@@ -1699,6 +1938,21 @@
                 },
                 async salvarConjuge() {
                     try {
+                        if (this.tipoConjuge === 'OUTRO_EJC') {
+                            this.jovemEditando.conjuge_id = null;
+                            this.jovemEditando.conjuge_ejc_id = null;
+                            this.jovemEditando.conjuge_telefone = null;
+                        } else if (this.tipoConjuge === 'MESMO_EJC') {
+                            this.jovemEditando.conjuge_outro_ejc_id = null;
+                            this.jovemEditando.conjuge_paroquia = null;
+                        } else if (this.tipoConjuge === 'NAO_FEZ') {
+                            this.jovemEditando.conjuge_id = null;
+                            this.jovemEditando.conjuge_ejc_id = null;
+                            this.jovemEditando.conjuge_outro_ejc_id = null;
+                            this.jovemEditando.conjuge_telefone = null;
+                            this.jovemEditando.conjuge_paroquia = null;
+                        }
+
                         const payload = {
                             conjuge_id: this.tipoConjuge === 'MESMO_EJC' ? (this.jovemEditando.conjuge_id || null) : null,
                             conjuge_nome: this.tipoConjuge === 'MESMO_EJC' ? (this.jovemEditando.conjuge_nome || null) : (this.jovemEditando.conjuge_nome || null), // Wait, both use conjuge_nome

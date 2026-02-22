@@ -144,6 +144,26 @@
                                         <input type="date" class="form-control" v-model="form.data_saida">
                                     </div>
                                 </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Funções da Dirigência</label>
+                                    <div class="text-muted small mb-2">Vincule este usuário às funções já criadas.</div>
+                                    <div v-if="!funcoesDirigencia.length" class="text-muted small border rounded p-2 bg-light">
+                                        Nenhuma função cadastrada no menu Funções Dirigência.
+                                    </div>
+                                    <div v-else class="row g-2">
+                                        <div class="col-md-6" v-for="funcao in funcoesDirigencia" :key="`fd-${funcao.id}`">
+                                            <div class="form-check border rounded px-2 py-1">
+                                                <input class="form-check-input" type="checkbox"
+                                                    :id="`usr-funcao-${funcao.id}`"
+                                                    :checked="(form.funcoes_dirigencia_ids || []).includes(funcao.id)"
+                                                    @change="toggleFuncaoDirigencia(funcao.id)">
+                                                <label class="form-check-label" :for="`usr-funcao-${funcao.id}`">
+                                                    {{ funcao.nome }}
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                                 <div class="d-flex justify-content-end gap-2">
                                     <button type="button" class="btn btn-soft-secondary"
                                         data-bs-dismiss="modal">Cancelar</button>
@@ -191,8 +211,10 @@
                             grupo: '',
                             data_entrada: '',
                             data_saida: '',
-                            jovem_id: null
+                            jovem_id: null,
+                            funcoes_dirigencia_ids: []
                         },
+                        funcoesDirigencia: [],
                         searchTerm: '',
                         resultadosBusca: [],
                         mostrarResultados: false,
@@ -207,9 +229,19 @@
                     } else {
                         console.error("Modal #userModal não encontrado!");
                     }
+                    await this.carregarFuncoesDirigencia();
                     await this.carregarUsuarios();
                 },
                 methods: {
+                    async carregarFuncoesDirigencia() {
+                        try {
+                            const res = await fetch('/api/funcoes-dirigencia');
+                            this.funcoesDirigencia = res.ok ? await res.json() : [];
+                        } catch (err) {
+                            console.error(err);
+                            this.funcoesDirigencia = [];
+                        }
+                    },
                     async carregarUsuarios() {
                         this.loading = true;
                         try {
@@ -236,7 +268,8 @@
                             grupo: '',
                             data_entrada: '',
                             data_saida: '',
-                            jovem_id: null
+                            jovem_id: null,
+                            funcoes_dirigencia_ids: []
                         };
                         this.searchTerm = '';
                         this.resultadosBusca = [];
@@ -249,10 +282,19 @@
                             senha: '',
                             data_entrada: user.data_entrada ? user.data_entrada.split('T')[0] : '',
                             data_saida: user.data_saida ? user.data_saida.split('T')[0] : '',
-                            jovem_id: user.jovem_id || null
+                            jovem_id: user.jovem_id || null,
+                            funcoes_dirigencia_ids: Array.isArray(user.funcoes_dirigencia_ids) ? [...user.funcoes_dirigencia_ids] : []
                         };
                         this.searchTerm = user.nome_completo;
                         if (this.modalInstance) this.modalInstance.show();
+                    },
+                    toggleFuncaoDirigencia(funcaoId) {
+                        if (!Array.isArray(this.form.funcoes_dirigencia_ids)) this.form.funcoes_dirigencia_ids = [];
+                        if (this.form.funcoes_dirigencia_ids.includes(funcaoId)) {
+                            this.form.funcoes_dirigencia_ids = this.form.funcoes_dirigencia_ids.filter(id => id !== funcaoId);
+                        } else {
+                            this.form.funcoes_dirigencia_ids.push(funcaoId);
+                        }
                     },
                     buscarJovem() {
                         if (this.form.jovem_id) return;

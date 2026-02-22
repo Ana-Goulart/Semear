@@ -13,17 +13,35 @@ const menuTemplate = `
             <a href="/" class="nav-link" title="Lista Mestre">
                 <span class="fs-5">📋</span> <span class="link-text">Lista Mestre</span>
             </a>
-            <a href="/ejc" class="nav-link" title="EJC">
-                <span class="fs-5">🎯</span> <span class="link-text">EJC</span>
-            </a>
             <a href="/montar-encontro" class="nav-link" title="Montar Encontro">
                 <span class="fs-5">🧩</span> <span class="link-text">Montar Encontro</span>
+            </a>
+            <a href="/financeiro" class="nav-link" title="Financeiro">
+                <span class="fs-5">💰</span> <span class="link-text">Financeiro</span>
+            </a>
+            <a href="/coordenadores" class="nav-link" title="Cordenadores">
+                <span class="fs-5">🧭</span> <span class="link-text">Cordenadores</span>
+            </a>
+            <a href="/garcons" class="nav-link" title="Garçons">
+                <span class="fs-5">🍽️</span> <span class="link-text">Garçons</span>
+            </a>
+            <a href="/moita" class="nav-link" title="Moita">
+                <span class="fs-5">🌿</span> <span class="link-text">Moita</span>
+            </a>
+            <a href="/ata-reunioes" class="nav-link" title="Ata Reuniões">
+                <span class="fs-5">📝</span> <span class="link-text">Ata Reuniões</span>
+            </a>
+            <a href="/funcoes-dirigencia" class="nav-link" title="Funções Dirigência">
+                <span class="fs-5">📚</span> <span class="link-text">Funções Dirigência</span>
+            </a>
+            <a href="/calendario" class="nav-link" title="Calendário">
+                <span class="fs-5">📅</span> <span class="link-text">Calendário</span>
             </a>
             <a href="/equipes" class="nav-link" title="Equipes">
                 <span class="fs-5">👥</span> <span class="link-text">Equipes</span>
             </a>
-            <a href="/historico-equipes" class="nav-link" title="Histórico de Equipes">
-                <span class="fs-5">📜</span> <span class="link-text">Histórico</span>
+            <a href="/historico-equipes" class="nav-link" title="EJC">
+                <span class="fs-5">🎯</span> <span class="link-text">EJC</span>
             </a>
             <a href="/outros-ejcs" class="nav-link" title="Outros EJCs">
                 <span class="fs-5">🌍</span> <span class="link-text">Outros EJCs</span>

@@ -150,8 +150,10 @@
                             <button class="btn btn-sm btn-outline-danger border-0" @click.stop="deletarMontagem(m.id)"
                                 title="Excluir Montagem"><i class="fas fa-trash"></i></button>
                         </div>
-                        <p class="text-muted small mb-3">Encontro: <span class="fw-bold text-dark">{{
-                                formatarData(m.data_encontro) }}</span></p>
+                        <p class="text-muted small mb-1">Início: <span class="fw-bold text-dark">{{
+                                formatarData(m.data_inicio || m.data_encontro) }}</span></p>
+                        <p class="text-muted small mb-3">Fim: <span class="fw-bold text-dark">{{
+                                formatarData(m.data_fim || m.data_encontro) }}</span></p>
                         <div class="text-end">
                             <span class="btn btn-sm btn-soft-primary w-100">Abrir Montagem <i
                                     class="fas fa-arrow-right ms-1"></i></span>
@@ -168,7 +170,7 @@
                             listagem</button>
                         <h3 class="mb-0">⚙️ Montando <span class="text-primary">{{
                                 numeroParaRomano(montagemAtiva.numero_ejc) }} EJC</span></h3>
-                        <p class="text-muted small mb-0">Data: {{ formatarData(montagemAtiva.data_encontro) }}</p>
+                        <p class="text-muted small mb-0">Período: {{ formatarData(montagemAtiva.data_inicio || montagemAtiva.data_encontro) }} até {{ formatarData(montagemAtiva.data_fim || montagemAtiva.data_encontro) }}</p>
                     </div>
                     <button class="btn btn-soft-primary" @click="carregarEstrutura"><i class="fas fa-sync-alt"></i>
                         Atualizar Dados</button>
@@ -198,7 +200,10 @@
                                 <div v-for="funcao in equipe.funcoes" :key="funcao.id" class="funcao-row">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <span class="fw-bold text-dark" style="font-size: 0.9rem;">➡️ {{ funcao.nome
-                                            }}</span>
+                                            }}
+                                            <span class="badge bg-soft-info text-info ms-1">{{ funcao.papel_base ||
+                                                'Membro' }}</span>
+                                        </span>
                                         <button class="btn btn-sm btn-outline-primary py-0 px-2"
                                             style="font-size: 0.8rem;"
                                             @click="abrirBuscaJovem(equipe.id, funcao.id, funcao.nome)"><i
@@ -243,8 +248,12 @@
                                 placeholder="Ex: 11" required>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label text-muted">Data Prevista para o Encontro</label>
-                            <input type="date" v-model="formMontagem.data_encontro" class="form-control" required>
+                            <label class="form-label text-muted">Data de Início</label>
+                            <input type="date" v-model="formMontagem.data_inicio" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-muted">Data de Fim</label>
+                            <input type="date" v-model="formMontagem.data_fim" class="form-control" required>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -315,7 +324,7 @@
                     equipeAberta: null, // Controla qual acordeão de equipe está aberto
 
                     // Forms
-                    formMontagem: { numero_ejc: '', data_encontro: '' },
+                    formMontagem: { numero_ejc: '', data_inicio: '', data_fim: '' },
                     modalMontagemInstance: null,
 
                     // Busca Jovens
@@ -338,14 +347,18 @@
                 },
 
                 abrirModalNovaMontagem() {
-                    this.formMontagem = { numero_ejc: '', data_encontro: '' };
+                    this.formMontagem = { numero_ejc: '', data_inicio: '', data_fim: '' };
                     if (!this.modalMontagemInstance) this.modalMontagemInstance = new bootstrap.Modal(document.getElementById('modalNovaMontagem'));
                     this.modalMontagemInstance.show();
                 },
 
                 async salvarNovaMontagem() {
-                    if (!this.formMontagem.numero_ejc || !this.formMontagem.data_encontro) {
+                    if (!this.formMontagem.numero_ejc || !this.formMontagem.data_inicio || !this.formMontagem.data_fim) {
                         alert("Preencha todos os campos."); return;
+                    }
+                    if (this.formMontagem.data_inicio > this.formMontagem.data_fim) {
+                        alert("A data fim não pode ser menor que a data início.");
+                        return;
                     }
                     try {
                         const res = await fetch('/api/montar-encontro', {
@@ -429,7 +442,12 @@
                             this.modalBuscaInstance.hide();
                             this.carregarEstrutura(); // Recarrega o grid vivo para mostrar o jovem adicionado ao panel
                         } else {
-                            alert("Erro ao alocar jovem.");
+                            let msg = "Erro ao alocar jovem.";
+                            try {
+                                const err = await res.json();
+                                msg = err.error || msg;
+                            } catch (e) { }
+                            alert(msg);
                         }
                     } catch (e) { }
                 },
