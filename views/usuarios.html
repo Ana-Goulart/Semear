@@ -90,6 +90,9 @@
                         </div>
                         <div class="modal-body">
                             <form @submit.prevent="salvarUsuario">
+                                <div v-if="!isEditing" class="alert alert-warning py-2">
+                                    Se informar <strong>Data Saída</strong>, o usuário será removido automaticamente no dia seguinte e não poderá mais acessar o sistema.
+                                </div>
                                 <!-- Busca de Jovem -->
                                 <div class="mb-3 position-relative">
                                     <label class="form-label">Nome Completo *</label>
@@ -356,7 +359,7 @@
                         }
                     },
                     async deletarUsuario(user) {
-                        if (!confirm(`Deseja realmente excluir o usuário "${user.nome_completo}"?`)) return;
+                        if (!(await window.showFloatingConfirm(`Deseja realmente excluir o usuário "${user.nome_completo}"?`))) return;
 
                         try {
                             const res = await fetch(`/api/usuarios/${user.id}`, { method: 'DELETE' });

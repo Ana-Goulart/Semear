@@ -115,8 +115,11 @@
                                 :style="{ color: equipe.cor_icone || '#2563eb' }"></i>
                             <i v-else class="fa-solid fa-users" :style="{ color: equipe.cor_icone || '#2563eb' }"></i>
                         </div>
-                        <span class="badge bg-soft-primary text-primary" style="font-size: 0.75rem;">Clique p/
-                            Editar</span>
+                        <div class="d-flex flex-column align-items-end gap-1">
+                            <span class="badge bg-soft-primary text-primary" style="font-size: 0.75rem;">Clique p/
+                                Editar</span>
+                            <span v-if="equipe.membros_outro_ejc" class="badge bg-soft-warning text-warning" style="font-size: 0.72rem;">Outro EJC</span>
+                        </div>
                     </div>
                     <div class="equipe-nome">{{ equipe.nome }}</div>
                     <div class="equipe-descricao">{{ equipe.descricao || 'Sem descrição' }}</div>
@@ -147,6 +150,15 @@
                                         <label class="form-label small mb-1">Descrição Breve</label>
                                         <input type="text" v-model="formulario.descricao" class="form-control"
                                             placeholder="Ex: Prepara as refeições gerais">
+                                    </div>
+                                    <div class="col-md-12">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="checkMembrosOutroEJC"
+                                                v-model="formulario.membros_outro_ejc" :true-value="1" :false-value="0">
+                                            <label class="form-check-label" for="checkMembrosOutroEJC">
+                                                Esta equipe é composta por membros de outro EJC
+                                            </label>
+                                        </div>
                                     </div>
                                     <div class="col-md-12">
                                         <label class="form-label small mb-1">Ícone da Equipe</label>
@@ -361,7 +373,8 @@
                         nome: '',
                         descricao: '',
                         icone_classe: 'fa-solid fa-users',
-                        cor_icone: '#2563eb'
+                        cor_icone: '#2563eb',
+                        membros_outro_ejc: 0
                     },
 
                     funcoes: [],
@@ -426,7 +439,27 @@
                         { className: 'fa-solid fa-flag', label: 'Direcao', tags: 'lideranca rumo gestao' },
                         { className: 'fa-solid fa-crown', label: 'Coordenacao', tags: 'coordenador chefia lider' },
                         { className: 'fa-solid fa-phone', label: 'Contato', tags: 'telefone ligacao suporte' },
-                        { className: 'fa-solid fa-envelope', label: 'Mensagem', tags: 'email recado comunicacao' }
+                        { className: 'fa-solid fa-envelope', label: 'Mensagem', tags: 'email recado comunicacao' },
+                        { className: 'fa-solid fa-scale-balanced', label: 'Finanças', tags: 'financeiro caixa dinheiro contabilidade' },
+                        { className: 'fa-solid fa-sack-dollar', label: 'Caixa', tags: 'caixa oferta arrecadacao' },
+                        { className: 'fa-solid fa-coins', label: 'Moedas', tags: 'financeiro valor pagamento' },
+                        { className: 'fa-solid fa-file-invoice-dollar', label: 'Prestação de contas', tags: 'financeiro relatorio gastos' },
+                        { className: 'fa-solid fa-chart-line', label: 'Gestão', tags: 'indicador planejamento estrategia' },
+                        { className: 'fa-solid fa-chalkboard-user', label: 'Formação', tags: 'curso estudo aprendizagem' },
+                        { className: 'fa-solid fa-child-reaching', label: 'Acolhimento', tags: 'recepcao cuidado suporte' },
+                        { className: 'fa-solid fa-people-arrows', label: 'Integração', tags: 'dinamica interacao convivio' },
+                        { className: 'fa-solid fa-bell-concierge', label: 'Serviço', tags: 'servir apoio estrutura' },
+                        { className: 'fa-solid fa-broom', label: 'Limpeza', tags: 'higiene limpeza organizacao' },
+                        { className: 'fa-solid fa-boxes-stacked', label: 'Almoxarifado', tags: 'material estoque organizacao' },
+                        { className: 'fa-solid fa-sheet-plastic', label: 'Decoração', tags: 'decoracao cenografia ambiente' },
+                        { className: 'fa-solid fa-person-praying', label: 'Espiritualidade', tags: 'oracao espiritual liturgia' },
+                        { className: 'fa-solid fa-book-journal-whills', label: 'Catequese', tags: 'estudo doutrina formacao' },
+                        { className: 'fa-solid fa-route', label: 'Roteiro', tags: 'cronograma fluxo encontro' },
+                        { className: 'fa-solid fa-walkie-talkie', label: 'Comunicação interna', tags: 'radio comunicacao equipe' },
+                        { className: 'fa-solid fa-user-plus', label: 'Cadastro', tags: 'inscricao secretaria lista' },
+                        { className: 'fa-solid fa-notes-medical', label: 'Saúde', tags: 'medico enfermagem primeiros socorros' },
+                        { className: 'fa-solid fa-people-roof', label: 'Família', tags: 'apoio familia acompanhamento' },
+                        { className: 'fa-solid fa-user-gear', label: 'Coordenação técnica', tags: 'coord tecnica sistema suporte' }
                     ]
                 }
             },
@@ -531,7 +564,7 @@
                     }
                 },
                 async removerPapel(id) {
-                    if (!confirm('Excluir este papel? Essa ação bloqueia se ele estiver em uso.')) return;
+                    if (!(await window.showFloatingConfirm('Excluir este papel? Essa ação bloqueia se ele estiver em uso.'))) return;
                     try {
                         const res = await fetch(`/api/equipes/papeis/${id}`, { method: 'DELETE' });
                         if (!res.ok) {
@@ -579,7 +612,7 @@
                     }
                 },
                 async removerFuncaoPadrao(id) {
-                    if (!confirm("Remover essa função padrão de todas as equipes?")) return;
+                    if (!(await window.showFloatingConfirm("Remover essa função padrão de todas as equipes?"))) return;
                     try {
                         const res = await fetch(`/api/equipes/funcoes-padrao/${id}`, { method: 'DELETE' });
                         if (!res.ok) {
@@ -601,7 +634,8 @@
                         nome: '',
                         descricao: '',
                         icone_classe: 'fa-solid fa-users',
-                        cor_icone: '#2563eb'
+                        cor_icone: '#2563eb',
+                        membros_outro_ejc: 0
                     };
                     this.funcoes = [];
                     this.novaFuncao = '';
@@ -617,7 +651,8 @@
                         nome: equipe.nome,
                         descricao: equipe.descricao,
                         icone_classe: equipe.icone_classe || 'fa-solid fa-users',
-                        cor_icone: equipe.cor_icone || '#2563eb'
+                        cor_icone: equipe.cor_icone || '#2563eb',
+                        membros_outro_ejc: equipe.membros_outro_ejc ? 1 : 0
                     };
                     this.novaFuncao = '';
                     this.novaFuncaoPapel = this.papeisDisponiveis.length ? this.papeisDisponiveis[0].nome : 'Membro';
@@ -665,7 +700,7 @@
                 },
 
                 async deletarEquipe(id) {
-                    if (!confirm("Atenção! Deletar esta equipe também DELETARÁ todas as funções internas cadastradas nela. Deseja prosseguir de forma definitiva?")) return;
+                    if (!(await window.showFloatingConfirm("Atenção! Deletar esta equipe também DELETARÁ todas as funções internas cadastradas nela. Deseja prosseguir de forma definitiva?"))) return;
 
                     try {
                         const res = await fetch(`/api/equipes/${id}`, { method: 'DELETE' });
@@ -716,7 +751,7 @@
                 },
 
                 async removerFuncao(funcaoId) {
-                    if (!confirm("Tem certeza que deseja remover esta função/cargo?")) return;
+                    if (!(await window.showFloatingConfirm("Tem certeza que deseja remover esta função/cargo?"))) return;
                     try {
                         const res = await fetch(`/api/equipes/funcoes/${funcaoId}`, { method: 'DELETE' });
                         if (res.ok) {

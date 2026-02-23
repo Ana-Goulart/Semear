@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SemeaJovens - Login</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/velzon-theme.css">
+    <style>
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f3f6f9;
+            padding: 16px;
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 420px;
+        }
+
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.45);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1050;
+            padding: 16px;
+        }
+
+        .dialog-card {
+            width: 100%;
+            max-width: 520px;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 18px 50px rgba(15, 23, 42, 0.2);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app" class="login-card">
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4">
+                <h3 class="mb-1">Acessar Sistema</h3>
+                <p class="text-muted mb-4">Informe seu usuário e senha para entrar.</p>
+
+                <form @submit.prevent="entrar">
+                    <div class="mb-3">
+                        <label class="form-label">Usuário</label>
+                        <input type="text" class="form-control" v-model="username" required autocomplete="username">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Senha</label>
+                        <input type="password" class="form-control" v-model="senha" required autocomplete="current-password">
+                    </div>
+                    <div class="d-grid">
+                        <button class="btn btn-primary" :disabled="loading">
+                            {{ loading ? 'Entrando...' : 'Entrar' }}
+                        </button>
+                    </div>
+                </form>
+                <div class="text-center mt-3">
+                    <a href="/admin/login" class="small text-muted">Entrar no painel de administrador</a>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="popup.aberto" class="overlay">
+            <div class="dialog-card p-4">
+                <h5 class="mb-2">{{ popup.titulo }}</h5>
+                <p class="mb-2">{{ popup.mensagem }}</p>
+                <p v-if="popup.motivo" class="text-muted mb-3"><strong>Motivo:</strong> {{ popup.motivo }}</p>
+                <div class="d-flex justify-content-end">
+                    <button class="btn btn-primary" @click="popup.aberto=false">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    username: '',
+                    senha: '',
+                    loading: false,
+                    popup: { aberto: false, titulo: '', mensagem: '', motivo: '' }
+                };
+            },
+            async mounted() {
+                try {
+                    const res = await fetch('/api/auth/me');
+                    const data = res.ok ? await res.json() : {};
+                    if (data.logged) window.location.href = '/';
+                } catch (_) { }
+            },
+            methods: {
+                abrirPopup(titulo, mensagem, motivo) {
+                    this.popup = { aberto: true, titulo: titulo || 'Aviso', mensagem: mensagem || '', motivo: motivo || '' };
+                },
+                async entrar() {
+                    this.loading = true;
+                    try {
+                        const res = await fetch('/api/auth/login', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                username: this.username,
+                                senha: this.senha
+                            })
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                            this.abrirPopup('Não foi possível entrar', data.error || 'Não foi possível entrar.', data.motivo || '');
+                            return;
+                        }
+                        window.location.href = '/';
+                    } catch (_) {
+                        this.abrirPopup('Erro de conexão', 'Erro ao conectar com o servidor.');
+                    } finally {
+                        this.loading = false;
+                    }
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+
+</html>

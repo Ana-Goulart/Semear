@@ -60,12 +60,58 @@ body {
   width: 250px;
   background-color: var(--vz-sidebar-bg);
   height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
   transition: all 0.2s;
   display: flex;
   flex-direction: column;
   z-index: 1004;
   box-shadow: 0 2px 4px rgba(15, 34, 58, 0.12);
   flex-shrink: 0;
+}
+
+#sidebarOverlay {
+  display: none;
+}
+
+.menu-group {
+  margin-top: 0.35rem;
+}
+
+.menu-group-toggle {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--vz-sidebar-menu-item-color);
+  padding: 0.65rem 1rem 0.4rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.menu-group-toggle:hover {
+  color: #fff;
+}
+
+.menu-group-links {
+  display: none;
+}
+
+.menu-group.open .menu-group-links {
+  display: block;
+}
+
+.menu-chevron {
+  transition: transform 0.2s ease;
+  opacity: 0.9;
+}
+
+.menu-group.open .menu-chevron {
+  transform: rotate(90deg);
 }
 
 #sidebar .logo-box {
@@ -127,6 +173,14 @@ body {
   display: none;
 }
 
+#sidebar.collapsed .menu-group-toggle {
+  display: none;
+}
+
+#sidebar.collapsed .menu-group-links {
+  display: block !important;
+}
+
 /* MAIN CONTENT AREA */
 #main-content {
   flex-grow: 1;
@@ -162,6 +216,39 @@ body {
   padding: 1.5rem 1.5rem;
   overflow-y: auto;
   flex-grow: 1;
+}
+
+@media (max-width: 991.98px) {
+  #layout-wrapper.mobile-sidebar #sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    transform: translateX(-100%);
+    width: 270px;
+    transition: transform 0.22s ease;
+    z-index: 1045;
+  }
+
+  #layout-wrapper.mobile-sidebar.menu-open #sidebar {
+    transform: translateX(0);
+  }
+
+  #layout-wrapper.mobile-sidebar #main-content {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  #layout-wrapper.mobile-sidebar #sidebarOverlay {
+    display: none;
+  }
+
+  #layout-wrapper.mobile-sidebar.menu-open #sidebarOverlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.28);
+    z-index: 1040;
+  }
 }
 
 /* ==============================================

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
 const crypto = require('crypto');
+const { purgeExpiredUsers } = require('../lib/usuariosExpiracao');
 
 let estruturaFuncoesGarantida = false;
 
@@ -52,16 +53,20 @@ function hashPassword(password) {
 // Listar Usuários
 router.get('/', async (req, res) => {
     try {
+        await purgeExpiredUsers();
         await garantirEstruturaFuncoes();
+        const tenantId = req.user && req.user.tenant_id ? Number(req.user.tenant_id) : 0;
+        if (!tenantId) return res.status(400).json({ error: "Tenant não identificado na sessão." });
         const [rows] = await pool.query(`
             SELECT 
                 u.id, u.username, u.nome_completo, u.data_entrada, u.data_saida, u.grupo, u.jovem_id,
                 GROUP_CONCAT(fdu.funcao_id ORDER BY fdu.funcao_id) AS funcoes_ids
             FROM usuarios u
             LEFT JOIN funcoes_dirigencia_usuarios fdu ON fdu.usuario_id = u.id
+            WHERE u.tenant_id = ?
             GROUP BY u.id, u.username, u.nome_completo, u.data_entrada, u.data_saida, u.grupo, u.jovem_id
             ORDER BY u.nome_completo
-        `);
+        `, [tenantId]);
         const result = rows.map(r => ({
             ...r,
             funcoes_dirigencia_ids: r.funcoes_ids ? String(r.funcoes_ids).split(',').map(v => Number(v)).filter(Boolean) : []
@@ -100,12 +105,14 @@ router.post('/', async (req, res) => {
     const connection = await pool.getConnection();
     try {
         await garantirEstruturaFuncoes();
+        const tenantId = req.user && req.user.tenant_id ? Number(req.user.tenant_id) : 0;
+        if (!tenantId) return res.status(400).json({ error: "Tenant não identificado na sessão." });
         await connection.beginTransaction();
 
         const hashedPassword = hashPassword(senha);
         const [result] = await connection.query(
-            'INSERT INTO usuarios (username, nome_completo, senha, data_entrada, data_saida, grupo, jovem_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [username, nome_completo, hashedPassword, data_entrada || null, data_saida || null, grupo, jovem_id || null]
+            'INSERT INTO usuarios (tenant_id, username, nome_completo, senha, data_entrada, data_saida, grupo, jovem_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [tenantId, username, nome_completo, hashedPassword, data_entrada || null, data_saida || null, grupo, jovem_id || null]
         );
 
         // Se vinculado a um jovem, marcar como dirigente
@@ -143,6 +150,10 @@ router.put('/:id', async (req, res) => {
     const connection = await pool.getConnection();
     try {
         await garantirEstruturaFuncoes();
+        const tenantId = req.user && req.user.tenant_id ? Number(req.user.tenant_id) : 0;
+        if (!tenantId) return res.status(400).json({ error: "Tenant não identificado na sessão." });
+        const [checkRows] = await connection.query('SELECT id FROM usuarios WHERE id = ? AND tenant_id = ? LIMIT 1', [id, tenantId]);
+        if (!checkRows.length) return res.status(404).json({ error: "Usuário não encontrado." });
         await connection.beginTransaction();
 
         let query = 'UPDATE usuarios SET username=?, nome_completo=?, data_entrada=?, data_saida=?, grupo=?';
@@ -175,7 +186,9 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
     const { id } = req.params;
     try {
-        await pool.query('DELETE FROM usuarios WHERE id = ?', [id]);
+        const tenantId = req.user && req.user.tenant_id ? Number(req.user.tenant_id) : 0;
+        if (!tenantId) return res.status(400).json({ error: "Tenant não identificado na sessão." });
+        await pool.query('DELETE FROM usuarios WHERE id = ? AND tenant_id = ?', [id, tenantId]);
         res.json({ message: "Usuário deletado" });
     } catch (err) {
         console.error(err);

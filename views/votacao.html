@@ -346,7 +346,7 @@
                     } catch (e) { console.error(e); }
                 },
                 async excluirPasta(id) {
-                    if (!confirm("Tem certeza que deseja excluir esta pasta? Todas as votações dentro dela serão apagadas.")) return;
+                    if (!(await window.showFloatingConfirm("Tem certeza que deseja excluir esta pasta? Todas as votações dentro dela serão apagadas."))) return;
                     try {
                         await fetch(`/api/votacao/pastas/${id}`, { method: 'DELETE' });
                         await this.listarPastas();
@@ -421,7 +421,7 @@
                     } catch (e) { console.error(e); }
                 },
                 async excluirVotacao(id) {
-                    if (!confirm("Excluir votação?")) return;
+                    if (!(await window.showFloatingConfirm("Excluir votação?"))) return;
                     try {
                         await fetch(`/api/votacao/${id}`, { method: 'DELETE' });
                         await this.listarVotacoes(this.pastaSelecionada.id);

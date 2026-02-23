@@ -37,7 +37,10 @@
                             <div class="border rounded p-3 h-100">
                                 <div class="d-flex justify-content-between align-items-start">
                                     <h6 class="mb-1">{{ f.nome }}</h6>
-                                    <button class="btn btn-sm btn-outline-danger" @click="removerFuncao(f.id)">Remover</button>
+                                    <div class="d-flex gap-1">
+                                        <button class="btn btn-sm btn-outline-primary" @click="abrirModalEditarFuncao(f)">Editar</button>
+                                        <button class="btn btn-sm btn-outline-danger" @click="removerFuncao(f.id)">Remover</button>
+                                    </div>
                                 </div>
                                 <p class="text-muted small mb-2">{{ f.descricao || 'Sem descrição.' }}</p>
                                 <div class="small fw-semibold mb-1">Usuários vinculados:</div>
@@ -58,7 +61,7 @@
             <div class="modal-dialog modal-lg modal-dialog-scrollable">
                 <div class="modal-content border-0 shadow">
                     <div class="modal-header bg-primary text-white">
-                        <h5 class="modal-title">➕ Nova Função da Dirigência</h5>
+                        <h5 class="modal-title">{{ editandoId ? '✏️ Editar Função da Dirigência' : '➕ Nova Função da Dirigência' }}</h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
@@ -93,7 +96,7 @@
                     <div class="modal-footer">
                         <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                         <button class="btn btn-primary" @click="salvarFuncao" :disabled="salvando">
-                            {{ salvando ? 'Salvando...' : 'Salvar Função' }}
+                            {{ salvando ? 'Salvando...' : (editandoId ? 'Salvar Alterações' : 'Salvar Função') }}
                         </button>
                     </div>
                 </div>
@@ -104,7 +107,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             injetarMenu('#app');
-            ativarMenu('/funcoes-dirigencia');
+            ativarMenu('/configuracoes/funcoes-dirigencia');
         });
 
         const { createApp } = Vue;
@@ -117,6 +120,7 @@
                     funcoes: [],
                     usuarios: [],
                     modalNovaFuncao: null,
+                    editandoId: null,
                     form: {
                         nome: '',
                         descricao: '',
@@ -127,6 +131,7 @@
             methods: {
                 resetForm() {
                     this.form = { nome: '', descricao: '', usuarios: [] };
+                    this.editandoId = null;
                 },
                 async carregarUsuarios() {
                     const res = await fetch('/api/usuarios');
@@ -153,6 +158,18 @@
                     if (!this.modalNovaFuncao) this.modalNovaFuncao = new bootstrap.Modal(document.getElementById('modalNovaFuncaoDirigencia'));
                     this.modalNovaFuncao.show();
                 },
+                abrirModalEditarFuncao(funcao) {
+                    this.editandoId = Number(funcao && funcao.id ? funcao.id : 0) || null;
+                    this.form = {
+                        nome: String(funcao && funcao.nome ? funcao.nome : ''),
+                        descricao: String(funcao && funcao.descricao ? funcao.descricao : ''),
+                        usuarios: Array.isArray(funcao && funcao.usuarios)
+                            ? funcao.usuarios.map(u => Number(u.usuario_id)).filter(v => Number.isInteger(v) && v > 0)
+                            : []
+                    };
+                    if (!this.modalNovaFuncao) this.modalNovaFuncao = new bootstrap.Modal(document.getElementById('modalNovaFuncaoDirigencia'));
+                    this.modalNovaFuncao.show();
+                },
                 toggleUsuario(id) {
                     if (this.form.usuarios.includes(id)) {
                         this.form.usuarios = this.form.usuarios.filter(i => i !== id);
@@ -172,8 +189,11 @@
 
                     this.salvando = true;
                     try {
-                        const res = await fetch('/api/funcoes-dirigencia', {
-                            method: 'POST',
+                        const editando = !!this.editandoId;
+                        const url = editando ? `/api/funcoes-dirigencia/${this.editandoId}` : '/api/funcoes-dirigencia';
+                        const method = editando ? 'PUT' : 'POST';
+                        const res = await fetch(url, {
+                            method,
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 nome: this.form.nome.trim(),
@@ -183,20 +203,20 @@
                         });
                         const data = await res.json().catch(() => ({}));
                         if (!res.ok) {
-                            alert(data.error || 'Erro ao criar função.');
+                            alert(data.error || `Erro ao ${editando ? 'atualizar' : 'criar'} função.`);
                             return;
                         }
                         if (this.modalNovaFuncao) this.modalNovaFuncao.hide();
                         await this.carregarFuncoes();
                     } catch (err) {
                         console.error(err);
-                        alert('Erro ao criar função.');
+                        alert(`Erro ao ${this.editandoId ? 'atualizar' : 'criar'} função.`);
                     } finally {
                         this.salvando = false;
                     }
                 },
                 async removerFuncao(id) {
-                    if (!confirm('Remover esta função?')) return;
+                    if (!(await window.showFloatingConfirm('Remover esta função?'))) return;
                     try {
                         const res = await fetch(`/api/funcoes-dirigencia/${id}`, { method: 'DELETE' });
                         const data = await res.json().catch(() => ({}));

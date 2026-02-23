@@ -599,7 +599,7 @@
                         return;
                     }
 
-                    const nome = prompt(placeholder);
+                    const nome = await window.showFloatingPrompt(placeholder, { title: 'Nova pasta', placeholder });
                     if (!nome || !String(nome).trim()) return;
 
                     try {
@@ -624,7 +624,7 @@
                     }
                 },
                 async deletarPasta(pasta) {
-                    if (!confirm(`Apagar pasta "${pasta.nome}"?`)) return;
+                    if (!(await window.showFloatingConfirm(`Apagar pasta "${pasta.nome}"?`))) return;
                     try {
                         const res = await fetch(`/api/ata-reunioes/pastas/${pasta.id}`, { method: 'DELETE' });
                         const data = await res.json().catch(() => ({}));
@@ -745,7 +745,7 @@
                     }
                 },
                 async removerAta(id) {
-                    if (!confirm('Excluir esta ata?')) return;
+                    if (!(await window.showFloatingConfirm('Excluir esta ata?'))) return;
                     try {
                         const res = await fetch(`/api/ata-reunioes/atas/${id}`, { method: 'DELETE' });
                         const data = await res.json().catch(() => ({}));

@@ -19,20 +19,18 @@
 
         <main class="container-fluid">
             <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
-                <h3 class="mb-0">Lista Mestre - EJC Inconfidentes</h3>
+                <h3 class="mb-0">Lista Mestre - EJC {{ nomeMeuEJC }}</h3>
                 <div class="d-flex flex-wrap gap-2">
                     <button class="btn btn-success d-flex align-items-center gap-1" @click="abrirModalNovoJovem">
                         <span>➕</span> Novo
                     </button>
-                    <button class="btn btn-soft-secondary d-flex align-items-center gap-1" @click="exportarCSV">
+                    <button class="btn btn-soft-secondary d-flex align-items-center gap-1" @click="abrirModalExportacao">
                         <span>📂</span> Exportar
                     </button>
-                    <label class="btn btn-soft-primary d-flex align-items-center gap-1 text-nowrap"
-                        style="cursor: pointer;">
+                    <button class="btn btn-soft-primary d-flex align-items-center gap-1 text-nowrap"
+                        @click="abrirModalImportacao">
                         <span>📥</span> Importar
-                        <input type="file" accept=".csv" hidden @change="processarImportacao">
-                    </label>
-
+                    </button>
                     <div class="vr mx-1"></div>
 
                     <div class="btn-group">
@@ -58,19 +56,24 @@
                 <div class="row g-3">
                     <div class="col-md-3"><label>Nome</label><input type="text" v-model="filtros.nome"
                             class="form-control"></div>
+                    <div class="col-md-2"><label>Telefone</label><input type="text" v-model="filtros.telefone"
+                            class="form-control"></div>
                     <div class="col-md-2"><label>Idade Mín/Máx</label>
                         <div class="input-group"><input type="number" v-model="filtros.idadeMin" class="form-control"
                                 placeholder="Min"><input type="number" v-model="filtros.idadeMax" class="form-control"
                                 placeholder="Max"></div>
                     </div>
-                    <div class="col-md-2"><label>Mês Nasc.</label>
-                        <select v-model="filtros.mesNasc" class="form-select">
+                    <div class="col-md-2"><label>Nº EJC</label><input type="number" v-model="filtros.numEjc"
+                            class="form-control"></div>
+                    <div class="col-md-2"><label>Instagram</label><input type="text" v-model="filtros.instagram"
+                            class="form-control"></div>
+                    <div class="col-md-2"><label>Sexo</label>
+                        <select v-model="filtros.sexo" class="form-select">
                             <option value="">Todos</option>
-                            <option v-for="(m, i) in meses" :value="i">{{ m }}</option>
+                            <option value="Feminino">Feminino</option>
+                            <option value="Masculino">Masculino</option>
                         </select>
                     </div>
-                    <div class="col-md-3"><label>Nº EJC</label><input type="number" v-model="filtros.numEjc"
-                            class="form-control"></div>
                     <div class="col-md-3"><label>Estado Civil</label>
                         <select v-model="filtros.estadoCivil" class="form-select">
                             <option value="">Todos</option>
@@ -92,7 +95,21 @@
                             <option :value="false">Não</option>
                         </select>
                     </div>
-                    <div class="col-md-1 d-flex align-items-end"><button class="btn btn-soft-secondary w-100"
+                    <div class="col-md-2"><label>Restrição Alimentar</label>
+                        <select v-model="filtros.restricaoAlimentar" class="form-select">
+                            <option value="">Todos</option>
+                            <option :value="true">Sim</option>
+                            <option :value="false">Não</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2"><label>É músico</label>
+                        <select v-model="filtros.ehMusico" class="form-select">
+                            <option value="">Todos</option>
+                            <option :value="true">Sim</option>
+                            <option :value="false">Não</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end"><button class="btn btn-soft-secondary w-100"
                             @click="limparFiltros">Limpar</button></div>
                 </div>
             </div>
@@ -104,14 +121,14 @@
                             <th v-if="colunasVisiveis.Nome">Nome</th>
                             <th v-if="colunasVisiveis.Telefone">Telefone</th>
                             <th v-if="colunasVisiveis.Idade">Idade</th>
-                            <th v-if="colunasVisiveis.Nascimento">Nascimento</th>
+                            <th v-if="colunasVisiveis.EstadoCivil">Estado Civil</th>
+                            <th v-if="colunasVisiveis.Circulo">Círculo</th>
+                            <th v-if="colunasVisiveis.Sexo">Sexo</th>
+                            <th v-if="colunasVisiveis.Deficiencia">Deficiência</th>
+                            <th v-if="colunasVisiveis.RestricaoAlimentar">Restrição Alimentar</th>
+                            <th v-if="colunasVisiveis.Musico">Músico</th>
                             <th v-if="colunasVisiveis.NumEJC">Nº EJC</th>
                             <th v-if="colunasVisiveis.Instagram">Instagram</th>
-                            <th v-if="colunasVisiveis.EstadoCivil">Estado Civil</th>
-                            <th v-if="colunasVisiveis.Casamento">Data Casamento</th>
-                            <th v-if="colunasVisiveis.Circulo">Círculo</th>
-                            <th v-if="colunasVisiveis.Deficiencia">Deficiência</th>
-                            <th v-if="colunasVisiveis.QualDeficiencia">Qual Deficiência</th>
                             <th>Ações</th>
                         </tr>
                     </thead>
@@ -121,15 +138,21 @@
                                     jovem.nome_completo }}</strong></td>
                             <td v-if="colunasVisiveis.Telefone">{{ jovem.telefone }}</td>
                             <td v-if="colunasVisiveis.Idade">{{ calcularIdade(jovem.data_nascimento) }}</td>
-                            <td v-if="colunasVisiveis.Nascimento">{{ formatarData(jovem.data_nascimento) }}</td>
-                            <td v-if="colunasVisiveis.NumEJC">{{ jovem.numero_ejc ? (numeroParaRomano(jovem.numero_ejc)
-                                + ' EJC Inconfidentes') : '-' }}</td>
-                            <td v-if="colunasVisiveis.Instagram">@{{ jovem.instagram }}</td>
                             <td v-if="colunasVisiveis.EstadoCivil">{{ jovem.estado_civil }}</td>
-                            <td v-if="colunasVisiveis.Casamento">{{ formatarData(jovem.data_casamento) }}</td>
                             <td v-if="colunasVisiveis.Circulo">{{ jovem.circulo }}</td>
+                            <td v-if="colunasVisiveis.Sexo">{{ jovem.sexo || '-' }}</td>
                             <td v-if="colunasVisiveis.Deficiencia">{{ jovem.deficiencia ? 'Sim' : 'Não' }}</td>
-                            <td v-if="colunasVisiveis.QualDeficiencia">{{ jovem.qual_deficiencia || '-' }}</td>
+                            <td v-if="colunasVisiveis.RestricaoAlimentar">{{ jovem.restricao_alimentar ? 'Sim' : 'Não' }}</td>
+                            <td v-if="colunasVisiveis.Musico">{{ jovem.eh_musico ? 'Sim' : 'Não' }}</td>
+                            <td v-if="colunasVisiveis.NumEJC">
+                                <span v-if="jovem.origem_ejc_tipo === 'OUTRO_EJC'">
+                                    {{ formatarNumeroOutroEjc(jovem.outro_ejc_numero) || '-' }} {{ jovem.outro_ejc_paroquia || '' }}
+                                </span>
+                                <span v-else>
+                                    {{ jovem.numero_ejc ? (numeroParaRomano(jovem.numero_ejc) + ' EJC ' + nomeMeuEJC) : '-' }}
+                                </span>
+                            </td>
+                            <td v-if="colunasVisiveis.Instagram">@{{ jovem.instagram }}</td>
                             <td><button class="btn btn-warning btn-sm text-white"
                                     @click="abrirEdicao(jovem)">✏️</button></td>
                         </tr>
@@ -162,6 +185,10 @@
                                 <li class="nav-item">
                                     <button class="nav-link" :class="{ active: tabEdicao === 'observacoes' }"
                                         @click="carregarObservacoes">📝 Observações</button>
+                                </li>
+                                <li class="nav-item">
+                                    <button class="nav-link" :class="{ active: tabEdicao === 'presencas' }"
+                                        @click="carregarPresencas">✅ Presença</button>
                                 </li>
                             </ul>
 
@@ -217,19 +244,50 @@
                                     </div>
 
                                     <div class="mb-1">
+                                        <label class="text-muted small fw-bold mb-0">Origem no EJC</label>
+                                        <div class="py-1 px-2 bg-light border rounded">
+                                            {{ jovemEditando.origem_ejc_tipo === 'OUTRO_EJC' ? 'Fez outro EJC' : ('Fez EJC ' + nomeMeuEJC) }}
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-1" v-if="jovemEditando.origem_ejc_tipo === 'OUTRO_EJC'">
+                                        <label class="text-muted small fw-bold mb-0">Outro EJC</label>
+                                        <div class="py-1 px-2 bg-light border rounded">
+                                            <span v-if="jovemEditando.outro_ejc_paroquia || jovemEditando.outro_ejc_nome">
+                                                {{ jovemEditando.outro_ejc_paroquia || '-' }}
+                                                <span v-if="jovemEditando.outro_ejc_nome"> - {{ jovemEditando.outro_ejc_nome }}</span>
+                                            </span>
+                                            <span v-else>Não informado</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-1" v-if="jovemEditando.origem_ejc_tipo === 'OUTRO_EJC'">
+                                        <label class="text-muted small fw-bold mb-0">Nº EJC que fez</label>
+                                        <div class="py-1 px-2 bg-light border rounded">
+                                            {{ formatarNumeroOutroEjc(jovemEditando.outro_ejc_numero) || 'Não informado' }}
+                                        </div>
+                                    </div>
+                                    <div class="mb-1" v-if="jovemEditando.origem_ejc_tipo === 'OUTRO_EJC'">
+                                        <label class="text-muted small fw-bold mb-0">Transferência</label>
+                                        <div class="py-1 px-2 bg-light border rounded">
+                                            {{ jovemEditando.transferencia_outro_ejc ? 'Sim' : 'Não' }}
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-1" v-if="jovemEditando.origem_ejc_tipo !== 'OUTRO_EJC'">
                                         <label class="text-muted small fw-bold mb-0">Nº EJC que fez</label>
                                         <div v-if="!isEditing" class="py-1 px-2 bg-light border rounded">
                                             <span v-if="jovemEditando.numero_ejc">{{
-                                                numeroParaRomano(jovemEditando.numero_ejc) }} EJC Inconfidentes</span>
+                                                numeroParaRomano(jovemEditando.numero_ejc) }} EJC {{ nomeMeuEJC }}</span>
                                             <span v-else-if="jovemEditando.numero_ejc_fez">{{
-                                                jovemEditando.numero_ejc_fez }}º</span>
+                                                numeroParaRomano(jovemEditando.numero_ejc_fez) }} EJC {{ nomeMeuEJC }}</span>
                                             <span v-else>Não informado</span>
                                         </div>
                                         <select v-else v-model="jovemEditando.numero_ejc_fez"
                                             class="form-select form-select-sm">
                                             <option value="">(Não informado)</option>
                                             <option v-for="ejc in ejcsList" :value="ejc.id">{{
-                                                numeroParaRomano(ejc.numero) }} EJC Inconfidentes</option>
+                                                numeroParaRomano(ejc.numero) }} EJC {{ nomeMeuEJC }}</option>
                                         </select>
                                     </div>
 
@@ -343,7 +401,7 @@
                                             <div class="mb-3">
                                                 <select v-model="tipoConjuge" class="form-select form-select-sm"
                                                     @change="limparDadosConjuge()">
-                                                    <option value="MESMO_EJC">Fez EJC Inconfidentes</option>
+                                                    <option value="MESMO_EJC">Fez EJC {{ nomeMeuEJC }}</option>
                                                     <option value="OUTRO_EJC">Fez outro EJC</option>
                                                     <option value="NAO_FEZ">Não fez EJC</option>
                                                 </select>
@@ -503,7 +561,7 @@
                             <!-- HISTÓRICO EQUIPES (INTERNAL - FULL WIDTH) -->
                             <div class="row mt-4">
                                 <div class="col-12">
-                                    <label class="fw-bold mb-2">Equipes de Trabalho (EJC Inconfidentes)</label>
+                                    <label class="fw-bold mb-2">Equipes de Trabalho (EJC {{ nomeMeuEJC }})</label>
                                     <div class="p-2 bg-white border rounded">
                                         <div v-if="!jovemHistoricoEquipes || jovemHistoricoEquipes.length === 0"
                                             class="text-muted small">Nenhuma equipe registrada.</div>
@@ -524,18 +582,18 @@
                                         <div v-if="isEditing" class="mt-2 border-top pt-2">
                                             <small class="text-muted d-block mb-1">Adicionar Equipe:</small>
                                             <div class="d-flex gap-1">
+                                                <select v-model="novaEquipeHistorico.ejc_id"
+                                                    class="form-select form-select-sm">
+                                                    <option value="">EJC...</option>
+                                                    <option v-for="e in ejcsList" :value="e.id">{{
+                                                        numeroParaRomano(e.numero) }}</option>
+                                                </select>
                                                 <select v-model="novaEquipeHistorico.equipe_id"
                                                     class="form-select form-select-sm"
                                                     @change="onEquipeHistoricoChange">
                                                     <option value="">Equipe...</option>
                                                     <option v-for="eq in todasEquipes" :value="eq.id">{{ eq.nome }}
                                                     </option>
-                                                </select>
-                                                <select v-model="novaEquipeHistorico.ejc_id"
-                                                    class="form-select form-select-sm">
-                                                    <option value="">EJC...</option>
-                                                    <option v-for="e in ejcsList" :value="e.id">{{
-                                                        numeroParaRomano(e.numero) }}</option>
                                                 </select>
                                                 <select v-model="novaEquipeHistorico.papel"
                                                     class="form-select form-select-sm" style="width: 100px;"
@@ -588,6 +646,10 @@
                                             <div class="d-flex justify-content-between align-items-start mb-1">
                                                 <small class="text-muted"><i class="far fa-clock"></i> {{
                                                     formatarDataHora(obs.created_at) }}</small>
+                                                <button v-if="isObservacaoRecusa(obs)" class="btn btn-sm btn-outline-warning"
+                                                    @click="removerObservacaoRecusa(obs)">
+                                                    Excluir recusa
+                                                </button>
                                             </div>
                                             <p class="mb-0" style="white-space: pre-wrap;">{{ obs.texto }}</p>
                                         </div>
@@ -603,9 +665,7 @@
                                             <h6 class="card-title">Adicionar Nova Observação</h6>
                                             <label class="form-label small text-muted">A observação ficará salva
                                                 como
-                                                uma anotação permanente de histórico na linha do tempo. Ela não pode
-                                                ser
-                                                deletada.</label>
+                                                uma anotação de histórico na linha do tempo.</label>
                                             <textarea v-model="novaObservacaoExtra" class="form-control mb-2" rows="3"
                                                 placeholder="Digite aqui a informação especial..."></textarea>
                                             <div class="text-end">
@@ -705,6 +765,30 @@
                             </div>
                         </div>
 
+                        <!-- TAB 4: PRESENÇAS -->
+                        <div v-show="tabEdicao === 'presencas'">
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <h6 class="m-0 mb-3">Eventos com Presença Registrada</h6>
+                                    <div v-if="loadingPresencas" class="text-muted">Carregando presenças...</div>
+                                    <div v-else class="list-group">
+                                        <div v-for="pres in presencasJovem" :key="`pres-${pres.id}`" class="list-group-item">
+                                            <div class="fw-semibold">{{ pres.evento_titulo || 'Evento sem título' }}</div>
+                                            <small class="text-muted d-block">Data do evento: {{ pres.evento_data ? formatarData(pres.evento_data) : 'Não informada' }}</small>
+                                            <small class="text-muted">Registrado em: {{ formatarDataHora(pres.registrado_em) }}</small>
+                                        </div>
+                                        <div v-if="presencasJovem.length === 0" class="text-center p-3 text-muted bg-light border rounded">
+                                            Nenhuma presença registrada.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-4 d-flex justify-content-end">
+                                <button type="button" class="btn btn-soft-secondary ms-auto"
+                                    data-bs-dismiss="modal">Fechar</button>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             </div>
@@ -739,6 +823,13 @@
                     </div>
                     <div class="modal-body">
                         <div class="row g-3">
+                            <div class="col-md-12">
+                                <label class="text-muted small">Primeiro, informe a origem do jovem *</label>
+                                <select v-model="novoJovem.origem_ejc_tipo" class="form-select" disabled>
+                                    <option value="INCONFIDENTES">Fez o EJC {{ nomeMeuEJC }}</option>
+                                </select>
+                                <small class="text-muted">Para cadastrar jovem de outro EJC, use o menu "Jovens de Outro EJC".</small>
+                            </div>
                             <div class="col-md-6">
                                 <label class="text-muted small">Nome Completo *</label>
                                 <input type="text" v-model="novoJovem.nome_completo" class="form-control"
@@ -746,20 +837,46 @@
                             </div>
                             <div class="col-md-6">
                                 <label class="text-muted small">Telefone *</label>
-                                <input type="tel" v-model="novoJovem.telefone" class="form-control"
+                                <input type="tel" v-model="novoJovem.telefone" @input="onNovoTelefoneInput" class="form-control"
                                     placeholder="Telefone" required>
                             </div>
                             <div class="col-md-4">
                                 <label class="text-muted small">Data de Nascimento</label>
                                 <input type="date" v-model="novoJovem.data_nascimento" class="form-control">
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-4" v-if="novoJovem.origem_ejc_tipo === 'INCONFIDENTES'">
                                 <label class="text-muted small">Nº EJC que fez</label>
                                 <select v-model="novoJovem.numero_ejc_fez" class="form-select">
                                     <option value="">(Não informado)</option>
                                     <option v-for="ejc in ejcsList" :value="ejc.id">{{ numeroParaRomano(ejc.numero)
-                                        }} EJC Inconfidentes</option>
+                                        }} EJC {{ nomeMeuEJC }}</option>
                                 </select>
+                            </div>
+                            <div class="col-md-4" v-else>
+                                <label class="text-muted small">Qual número do EJC que fez</label>
+                                <input type="text" v-model="novoJovem.outro_ejc_numero" class="form-control"
+                                    inputmode="numeric" @blur="normalizarNumeroEjcNovo"
+                                    placeholder="Digite o número (ex: 11)">
+                            </div>
+
+                            <div class="col-md-8" v-if="novoJovem.origem_ejc_tipo === 'OUTRO_EJC'">
+                                <label class="text-muted small">Qual EJC fez *</label>
+                                <select v-model="novoJovem.outro_ejc_id" class="form-select">
+                                    <option value="">Selecione...</option>
+                                    <option v-for="oe in outrosEjcsList" :key="oe.id" :value="oe.id">
+                                        {{ oe.paroquia }}<span v-if="oe.nome"> - {{ oe.nome }}</span>
+                                    </option>
+                                </select>
+                            </div>
+                            <div class="col-md-4" v-if="novoJovem.origem_ejc_tipo === 'OUTRO_EJC'">
+                                <label class="text-muted small">Transferência</label>
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" type="checkbox" id="novoTransferenciaOutroEjc"
+                                        v-model="novoJovem.transferencia_outro_ejc" :true-value="1" :false-value="0">
+                                    <label class="form-check-label" for="novoTransferenciaOutroEjc">
+                                        Jovem transferido
+                                    </label>
+                                </div>
                             </div>
 
                             <div class="col-md-6">
@@ -772,6 +889,7 @@
                                 <select v-model="novoJovem.estado_civil" class="form-select">
                                     <option value="Solteiro">Solteiro</option>
                                     <option value="Casado">Casado</option>
+                                    <option value="Amasiado">Amasiado</option>
                                 </select>
                             </div>
                             <div class="col-md-6">
@@ -846,12 +964,138 @@
                                     </div>
                                 </div>
                             </div>
+
+                            <div class="col-md-12" v-if="novoJovem.origem_ejc_tipo === 'OUTRO_EJC'">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="checkNovoJaMoita"
+                                        v-model="novoJovem.ja_foi_moita_inconfidentes" :true-value="1" :false-value="0">
+                                    <label class="form-check-label" for="checkNovoJaMoita">
+                                        Já foi moita no EJC {{ nomeMeuEJC }}
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6" v-if="novoJovem.origem_ejc_tipo === 'OUTRO_EJC' && novoJovem.ja_foi_moita_inconfidentes">
+                                <label class="text-muted small">Qual EJC no {{ nomeMeuEJC }}</label>
+                                <select v-model="novoJovem.moita_ejc_id" class="form-select">
+                                    <option value="">Selecione...</option>
+                                    <option v-for="ejc in ejcsList" :value="ejc.id">
+                                        {{ numeroParaRomano(ejc.numero) }} EJC {{ nomeMeuEJC }}
+                                    </option>
+                                </select>
+                            </div>
+                            <div class="col-md-6" v-if="novoJovem.origem_ejc_tipo === 'OUTRO_EJC' && novoJovem.ja_foi_moita_inconfidentes">
+                                <label class="text-muted small">Função de moita</label>
+                                <select v-model="novoJovem.moita_funcao" class="form-select">
+                                    <option value="">Selecione...</option>
+                                    <option v-for="f in funcoesMoita" :key="`novo-moita-${f.id}`" :value="f.nome">{{ f.nome }}</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="modal">Cancelar</button>
                         <button type="button" class="btn btn-success" @click="salvarNovoJovem">➕ Criar
                             Jovem</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="modalExportacaoDados" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header bg-soft-secondary">
+                        <h5 class="modal-title">Exportar Dados</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <label class="form-label fw-semibold mb-2">Selecione o que deseja exportar</label>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="expDadosBasicos" v-model="exportacaoOpcoes.dadosBasicos">
+                            <label class="form-check-label" for="expDadosBasicos">Dados básicos do jovem</label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="expHistorico" v-model="exportacaoOpcoes.historicoEquipes">
+                            <label class="form-check-label" for="expHistorico">Equipes trabalhadas por EJC</label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="expEventos" v-model="exportacaoOpcoes.eventosParticipados">
+                            <label class="form-check-label" for="expEventos">Eventos que participou</label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="expMoita" v-model="exportacaoOpcoes.moitaOutroEjc">
+                            <label class="form-check-label" for="expMoita">Histórico de moita em outro EJC</label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="expGarcom" v-model="exportacaoOpcoes.garcom">
+                            <label class="form-check-label" for="expGarcom">Histórico de garçom</label>
+                        </div>
+                        <div class="form-check mb-0">
+                            <input class="form-check-input" type="checkbox" id="expFiltrados" v-model="exportacaoOpcoes.somenteFiltrados">
+                            <label class="form-check-label" for="expFiltrados">Exportar apenas os dados filtrados</label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-primary" @click="exportarCSV">Exportar CSV</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="modalImportacaoDados" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header bg-soft-primary">
+                        <h5 class="modal-title">Importar CSV (Modelo esperado)</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-2"><strong>1) Dados básicos (colunas principais)</strong></p>
+                        <div class="border rounded p-2 bg-light small" style="white-space: pre-wrap;">nome, telefone, data_nascimento, sexo, estado_civil, circulo, deficiencia, qual_deficiencia, restricao_alimentar, detalhes_restricao, instagram, numero_ejc
+Exemplo: numero_ejc = 11 (o sistema converte automaticamente para o ID interno do EJC).</div>
+
+                        <p class="mt-3 mb-2"><strong>2) Importar histórico de equipes por jovem (opcional)</strong></p>
+                        <div class="border rounded p-2 bg-light small" style="white-space: pre-wrap;">Para cada EJC, adicione uma coluna no formato:
+Team_XIEJC, Team_XEJC, Team_IVEJC... (romano)
+
+Exemplos de cabeçalho:
+Team_IXEJC, Team_XEJC, Team_XIEJC
+
+Também aceitamos formato antigo:
+IX EJC, X EJC, XI EJC</div>
+
+                        <p class="mt-2 mb-2"><strong>3) Como preencher o valor da célula de equipe</strong></p>
+                        <div class="border rounded p-2 bg-light small" style="white-space: pre-wrap;">Formato simples: nome da equipe
+Exemplo: Liturgia
+
+Com papel:
+Liturgia (Tio)
+Liturgia (Coordenador)
+
+Com papel + subfunção:
+Liturgia (Coordenador - Música)</div>
+
+                        <p class="mt-3 mb-2"><strong>4) Padrões obrigatórios (validação rígida)</strong></p>
+                        <div class="border rounded p-2 bg-light small" style="white-space: pre-wrap;">estado_civil: Solteiro, Casado ou Amasiado (exato)
+sexo: Feminino ou Masculino (exato)
+circulo: {{ textoCirculosImportacao }} (exato)
+telefone: 10 ou 11 dígitos
+data_nascimento/data_casamento: AAAA-MM-DD
+numero_ejc: deve existir no cadastro de EJC
+
+Exemplo de erro mostrado na importação:
+Campo estado_civil fora do padrão: "Solteira". Padrão normal: Solteiro, Casado ou Amasiado.</div>
+
+                        <p class="text-muted small mt-2 mb-2">Também aceitamos o modelo antigo em inglês (FullName, Phone, BirthDate, EJCNumber, Team_XIEJC...).</p>
+                        <p class="text-muted small mt-0 mb-2">Importante: use arquivo CSV (não .xlsx/.xls).</p>
+                        <label class="form-label">Selecione o arquivo CSV</label>
+                        <input id="importCsvInput" type="file" class="form-control" accept=".csv" @change="onImportFileChange">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-primary" @click="confirmarImportacao">Importar</button>
                     </div>
                 </div>
             </div>
@@ -901,13 +1145,14 @@
         // Injetar menu lateral
         document.addEventListener('DOMContentLoaded', () => {
             injetarMenu('#app');
-            ativarMenu('/');
+            ativarMenu('/gestaodoencontro/listamestre');
         });
 
         const { createApp } = Vue;
         createApp({
             data() {
                 return {
+                    nomeMeuEJC: (window.__NOME_EJC_ATUAL && String(window.__NOME_EJC_ATUAL).trim()) || 'Inconfidentes',
                     jovens: [], historico: [], mostrarFiltros: false,
                     jovemConjuge: null,
                     showConjugeEdit: false,
@@ -922,6 +1167,8 @@
                     tipoConjuge: 'MESMO_EJC',
                     observacoesExtras: [],
                     novaObservacaoExtra: '',
+                    presencasJovem: [],
+                    loadingPresencas: false,
                     comissoes: [], // Lista de comissões do jovem
                     modalMoita: null,
                     outrosEjcsList: [], // Lista de EJCs de fora
@@ -946,10 +1193,13 @@
                         'Ukulele'
                     ],
                     novoJovem: {
+                        origem_ejc_tipo: 'INCONFIDENTES',
                         nome_completo: '',
                         telefone: '',
                         data_nascimento: '',
                         numero_ejc_fez: '',
+                        outro_ejc_id: '',
+                        outro_ejc_numero: '',
                         instagram: '',
                         estado_civil: 'Solteiro',
                         sexo: '',
@@ -959,16 +1209,52 @@
                         restricao_alimentar: false,
                         detalhes_restricao: '',
                         eh_musico: false,
-                        instrumentos_musicais: []
+                        instrumentos_musicais: [],
+                        transferencia_outro_ejc: 0,
+                        ja_foi_moita_inconfidentes: 0,
+                        moita_ejc_id: '',
+                        moita_funcao: ''
                     },
                     meses: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'],
-                    cores: ['Rosa', 'Azul', 'Vermelho', 'Verde', 'Amarelo', 'Marrom'],
+                    cores: [],
                     colunasVisiveis: {
-                        Nome: true, Telefone: true, Idade: true, Nascimento: false, NumEJC: false,
-                        Instagram: false, EstadoCivil: true, Casamento: false,
-                        Circulo: true, Deficiencia: false, QualDeficiencia: false
+                        Nome: true,
+                        Telefone: true,
+                        Idade: true,
+                        EstadoCivil: true,
+                        Circulo: true,
+                        Sexo: false,
+                        Deficiencia: false,
+                        RestricaoAlimentar: false,
+                        Musico: false,
+                        NumEJC: false,
+                        Instagram: false
                     },
-                    filtros: { nome: '', idadeMin: null, idadeMax: null, mesNasc: '', numEjc: null, estadoCivil: '', circulo: '', deficiencia: '' },
+                    filtros: {
+                        nome: '',
+                        telefone: '',
+                        idadeMin: null,
+                        idadeMax: null,
+                        numEjc: null,
+                        instagram: '',
+                        sexo: '',
+                        estadoCivil: '',
+                        circulo: '',
+                        deficiencia: '',
+                        restricaoAlimentar: '',
+                        ehMusico: ''
+                    },
+                    modalExportacao: null,
+                    modalImportacao: null,
+                    importFile: null,
+                    exportacaoOpcoes: {
+                        dadosBasicos: true,
+                        historicoEquipes: true,
+                        eventosParticipados: true,
+                        moitaOutroEjc: true,
+                        garcom: true,
+                        somenteFiltrados: false
+                    },
                     jovemSelecionado: {}, jovemEditando: {}, jovemHistoricoEquipes: [],
                     todasEquipes: [], // Lista de todas as equipes para o select
                     papeisEquipeDisponiveis: [],
@@ -980,15 +1266,18 @@
                 jovensFiltrados() {
                     return this.jovens.filter(j => {
                         const idade = this.calcularIdade(j.data_nascimento);
-                        const mesNasc = j.data_nascimento ? new Date(j.data_nascimento).getUTCMonth() : -1;
                         return (!this.filtros.nome || j.nome_completo.toLowerCase().includes(this.filtros.nome.toLowerCase())) &&
+                            (!this.filtros.telefone || String(j.telefone || '').toLowerCase().includes(this.filtros.telefone.toLowerCase())) &&
                             (!this.filtros.idadeMin || idade >= this.filtros.idadeMin) &&
                             (!this.filtros.idadeMax || idade <= this.filtros.idadeMax) &&
-                            (this.filtros.mesNasc === '' || mesNasc == this.filtros.mesNasc) &&
-                            (!this.filtros.numEjc || j.numero_ejc == this.filtros.numEjc) &&
+                            (!this.filtros.numEjc || j.numero_ejc == this.filtros.numEjc || this.romanoParaNumero(j.outro_ejc_numero) == this.filtros.numEjc) &&
+                            (!this.filtros.instagram || String(j.instagram || '').toLowerCase().includes(this.filtros.instagram.toLowerCase())) &&
+                            (!this.filtros.sexo || j.sexo === this.filtros.sexo) &&
                             (!this.filtros.estadoCivil || j.estado_civil === this.filtros.estadoCivil) &&
                             (!this.filtros.circulo || j.circulo === this.filtros.circulo) &&
-                            (this.filtros.deficiencia === '' || j.deficiencia == this.filtros.deficiencia);
+                            (this.filtros.deficiencia === '' || j.deficiencia == this.filtros.deficiencia) &&
+                            (this.filtros.restricaoAlimentar === '' || j.restricao_alimentar == this.filtros.restricaoAlimentar) &&
+                            (this.filtros.ehMusico === '' || j.eh_musico == this.filtros.ehMusico);
                     });
                 },
                 subfuncoesHistoricoDisponiveis() {
@@ -997,6 +1286,9 @@
                     const funcoes = this.funcoesPorEquipeHistorico[equipeId] || [];
                     const papelSelecionado = this.novaEquipeHistorico.papel || 'Membro';
                     return funcoes.filter(f => (f.papel_base || 'Membro') === papelSelecionado);
+                },
+                textoCirculosImportacao() {
+                    return this.cores.length ? this.cores.join(', ') : 'Nenhum círculo cadastrado';
                 },
 
             },
@@ -1008,6 +1300,15 @@
                     const res = await fetch('/api/lista-mestre');
                     const data = await res.json();
                     this.jovens = Array.isArray(data) ? data.filter(i => i) : [];
+                },
+                async carregarNomeMeuEJC() {
+                    try {
+                        const res = await fetch('/api/meu-ejc');
+                        if (!res.ok) return;
+                        const data = await res.json().catch(() => ({}));
+                        const nome = data && data.nome ? String(data.nome).trim() : '';
+                        if (nome) this.nomeMeuEJC = nome;
+                    } catch (_) { }
                 },
                 async carregarTodasEquipes() {
                     if (this.todasEquipes.length) return;
@@ -1094,7 +1395,7 @@
                     }
                 },
                 async removerEquipeHistorico(id) {
-                    if (!confirm("Remover este item do histórico?")) return;
+                    if (!(await window.showFloatingConfirm("Remover este item do histórico?"))) return;
                     try {
                         const res = await fetch(`/api/lista-mestre/historico/${id}`, { method: 'DELETE' });
                         if (!res.ok) throw new Error("Erro ao remover");
@@ -1108,22 +1409,67 @@
                     }
                 },
 
+                csvEscape(v) {
+                    return `"${String(v === null || v === undefined ? '' : v).replace(/"/g, '""')}"`;
+                },
+                abrirModalExportacao() {
+                    if (!this.modalExportacao) this.modalExportacao = new bootstrap.Modal(document.getElementById('modalExportacaoDados'));
+                    this.modalExportacao.show();
+                },
+                abrirModalImportacao() {
+                    if (!this.modalImportacao) this.modalImportacao = new bootstrap.Modal(document.getElementById('modalImportacaoDados'));
+                    this.modalImportacao.show();
+                },
+                onImportFileChange(event) {
+                    const file = event.target.files && event.target.files[0] ? event.target.files[0] : null;
+                    if (!file) {
+                        this.importFile = null;
+                        return;
+                    }
+                    const nome = String(file.name || '').toLowerCase();
+                    if (nome.endsWith('.xlsx') || nome.endsWith('.xls')) {
+                        this.importFile = null;
+                        alert('Arquivo Excel detectado (.xlsx/.xls). Exporte/salve como CSV UTF-8 e tente novamente.');
+                        event.target.value = '';
+                        return;
+                    }
+                    this.importFile = file;
+                },
+                async confirmarImportacao() {
+                    if (!this.importFile) {
+                        alert('Selecione um arquivo CSV.');
+                        return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = async (e) => {
+                        try {
+                            await this.importarTextoCSV(e.target.result);
+                            this.importFile = null;
+                            const input = document.getElementById('importCsvInput');
+                            if (input) input.value = '';
+                            if (this.modalImportacao) this.modalImportacao.hide();
+                        } catch (err) {
+                            console.error(err);
+                            alert(err && err.message ? err.message : "Erro ao enviar dados de importação.");
+                        }
+                    };
+                    reader.readAsText(this.importFile);
+                },
                 async exportarCSV() {
-                    if (!this.jovens || !this.jovens.length) {
+                    const fonte = this.exportacaoOpcoes.somenteFiltrados ? this.jovensFiltrados : this.jovens;
+                    if (!fonte || !fonte.length) {
                         alert("Não há dados para exportar.");
                         return;
                     }
 
-                    // Garantir que temos a lista de EJCs
+                    const op = this.exportacaoOpcoes || {};
+
                     if (!this.ejcsList.length) await this.carregarEjcs();
 
-                    // Buscar histórico completo
                     let historicoMap = {};
-                    try {
+                    if (op.historicoEquipes) {
                         const resHist = await fetch('/api/relatorio/historico-completo');
                         const historicoCompleto = await resHist.json();
-
-                        // Agrupar por jovem e EJC
                         historicoCompleto.forEach(h => {
                             if (!historicoMap[h.jovem_id]) historicoMap[h.jovem_id] = {};
                             const etiquetaFuncao = [h.papel && h.papel !== 'Membro' ? h.papel : '', h.subfuncao || '']
@@ -1132,57 +1478,60 @@
                             const papelStr = etiquetaFuncao ? ` (${etiquetaFuncao})` : '';
                             historicoMap[h.jovem_id][h.numero_ejc] = (h.equipe || '') + papelStr;
                         });
-                    } catch (e) {
-                        console.error("Erro ao buscar histórico completo para exportação", e);
-                        alert("Atenção: O histórico de equipes pode não estar completo no CSV.");
                     }
 
-                    // Ordenar EJCs para cabeçalho (do menor para o maior)
+                    let detalhes = { eventosPorJovem: {}, moitaPorJovem: {}, garcomPorJovem: {} };
+                    if (op.eventosParticipados || op.moitaOutroEjc || op.garcom) {
+                        try {
+                            const resDet = await fetch('/api/lista-mestre/exportacao/detalhes');
+                            detalhes = resDet.ok ? await resDet.json() : detalhes;
+                        } catch (_) { }
+                    }
+
                     const ejcsOrdenados = [...this.ejcsList].sort((a, b) => a.numero - b.numero);
+                    const headers = [];
+                    if (op.dadosBasicos) {
+                        headers.push("FullName", "Phone", "BirthDate", "Age", "Gender", "CivilStatus", "Circle", "HasDisability", "DisabilityDetail", "HasFoodRestriction", "FoodRestrictionDetail", "IsMusician", "Instagram", "EJCNumber");
+                    }
+                    if (op.historicoEquipes) {
+                        ejcsOrdenados.forEach(ejc => headers.push(`Team_${this.numeroParaRomano(ejc.numero)}EJC`));
+                    }
+                    if (op.eventosParticipados) headers.push("EventsParticipated");
+                    if (op.moitaOutroEjc) headers.push("MoitaOtherEJC");
+                    if (op.garcom) headers.push("GarcomHistory");
+                    if (!headers.length) {
+                        alert('Selecione ao menos uma opção para exportar.');
+                        return;
+                    }
 
-                    // Cabeçalhos
-                    const headers = [
-                        "Nome", "Telefone", "Data Nascimento", "Idade", "EJC Fez",
-                        "Instagram", "Estado Civil", "Cônjuge", "Data Casamento", "Círculo", "Deficiência", "Qual"
-                    ];
-
-                    // Adicionar colunas de EJCs
-                    ejcsOrdenados.forEach(ejc => {
-                        headers.push(`${this.numeroParaRomano(ejc.numero)} EJC`);
-                    });
-
-                    // Linhas
-                    const rows = this.jovens.map(j => {
+                    const rows = fonte.map(j => {
                         const idade = this.calcularIdade(j.data_nascimento);
-                        const ejcFez = this.numeroParaRomano(j.numero_ejc) + (j.numero_ejc ? ' EJC' : '');
-
-                        // Nome do cônjuge (apenas se casado e informado)
-                        const conjugeNome = (['Casado', 'Amasiado'].includes(j.estado_civil) && j.conjuge_nome) ? j.conjuge_nome : '';
-
-                        // Dados base
-                        const baseData = [
-                            `"${(j.nome_completo || '').replace(/"/g, '""')}"`,
-                            `"${(j.telefone || '').replace(/"/g, '""')}"`,
-                            `"${this.formatarData(j.data_nascimento)}"`,
-                            `"${idade === '--' ? '' : idade}"`,
-                            `"${ejcFez}"`,
-                            `"${(j.paroquia_ejc || j.paroquia || '').replace(/"/g, '""')}"`,
-                            `"${(j.instagram || '').replace(/"/g, '""')}"`,
-                            `"${(j.estado_civil || '').replace(/"/g, '""')}"`,
-                            `"${(conjugeNome || '').replace(/"/g, '""')}"`,
-                            `"${this.formatarData(j.data_casamento)}"`,
-                            `"${(j.circulo || '').replace(/"/g, '""')}"`,
-                            `"${j.deficiencia ? 'Sim' : 'Não'}"`,
-                            `"${(j.qual_deficiencia || '').replace(/"/g, '""')}"`
-                        ];
-
-                        // Dados dinâmicos de histórico
-                        ejcsOrdenados.forEach(ejc => {
-                            const equipe = (historicoMap[j.id] && historicoMap[j.id][ejc.numero]) || '';
-                            baseData.push(`"${equipe.replace(/"/g, '""')}"`);
-                        });
-
-                        return baseData.join(";");
+                        const cols = [];
+                        if (op.dadosBasicos) {
+                            cols.push(
+                                this.csvEscape(j.nome_completo || ''),
+                                this.csvEscape(j.telefone || ''),
+                                this.csvEscape(j.data_nascimento ? String(j.data_nascimento).split('T')[0] : ''),
+                                this.csvEscape(idade === '--' ? '' : idade),
+                                this.csvEscape(j.sexo || ''),
+                                this.csvEscape(j.estado_civil || ''),
+                                this.csvEscape(j.circulo || ''),
+                                this.csvEscape(j.deficiencia ? 'Yes' : 'No'),
+                                this.csvEscape(j.qual_deficiencia || ''),
+                                this.csvEscape(j.restricao_alimentar ? 'Yes' : 'No'),
+                                this.csvEscape(j.detalhes_restricao || ''),
+                                this.csvEscape(j.eh_musico ? 'Yes' : 'No'),
+                                this.csvEscape(j.instagram || ''),
+                                this.csvEscape(j.origem_ejc_tipo === 'OUTRO_EJC' ? (this.formatarNumeroOutroEjc(j.outro_ejc_numero) || '') : (j.numero_ejc || ''))
+                            );
+                        }
+                        if (op.historicoEquipes) {
+                            ejcsOrdenados.forEach(ejc => cols.push(this.csvEscape((historicoMap[j.id] && historicoMap[j.id][ejc.numero]) || '')));
+                        }
+                        if (op.eventosParticipados) cols.push(this.csvEscape((detalhes.eventosPorJovem || {})[j.id] || ''));
+                        if (op.moitaOutroEjc) cols.push(this.csvEscape((detalhes.moitaPorJovem || {})[j.id] || ''));
+                        if (op.garcom) cols.push(this.csvEscape((detalhes.garcomPorJovem || {})[j.id] || ''));
+                        return cols.join(';');
                     });
 
                     const csvContent = "\uFEFF" + headers.join(";") + "\n" + rows.join("\n");
@@ -1192,140 +1541,238 @@
                     const url = URL.createObjectURL(blob);
 
                     link.setAttribute("href", url);
-                    link.setAttribute("download", "lista_mestre_semeajovens_com_equipes.csv");
+                    link.setAttribute("download", this.exportacaoOpcoes.somenteFiltrados ? "lista_mestre_export_filtrados.csv" : "lista_mestre_export.csv");
                     link.style.visibility = 'hidden';
                     document.body.appendChild(link);
                     link.click();
-                    document.body.appendChild(link);
-                    link.click();
                     document.body.removeChild(link);
+                    if (this.modalExportacao) this.modalExportacao.hide();
+                },
+                parseCsvLine(line, delimiter) {
+                    const cols = [];
+                    let current = '';
+                    let inQuotes = false;
+
+                    for (let i = 0; i < line.length; i++) {
+                        const ch = line[i];
+                        const next = line[i + 1];
+
+                        if (ch === '"') {
+                            if (inQuotes && next === '"') {
+                                current += '"';
+                                i++;
+                            } else {
+                                inQuotes = !inQuotes;
+                            }
+                            continue;
+                        }
+
+                        if (ch === delimiter && !inQuotes) {
+                            cols.push(current.trim());
+                            current = '';
+                            continue;
+                        }
+
+                        current += ch;
+                    }
+
+                    cols.push(current.trim());
+                    return cols.map(c => c.replace(/^"|"$/g, ''));
+                },
+                detectarDelimitador(headerLine) {
+                    const semicolonCount = (headerLine.match(/;/g) || []).length;
+                    const commaCount = (headerLine.match(/,/g) || []).length;
+                    const tabCount = (headerLine.match(/\t/g) || []).length;
+                    if (tabCount > semicolonCount && tabCount > commaCount) return '\t';
+                    return semicolonCount >= commaCount ? ';' : ',';
+                },
+                pareceArquivoBinario(texto) {
+                    const txt = String(texto || '');
+                    if (!txt) return false;
+                    if (txt.includes('\u0000')) return true;
+                    const amostra = txt.slice(0, 5000);
+                    const total = amostra.length || 1;
+                    const controles = (amostra.match(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g) || []).length;
+                    const substituicoes = (amostra.match(/\uFFFD/g) || []).length;
+                    const taxaControles = controles / total;
+                    const taxaSubstituicoes = substituicoes / total;
+                    return taxaControles > 0.01 || taxaSubstituicoes > 0.02;
+                },
+                async importarTextoCSV(textoOriginal) {
+                    const text = String(textoOriginal || '').replace(/^\uFEFF/, '');
+                    if (this.pareceArquivoBinario(text)) {
+                        throw new Error('O arquivo selecionado parece ser Excel/binário. Salve como CSV UTF-8 e importe novamente.');
+                    }
+                    const linhas = text.split(/\r?\n/).filter(l => l.trim() !== '');
+                    if (linhas.length < 2) {
+                        alert("Arquivo inválido ou vazio");
+                        return;
+                    }
+
+                    const delimiter = this.detectarDelimitador(linhas[0]);
+                    const headers = this.parseCsvLine(linhas[0], delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
+
+                    const normalizarHeader = (valor) => String(valor || '')
+                        .normalize('NFD')
+                        .replace(/[\u0300-\u036f]/g, '')
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]+/g, '_')
+                        .replace(/^_+|_+$/g, '');
+
+                    const mapHeaders = {};
+                    headers.forEach((h, i) => {
+                        mapHeaders[h] = i;
+                        mapHeaders[normalizarHeader(h)] = i;
+                    });
+
+                    if (!this.ejcsList.length) await this.carregarEjcs();
+
+                    const dadosParaEnviar = [];
+
+                    for (let i = 1; i < linhas.length; i++) {
+                        const colunas = this.parseCsvLine(linhas[i], delimiter);
+                        if (colunas.length < Math.min(headers.length, 3)) continue;
+                        const valorColuna = (idx) => {
+                            if (idx < 0 || idx >= colunas.length) return null;
+                            const v = colunas[idx];
+                            if (v === undefined || v === null) return null;
+                            const t = String(v).trim();
+                            return t === '' ? null : t;
+                        };
+
+                        const getVal = (...nomes) => {
+                            for (const nome of nomes) {
+                                const idx = mapHeaders[nome] !== undefined
+                                    ? mapHeaders[nome]
+                                    : mapHeaders[normalizarHeader(nome)];
+                                if (idx !== undefined && colunas[idx] !== undefined && colunas[idx] !== null && colunas[idx] !== '') {
+                                    return colunas[idx];
+                                }
+                            }
+                            return null;
+                        };
+
+                        const dataNasc = getVal("BirthDate", "Data Nascimento", "data_nascimento", "data nascimento");
+                        const dataCasamento = getVal("MarriageDate", "Data Casamento", "data_casamento", "data casamento");
+                        const nomeCsv = getVal("FullName", "Nome", "nome", "nome_completo", "full_name") || valorColuna(0);
+                        const telefoneCsv = getVal("Phone", "Telefone", "telefone", "celular") || valorColuna(1);
+                        const sexoCsv = getVal("Gender", "Sexo", "sexo") || valorColuna(3);
+                        const estadoCivilCsv = getVal("CivilStatus", "Estado Civil", "estado_civil", "estado civil") || valorColuna(4);
+                        const circuloCsv = getVal("Circle", "Círculo", "circulo") || valorColuna(5);
+                        const deficienciaCsv = getVal("HasDisability", "Deficiência", "deficiencia") || valorColuna(6);
+                        const restricaoCsv = getVal("HasFoodRestriction", "Restrição Alimentar", "restricao_alimentar", "restricao alimentar") || valorColuna(7);
+                        const numeroEjcCsv = getVal("EJCNumber", "Numero EJC", "numero_ejc", "numero ejc") || valorColuna(8);
+
+                        const jovem = {
+                            nome_completo: nomeCsv,
+                            telefone: telefoneCsv,
+                            data_nascimento: dataNasc && dataNasc.includes('/') ? dataNasc.split('/').reverse().join('-') : (dataNasc || null),
+                            instagram: getVal("Instagram", "instagram"),
+                            estado_civil: estadoCivilCsv,
+                            conjuge_nome: getVal("Spouse", "Cônjuge", "conjuge_nome"),
+                            data_casamento: dataCasamento && dataCasamento.includes('/') ? dataCasamento.split('/').reverse().join('-') : (dataCasamento || null),
+                            circulo: circuloCsv,
+                            sexo: sexoCsv,
+                            restricao_alimentar: ['YES', 'SIM', 'TRUE', '1'].includes(String(restricaoCsv || '').toUpperCase()),
+                            detalhes_restricao: getVal("FoodRestrictionDetail", "detalhes_restricao"),
+                            deficiencia: ['YES', 'SIM', 'TRUE', '1'].includes(String(deficienciaCsv || '').toUpperCase()),
+                            qual_deficiencia: getVal("DisabilityDetail", "Qual", "qual_deficiencia")
+                        };
+                        if (numeroEjcCsv) jovem.numero_ejc_fez = this.romanoParaNumero(numeroEjcCsv) || Number(numeroEjcCsv) || null;
+
+                        const historico = [];
+
+                        this.ejcsList.forEach(ejc => {
+                            const colNameLegacy = `${this.numeroParaRomano(ejc.numero)} EJC`;
+                            const colNameNew = `Team_${this.numeroParaRomano(ejc.numero)}EJC`;
+                            const valorCelula = getVal(colNameNew, colNameLegacy);
+
+                            if (valorCelula) {
+                                let equipe = valorCelula;
+                                let papel = 'Membro';
+                                let subfuncao = null;
+
+                                if (valorCelula.includes('(') && valorCelula.includes(')')) {
+                                    const parts = valorCelula.match(/(.*)\s\((.*)\)/);
+                                    if (parts) {
+                                        equipe = parts[1].trim();
+                                        const etiqueta = parts[2].trim();
+                                        if (etiqueta.includes(' - ')) {
+                                            const [papelExtraido, ...resto] = etiqueta.split(' - ');
+                                            papel = papelExtraido.trim() || 'Membro';
+                                            subfuncao = resto.join(' - ').trim() || null;
+                                        } else {
+                                            const papelNormalizado = etiqueta.toLowerCase() === 'coord' ? 'Coordenador' : etiqueta;
+                                            if (['Membro', 'Tio', 'Coordenador'].includes(papelNormalizado)) {
+                                                papel = papelNormalizado;
+                                            } else {
+                                                papel = 'Membro';
+                                                subfuncao = etiqueta || null;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                historico.push({
+                                    ejc_id: ejc.id,
+                                    equipe: equipe,
+                                    papel: papel,
+                                    subfuncao: subfuncao
+                                });
+                            }
+                        });
+
+                        dadosParaEnviar.push({ jovem, historico });
+                    }
+
+                    const res = await fetch('/api/importacao', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(dadosParaEnviar)
+                    });
+
+                    const resultado = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        const erroMensagem = resultado.error || "Erro ao enviar dados de importação.";
+                        throw new Error(erroMensagem);
+                    }
+
+                    const resumo = resultado.resumo || { criados: 0, atualizados: 0, erros: 0 };
+                    const detalhesErros = Array.isArray(resultado.detalhesErros) ? resultado.detalhesErros : [];
+
+                    let mensagemFinal = `Importação concluída!\nCriados: ${resumo.criados}\nAtualizados: ${resumo.atualizados}\nErros: ${resumo.erros}`;
+                    if (detalhesErros.length) {
+                        const limite = 8;
+                        const lista = detalhesErros
+                            .slice(0, limite)
+                            .map(item => `- Linha ${item.linha} (${item.nome}): ${item.erro}`)
+                            .join('\n');
+                        const restante = detalhesErros.length > limite
+                            ? `\n... e mais ${detalhesErros.length - limite} erro(s).`
+                            : '';
+                        mensagemFinal += `\n\nDetalhes dos erros:\n${lista}${restante}`;
+                    }
+
+                    alert(mensagemFinal);
+                    await this.buscarJovens();
                 },
                 async processarImportacao(event) {
                     const file = event.target.files[0];
                     if (!file) return;
 
-                    if (!confirm("Tem certeza que deseja importar este arquivo? Isso irá criar novos registros e atualizar os existentes.")) {
+                    if (!(await window.showFloatingConfirm("Tem certeza que deseja importar este arquivo? Isso irá criar novos registros e atualizar os existentes."))) {
                         event.target.value = '';
                         return;
                     }
 
                     const reader = new FileReader();
                     reader.onload = async (e) => {
-                        const text = e.target.result;
-                        const linhas = text.split("\n").filter(l => l.trim() !== '');
-                        if (linhas.length < 2) {
-                            alert("Arquivo inválido ou vazio");
-                            return;
-                        }
-
-                        const headers = linhas[0].split(";").map(h => h.trim().replace(/^"|"$/g, ''));
-
-                        // Mapear cabeçalhos para índices
-                        const mapHeaders = {};
-                        headers.forEach((h, i) => mapHeaders[h] = i);
-
-                        // Garantir EJCs carregados para mapeamento
-                        if (!this.ejcsList.length) await this.carregarEjcs();
-
-                        const dadosParaEnviar = [];
-
-                        for (let i = 1; i < linhas.length; i++) {
-                            const colunas = linhas[i].split(";").map(c => c.trim().replace(/^"|"$/g, ''));
-                            if (colunas.length < headers.length) continue;
-
-                            const getVal = (nome) => {
-                                const idx = mapHeaders[nome];
-                                return (idx !== undefined && colunas[idx]) ? colunas[idx] : null;
-                            };
-
-                            const dataNasc = getVal("Data Nascimento");
-                            const dataCasamento = getVal("Data Casamento");
-
-                            const jovem = {
-                                nome_completo: getVal("Nome"),
-                                telefone: getVal("Telefone"),
-                                data_nascimento: dataNasc && dataNasc !== '--/--/----' ? dataNasc.split('/').reverse().join('-') : null,
-                                //numero_ejc: getVal("EJC Fez"), // TODO: Converter "X EJC" para número?
-                                //paroquia: getVal("Paróquia"),
-                                instagram: getVal("Instagram"),
-                                estado_civil: getVal("Estado Civil"),
-                                conjuge_nome: getVal("Cônjuge"),
-                                data_casamento: dataCasamento && dataCasamento !== '--/--/----' ? dataCasamento.split('/').reverse().join('-') : null,
-                                circulo: getVal("Círculo"),
-                                deficiencia: getVal("Deficiência") === 'Sim',
-                                qual_deficiencia: getVal("Qual")
-                            };
-
-                            // Tentar extrair número do EJC Fez (ex: "X EJC")
-                            const ejcFezStr = getVal("EJC Fez");
-                            if (ejcFezStr) {
-                                const numeroRomano = ejcFezStr.split(' ')[0];
-                                // Simplificação: tentar achar pelo texto no select que temos, ou ignorar por enquanto se complexo
-                                // Ideal seria ter um mapa reverso de Romano -> Int
-                                // Vou pular essa parte complexa por agora e focar nos dados básicos e histórico
-                            }
-
-                            const historico = [];
-
-                            // Processar colunas de histórico dinâmico
-                            this.ejcsList.forEach(ejc => {
-                                const colName = `${this.numeroParaRomano(ejc.numero)} EJC`;
-                                const valorCelula = getVal(colName);
-
-                                if (valorCelula) {
-                                    // Valor pode ser "NomeEquipe" ou "NomeEquipe (Papel)"
-                                    let equipe = valorCelula;
-                                    let papel = 'Membro';
-                                    let subfuncao = null;
-
-                                    if (valorCelula.includes('(') && valorCelula.includes(')')) {
-                                        const parts = valorCelula.match(/(.*)\s\((.*)\)/);
-                                        if (parts) {
-                                            equipe = parts[1].trim();
-                                            const etiqueta = parts[2].trim();
-                                            if (etiqueta.includes(' - ')) {
-                                                const [papelExtraido, ...resto] = etiqueta.split(' - ');
-                                                papel = papelExtraido.trim() || 'Membro';
-                                                subfuncao = resto.join(' - ').trim() || null;
-                                            } else {
-                                                const papelNormalizado = etiqueta.toLowerCase() === 'coord' ? 'Coordenador' : etiqueta;
-                                                if (['Membro', 'Tio', 'Coordenador'].includes(papelNormalizado)) {
-                                                    papel = papelNormalizado;
-                                                } else {
-                                                    papel = 'Membro';
-                                                    subfuncao = etiqueta || null;
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    historico.push({
-                                        ejc_id: ejc.id,
-                                        equipe: equipe,
-                                        papel: papel,
-                                        subfuncao: subfuncao
-                                    });
-                                }
-                            });
-
-                            dadosParaEnviar.push({ jovem, historico });
-                        }
-
                         try {
-                            const res = await fetch('/api/importacao', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(dadosParaEnviar)
-                            });
-
-                            const resultado = await res.json();
-                            alert(`Importação concluída!\nCriados: ${resultado.resumo.criados}\nAtualizados: ${resultado.resumo.atualizados}\nErros: ${resultado.resumo.erros}`);
-
+                            await this.importarTextoCSV(e.target.result);
                             event.target.value = '';
-                            this.buscarJovens();
                         } catch (err) {
                             console.error(err);
-                            alert("Erro ao enviar dados de importação.");
+                            alert(err && err.message ? err.message : "Erro ao enviar dados de importação.");
                         }
                     };
                     reader.readAsText(file);
@@ -1341,7 +1788,57 @@
                     if (!d) return '--/--/----';
                     return new Date(d).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
                 },
-                limparFiltros() { this.filtros = { nome: '', idadeMin: null, idadeMax: null, mesNasc: '', numEjc: null, paroquia: '', estadoCivil: '', circulo: '', deficiencia: '' }; },
+                formatarTelefonePadrao(v) {
+                    const digits = String(v || '').replace(/\D/g, '').slice(0, 11);
+                    if (!digits) return '';
+                    if (digits.length <= 2) return `(${digits}`;
+                    if (digits.length <= 7) return `(${digits.slice(0, 2)})${digits.slice(2)}`;
+                    return `(${digits.slice(0, 2)})${digits.slice(2, 7)}-${digits.slice(7)}`;
+                },
+                onNovoTelefoneInput() {
+                    this.novoJovem.telefone = this.formatarTelefonePadrao(this.novoJovem.telefone);
+                },
+                romanoParaNumero(valor) {
+                    if (valor === null || valor === undefined) return null;
+                    const txt = String(valor).trim().toUpperCase();
+                    if (!txt) return null;
+                    if (/^\d+$/.test(txt)) return Number(txt);
+                    if (!/^[IVXLCDM]+$/.test(txt)) return null;
+                    const mapa = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
+                    let total = 0;
+                    for (let i = 0; i < txt.length; i++) {
+                        const atual = mapa[txt[i]] || 0;
+                        const prox = mapa[txt[i + 1]] || 0;
+                        total += atual < prox ? -atual : atual;
+                    }
+                    return total || null;
+                },
+                formatarNumeroOutroEjc(valor) {
+                    if (!valor) return '';
+                    const numero = this.romanoParaNumero(valor);
+                    if (!numero) return String(valor || '').trim().toUpperCase();
+                    return this.numeroParaRomano(numero);
+                },
+                normalizarNumeroEjcNovo() {
+                    this.novoJovem.outro_ejc_numero = this.formatarNumeroOutroEjc(this.novoJovem.outro_ejc_numero);
+                },
+                onOrigemNovoJovemChange() {},
+                limparFiltros() {
+                    this.filtros = {
+                        nome: '',
+                        telefone: '',
+                        idadeMin: null,
+                        idadeMax: null,
+                        numEjc: null,
+                        instagram: '',
+                        sexo: '',
+                        estadoCivil: '',
+                        circulo: '',
+                        deficiencia: '',
+                        restricaoAlimentar: '',
+                        ehMusico: ''
+                    };
+                },
                 async uploadFotoJovem(event, jovemId) {
                     const file = event.target.files[0];
                     if (!file) return;
@@ -1356,8 +1853,18 @@
                         });
 
                         if (!res.ok) {
-                            const errorObj = await res.json();
-                            throw new Error(errorObj.error || "Erro ao fazer upload da foto");
+                            let mensagemErro = "Erro ao fazer upload da foto";
+                            const tipo = res.headers.get('content-type') || '';
+                            if (tipo.includes('application/json')) {
+                                const errorObj = await res.json().catch(() => ({}));
+                                if (errorObj && errorObj.error) mensagemErro = errorObj.error;
+                            } else {
+                                const txt = await res.text().catch(() => '');
+                                if (txt && txt.includes('DOCTYPE')) {
+                                    mensagemErro = 'Erro interno no servidor ao enviar a foto.';
+                                }
+                            }
+                            throw new Error(mensagemErro);
                         }
 
                         const data = await res.json();
@@ -1448,11 +1955,13 @@
                 },
                 abrirModalNovoJovem() {
                     this.novoJovem = {
+                        origem_ejc_tipo: 'INCONFIDENTES',
                         nome_completo: '',
                         telefone: '',
                         data_nascimento: '',
                         numero_ejc_fez: '',
-                        paroquia: '',
+                        outro_ejc_id: '',
+                        outro_ejc_numero: '',
                         instagram: '',
                         estado_civil: 'Solteiro',
                         sexo: '',
@@ -1462,9 +1971,15 @@
                         restricao_alimentar: false,
                         detalhes_restricao: '',
                         eh_musico: false,
-                        instrumentos_musicais: []
+                        instrumentos_musicais: [],
+                        transferencia_outro_ejc: 0,
+                        ja_foi_moita_inconfidentes: 0,
+                        moita_ejc_id: '',
+                        moita_funcao: ''
                     };
                     this.carregarEjcs();
+                    this.carregarOutrosEjcs();
+                    this.carregarFuncoesMoita();
                     new bootstrap.Modal(document.getElementById('modalNovoJovem')).show();
                 },
                 async salvarNovoJovem() {
@@ -1473,17 +1988,24 @@
                             alert('Nome e telefone são obrigatórios');
                             return;
                         }
-
-                        // Se um EJC foi selecionado, auto-preencher a paróquia
-                        if (this.novoJovem.numero_ejc_fez) {
-                            this.novoJovem.paroquia = this.paroquiaDoEJC;
+                        if (this.novoJovem.origem_ejc_tipo === 'OUTRO_EJC' && !this.novoJovem.outro_ejc_id) {
+                            alert('Selecione qual outro EJC o jovem fez.');
+                            return;
+                        }
+                        if (this.novoJovem.origem_ejc_tipo === 'OUTRO_EJC' && this.novoJovem.ja_foi_moita_inconfidentes && (!this.novoJovem.moita_ejc_id || !String(this.novoJovem.moita_funcao || '').trim())) {
+                            alert('Preencha o EJC e a função de moita.');
+                            return;
                         }
 
                         const payload = {
+                            origem_ejc_tipo: this.novoJovem.origem_ejc_tipo === 'OUTRO_EJC' ? 'OUTRO_EJC' : 'INCONFIDENTES',
                             nome_completo: this.novoJovem.nome_completo,
                             telefone: this.novoJovem.telefone,
                             data_nascimento: this.novoJovem.data_nascimento || null,
-                            numero_ejc_fez: this.novoJovem.numero_ejc_fez || null,
+                            numero_ejc_fez: this.novoJovem.origem_ejc_tipo === 'INCONFIDENTES' ? (this.novoJovem.numero_ejc_fez || null) : null,
+                            outro_ejc_id: this.novoJovem.origem_ejc_tipo === 'OUTRO_EJC' ? (this.novoJovem.outro_ejc_id || null) : null,
+                            outro_ejc_numero: this.novoJovem.origem_ejc_tipo === 'OUTRO_EJC' ? (this.formatarNumeroOutroEjc(this.novoJovem.outro_ejc_numero) || null) : null,
+                            transferencia_outro_ejc: this.novoJovem.origem_ejc_tipo === 'OUTRO_EJC' ? (this.novoJovem.transferencia_outro_ejc ? 1 : 0) : 0,
                             instagram: this.novoJovem.instagram || null,
                             estado_civil: this.novoJovem.estado_civil || 'Solteiro',
                             sexo: this.novoJovem.sexo || null,
@@ -1493,7 +2015,10 @@
                             restricao_alimentar: this.novoJovem.restricao_alimentar ? 1 : 0,
                             detalhes_restricao: this.novoJovem.detalhes_restricao || null,
                             eh_musico: this.novoJovem.eh_musico ? 1 : 0,
-                            instrumentos_musicais: this.novoJovem.eh_musico ? this.normalizarInstrumentos(this.novoJovem.instrumentos_musicais) : []
+                            instrumentos_musicais: this.novoJovem.eh_musico ? this.normalizarInstrumentos(this.novoJovem.instrumentos_musicais) : [],
+                            ja_foi_moita_inconfidentes: (this.novoJovem.origem_ejc_tipo === 'OUTRO_EJC' && this.novoJovem.ja_foi_moita_inconfidentes) ? 1 : 0,
+                            moita_ejc_id: (this.novoJovem.origem_ejc_tipo === 'OUTRO_EJC' && this.novoJovem.ja_foi_moita_inconfidentes) ? (this.novoJovem.moita_ejc_id || null) : null,
+                            moita_funcao: (this.novoJovem.origem_ejc_tipo === 'OUTRO_EJC' && this.novoJovem.ja_foi_moita_inconfidentes) ? (this.novoJovem.moita_funcao || null) : null
                         };
 
                         const res = await fetch('/api/lista-mestre', {
@@ -1641,7 +2166,7 @@
                     new bootstrap.Modal(document.getElementById('modalEditar')).show();
                 },
                 async deletarJovemModal() {
-                    if (!confirm(`Tem certeza que deseja deletar ${this.jovemEditando.nome_completo}? Esta ação não pode ser desfeita.`)) return;
+                    if (!(await window.showFloatingConfirm(`Tem certeza que deseja deletar ${this.jovemEditando.nome_completo}? Esta ação não pode ser desfeita.`))) return;
 
                     try {
                         const res = await fetch(`/api/lista-mestre/${this.jovemEditando.id}`, { method: 'DELETE' });
@@ -1675,6 +2200,18 @@
                         const data = await r.json();
                         this.outrosEjcsList = Array.isArray(data) ? data.filter(i => i) : [];
                     } catch (e) { this.outrosEjcsList = []; }
+                },
+                async carregarCores() {
+                    try {
+                        const r = await fetch('/api/circulos');
+                        const data = await r.json().catch(() => []);
+                        const lista = Array.isArray(data)
+                            ? data.map(item => String(item.nome || '').trim()).filter(Boolean)
+                            : [];
+                        this.cores = lista;
+                    } catch (e) {
+                        this.cores = [];
+                    }
                 },
                 numeroParaRomano(num) {
                     if (!num) return '';
@@ -1822,7 +2359,7 @@
                     }
                 },
                 async removerComissao(id) {
-                    if (!confirm("Remover este item?")) return;
+                    if (!(await window.showFloatingConfirm("Remover este item?"))) return;
                     try {
                         const res = await fetch(`/api/lista-mestre/comissoes/${id}`, { method: 'DELETE' });
                         if (!res.ok) {
@@ -1997,7 +2534,7 @@
                     } catch (err) { console.error(err); alert('Erro ao salvar cônjuge'); }
                 },
                 async marcarSolteiro() {
-                    if (!confirm('Tem certeza que deseja marcar este jovem como Solteiro e desfazer vínculos com o cônjuge?')) return;
+                    if (!(await window.showFloatingConfirm('Tem certeza que deseja marcar este jovem como Solteiro e desfazer vínculos com o cônjuge?'))) return;
                     // limpar localmente e salvar
                     this.jovemEditando.estado_civil = 'Solteiro';
                     this.jovemEditando.conjuge_id = null;
@@ -2054,6 +2591,28 @@
                     const min = String(d.getMinutes()).padStart(2, '0');
                     return `${dia}/${mes}/${ano} às ${hora}:${min}`;
                 },
+                isObservacaoRecusa(obs) {
+                    const texto = String(obs && obs.texto ? obs.texto : '').toLowerCase();
+                    return texto.startsWith('jovem recusou servir no') && texto.includes('encontro de montagem');
+                },
+                async removerObservacaoRecusa(obs) {
+                    if (!obs || !obs.id) return;
+                    if (!window.showFloatingConfirm) return;
+                    const ok = await window.showFloatingConfirm('Deseja excluir esta recusa da ficha do jovem?');
+                    if (!ok) return;
+                    try {
+                        const res = await fetch(`/api/lista-mestre/observacoes/${obs.id}`, { method: 'DELETE' });
+                        if (!res.ok) {
+                            const err = await res.json().catch(() => ({}));
+                            if (window.showFloatingAlert) await window.showFloatingAlert(err.error || 'Erro ao excluir recusa.', 'Aviso');
+                            return;
+                        }
+                        await this.carregarObservacoes();
+                    } catch (err) {
+                        console.error(err);
+                        if (window.showFloatingAlert) await window.showFloatingAlert('Erro ao excluir recusa.', 'Aviso');
+                    }
+                },
                 async carregarObservacoes() {
                     this.tabEdicao = 'observacoes';
                     if (!this.jovemEditando || !this.jovemEditando.id) return;
@@ -2064,6 +2623,21 @@
                     } catch (err) {
                         console.error("Erro ao carregar observações", err);
                         this.observacoesExtras = [];
+                    }
+                },
+                async carregarPresencas() {
+                    this.tabEdicao = 'presencas';
+                    if (!this.jovemEditando || !this.jovemEditando.id) return;
+                    this.loadingPresencas = true;
+                    try {
+                        const res = await fetch(`/api/lista-mestre/presencas/${this.jovemEditando.id}`);
+                        const data = await res.json();
+                        this.presencasJovem = Array.isArray(data) ? data.filter(i => i) : [];
+                    } catch (err) {
+                        console.error('Erro ao carregar presenças:', err);
+                        this.presencasJovem = [];
+                    } finally {
+                        this.loadingPresencas = false;
                     }
                 },
                 async adicionarObservacaoExtra() {
@@ -2087,7 +2661,9 @@
                     }
                 }
             },
-            mounted() {
+            async mounted() {
+                this.carregarNomeMeuEJC();
+                await this.carregarCores();
                 this.buscarJovens();
             }
         }).mount('#app');

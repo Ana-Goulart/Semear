@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>SemeaJovens - Jovens de Outro EJC</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="/css/velzon-theme.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="/js/menu.js"></script>
+</head>
+<body>
+    <div id="app">
+        <main class="container-fluid">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h3 class="mb-1">Jovens de Outro EJC</h3>
+                    <p class="text-muted mb-0">Jovens que participaram do EJC {{ nomeMeuEJC }} (equipes, moita, garçons e eventos).</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary" @click="abrirModalNovo">Adicionar</button>
+                    <button class="btn btn-soft-primary" @click="carregar">Atualizar</button>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Nome</label>
+                            <input v-model="filtroNome" class="form-control" placeholder="Buscar por nome">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">Telefone</label>
+                            <input v-model="filtroTelefone" class="form-control" placeholder="Buscar por telefone">
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label small text-muted">EJC de origem</label>
+                            <input v-model="filtroEjcOrigem" class="form-control" placeholder="Paróquia ou nome do EJC">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Nome</th>
+                                <th>Telefone</th>
+                                <th>EJC de Origem</th>
+                                <th>Onde participou</th>
+                                <th>Detalhes</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="item in itensFiltrados" :key="item.jovem_id || (item.nome_completo + '|' + item.telefone)">
+                                <td>{{ item.nome_completo }}</td>
+                                <td>{{ item.telefone || '-' }}</td>
+                                <td>{{ formatarOrigem(item) }}</td>
+                                <td>
+                                    <span v-if="!item.fontes || !item.fontes.length" class="text-muted">-</span>
+                                    <span v-for="f in (item.fontes || [])" :key="item.nome_completo + f" class="badge bg-soft-primary text-primary me-1">{{ f }}</span>
+                                </td>
+                                <td>
+                                    <small v-if="!item.detalhes || !item.detalhes.length" class="text-muted">-</small>
+                                    <ul v-else class="mb-0 ps-3">
+                                        <li v-for="(d, idx) in item.detalhes.slice(0, 4)" :key="idx">{{ d }}</li>
+                                    </ul>
+                                </td>
+                                <td>
+                                    <div v-if="item.jovem_id" class="d-flex gap-1">
+                                        <button class="btn btn-sm btn-warning text-white" @click="abrirModalEditar(item)">Editar</button>
+                                        <button class="btn btn-sm btn-danger" @click="excluirJovem(item)">Excluir</button>
+                                    </div>
+                                    <small v-else class="text-muted">Somente histórico</small>
+                                </td>
+                            </tr>
+                            <tr v-if="!carregando && !itensFiltrados.length">
+                                <td colspan="6" class="text-center text-muted py-4">Nenhum jovem encontrado.</td>
+                            </tr>
+                            <tr v-if="carregando">
+                                <td colspan="6" class="text-center py-4">
+                                    <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                                    Carregando...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+
+        <div class="modal fade" id="modalNovoOutroJovem" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title">Adicionar Jovem de Outro EJC</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-md-6"><label class="form-label text-muted small">Nome completo *</label><input v-model="novo.nome_completo" class="form-control"></div>
+                            <div class="col-md-6"><label class="form-label text-muted small">Telefone *</label><input v-model="novo.telefone" @input="onNovoTelefoneInput" class="form-control" placeholder="(31)99999-9999"></div>
+                            <div class="col-md-4"><label class="form-label text-muted small">Data de nascimento</label><input type="date" v-model="novo.data_nascimento" class="form-control"></div>
+                            <div class="col-md-4"><label class="form-label text-muted small">Sexo</label><select v-model="novo.sexo" class="form-select"><option value="">(Não informado)</option><option value="Feminino">Feminino</option><option value="Masculino">Masculino</option></select></div>
+                            <div class="col-md-4"><label class="form-label text-muted small">Estado civil</label><select v-model="novo.estado_civil" class="form-select"><option value="Solteiro">Solteiro</option><option value="Casado">Casado</option><option value="Amasiado">Amasiado</option></select></div>
+                            <div class="col-md-4"><label class="form-label text-muted small">Número do EJC que fez</label><input v-model="novo.outro_ejc_numero" @blur="normalizarNumeroEjcNovo" class="form-control" placeholder="Ex: 11"></div>
+                            <div class="col-md-8"><label class="form-label text-muted small">Qual EJC fez *</label><select v-model="novo.outro_ejc_id" class="form-select"><option value="">Selecione...</option><option v-for="oe in outrosEjcsList" :key="'n'+oe.id" :value="oe.id">{{ oe.paroquia }}<span v-if="oe.nome"> - {{ oe.nome }}</span></option></select></div>
+                            <div class="col-md-4"><label class="form-label text-muted small">Círculo</label><select v-model="novo.circulo" class="form-select"><option value="">Selecione</option><option v-for="c in cores" :key="'nc'+c" :value="c">{{ c }}</option></select></div>
+                            <div class="col-md-4"><label class="form-label text-muted small">Instagram</label><input v-model="novo.instagram" class="form-control" placeholder="@instagram"></div>
+                            <div class="col-md-4 d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" id="checkTransferenciaOutroMenu" v-model="novo.transferencia_outro_ejc" :true-value="1" :false-value="0"><label class="form-check-label" for="checkTransferenciaOutroMenu">Transferência</label></div></div>
+                            <div class="col-md-4"><label class="form-label text-muted small">Deficiência</label><select v-model="novo.deficiencia" class="form-select"><option :value="false">Não</option><option :value="true">Sim</option></select></div>
+                            <div class="col-md-8" v-if="novo.deficiencia"><label class="form-label text-muted small">Qual deficiência</label><input v-model="novo.qual_deficiencia" class="form-control"></div>
+                            <div class="col-md-4"><label class="form-label text-muted small">Restrição alimentar</label><select v-model="novo.restricao_alimentar" class="form-select"><option :value="false">Não</option><option :value="true">Sim</option></select></div>
+                            <div class="col-md-8" v-if="novo.restricao_alimentar"><label class="form-label text-muted small">Detalhes da restrição</label><input v-model="novo.detalhes_restricao" class="form-control"></div>
+                            <div class="col-md-12"><div class="form-check"><input class="form-check-input" type="checkbox" id="checkJaFoiMoitaNovoOutro" v-model="novo.ja_foi_moita_inconfidentes" :true-value="1" :false-value="0"><label class="form-check-label" for="checkJaFoiMoitaNovoOutro">Já foi moita no EJC {{ nomeMeuEJC }}</label></div></div>
+                            <div class="col-md-6" v-if="novo.ja_foi_moita_inconfidentes"><label class="form-label text-muted small">Qual EJC no {{ nomeMeuEJC }}</label><select v-model="novo.moita_ejc_id" class="form-select"><option value="">Selecione...</option><option v-for="ejc in ejcsList" :key="'ne'+ejc.id" :value="ejc.id">{{ numeroParaRomano(ejc.numero) }} EJC {{ nomeMeuEJC }}</option></select></div>
+                            <div class="col-md-6" v-if="novo.ja_foi_moita_inconfidentes"><label class="form-label text-muted small">Função de moita</label><select v-model="novo.moita_funcao" class="form-select"><option value="">Selecione...</option><option v-for="f in funcoesMoita" :key="'nf'+f.id" :value="f.nome">{{ f.nome }}</option></select></div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-primary" @click="salvarNovo">Salvar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="modalEditarOutroJovem" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header bg-warning text-white">
+                        <h5 class="modal-title">Editar Jovem de Outro EJC</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-md-6"><label class="form-label text-muted small">Nome completo *</label><input v-model="edit.nome_completo" class="form-control"></div>
+                            <div class="col-md-6"><label class="form-label text-muted small">Telefone *</label><input v-model="edit.telefone" @input="onEditTelefoneInput" class="form-control" placeholder="(31)99999-9999"></div>
+                            <div class="col-md-4"><label class="form-label text-muted small">Data de nascimento</label><input type="date" v-model="edit.data_nascimento" class="form-control"></div>
+                            <div class="col-md-4"><label class="form-label text-muted small">Sexo</label><select v-model="edit.sexo" class="form-select"><option value="">(Não informado)</option><option value="Feminino">Feminino</option><option value="Masculino">Masculino</option></select></div>
+                            <div class="col-md-4"><label class="form-label text-muted small">Estado civil</label><select v-model="edit.estado_civil" class="form-select"><option value="Solteiro">Solteiro</option><option value="Casado">Casado</option><option value="Amasiado">Amasiado</option></select></div>
+                            <div class="col-md-4"><label class="form-label text-muted small">Número do EJC que fez</label><input v-model="edit.outro_ejc_numero" @blur="normalizarNumeroEjcEdit" class="form-control" placeholder="Ex: 11"></div>
+                            <div class="col-md-8"><label class="form-label text-muted small">Qual EJC fez *</label><select v-model="edit.outro_ejc_id" class="form-select"><option value="">Selecione...</option><option v-for="oe in outrosEjcsList" :key="'e'+oe.id" :value="oe.id">{{ oe.paroquia }}<span v-if="oe.nome"> - {{ oe.nome }}</span></option></select></div>
+                            <div class="col-md-4"><label class="form-label text-muted small">Círculo</label><select v-model="edit.circulo" class="form-select"><option value="">Selecione</option><option v-for="c in cores" :key="'ec'+c" :value="c">{{ c }}</option></select></div>
+                            <div class="col-md-4"><label class="form-label text-muted small">Instagram</label><input v-model="edit.instagram" class="form-control" placeholder="@instagram"></div>
+                            <div class="col-md-4 d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" id="checkTransferenciaEditOutro" v-model="edit.transferencia_outro_ejc" :true-value="1" :false-value="0"><label class="form-check-label" for="checkTransferenciaEditOutro">Transferência</label></div></div>
+                            <div class="col-md-4"><label class="form-label text-muted small">Deficiência</label><select v-model="edit.deficiencia" class="form-select"><option :value="false">Não</option><option :value="true">Sim</option></select></div>
+                            <div class="col-md-8" v-if="edit.deficiencia"><label class="form-label text-muted small">Qual deficiência</label><input v-model="edit.qual_deficiencia" class="form-control"></div>
+                            <div class="col-md-4"><label class="form-label text-muted small">Restrição alimentar</label><select v-model="edit.restricao_alimentar" class="form-select"><option :value="false">Não</option><option :value="true">Sim</option></select></div>
+                            <div class="col-md-8" v-if="edit.restricao_alimentar"><label class="form-label text-muted small">Detalhes da restrição</label><input v-model="edit.detalhes_restricao" class="form-control"></div>
+                            <div class="col-md-12"><div class="form-check"><input class="form-check-input" type="checkbox" id="checkJaFoiMoitaEditOutro" v-model="edit.ja_foi_moita_inconfidentes" :true-value="1" :false-value="0"><label class="form-check-label" for="checkJaFoiMoitaEditOutro">Já foi moita no EJC {{ nomeMeuEJC }}</label></div></div>
+                            <div class="col-md-6" v-if="edit.ja_foi_moita_inconfidentes"><label class="form-label text-muted small">Qual EJC no {{ nomeMeuEJC }}</label><select v-model="edit.moita_ejc_id" class="form-select"><option value="">Selecione...</option><option v-for="ejc in ejcsList" :key="'ee'+ejc.id" :value="ejc.id">{{ numeroParaRomano(ejc.numero) }} EJC {{ nomeMeuEJC }}</option></select></div>
+                            <div class="col-md-6" v-if="edit.ja_foi_moita_inconfidentes"><label class="form-label text-muted small">Função de moita</label><select v-model="edit.moita_funcao" class="form-select"><option value="">Selecione...</option><option v-for="f in funcoesMoita" :key="'ef'+f.id" :value="f.nome">{{ f.nome }}</option></select></div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-warning text-white" @click="salvarEdicao">Salvar alterações</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            injetarMenu('#app');
+            ativarMenu('/gestaodoencontro/jovensoutroejc');
+        });
+
+        const { createApp } = Vue;
+        createApp({
+            data() {
+                return {
+                    nomeMeuEJC: (window.__NOME_EJC_ATUAL && String(window.__NOME_EJC_ATUAL).trim()) || 'Inconfidentes',
+                    itens: [],
+                    carregando: false,
+                    filtroNome: '',
+                    filtroTelefone: '',
+                    filtroEjcOrigem: '',
+                    modalNovoInstance: null,
+                    modalEditarInstance: null,
+                    outrosEjcsList: [],
+                    ejcsList: [],
+                    funcoesMoita: [],
+                    cores: ['Rosa', 'Azul', 'Vermelho', 'Verde', 'Amarelo', 'Marrom'],
+                    novo: {},
+                    edit: {}
+                };
+            },
+            computed: {
+                itensFiltrados() {
+                    const nome = String(this.filtroNome || '').trim().toLowerCase();
+                    const tel = String(this.filtroTelefone || '').trim().toLowerCase();
+                    const origem = String(this.filtroEjcOrigem || '').trim().toLowerCase();
+                    return this.itens.filter((i) => {
+                        const txtNome = String(i.nome_completo || '').toLowerCase();
+                        const txtTel = String(i.telefone || '').toLowerCase();
+                        const txtOrigem = this.formatarOrigem(i).toLowerCase();
+                        return (!nome || txtNome.includes(nome)) && (!tel || txtTel.includes(tel)) && (!origem || txtOrigem.includes(origem));
+                    });
+                }
+            },
+            methods: {
+                numeroParaRomano(num) {
+                    const n0 = Number(num);
+                    if (!n0 || !Number.isFinite(n0) || n0 <= 0) return '';
+                    const roman = [{ value: 1000, numeral: 'M' }, { value: 900, numeral: 'CM' }, { value: 500, numeral: 'D' }, { value: 400, numeral: 'CD' }, { value: 100, numeral: 'C' }, { value: 90, numeral: 'XC' }, { value: 50, numeral: 'L' }, { value: 40, numeral: 'XL' }, { value: 10, numeral: 'X' }, { value: 9, numeral: 'IX' }, { value: 5, numeral: 'V' }, { value: 4, numeral: 'IV' }, { value: 1, numeral: 'I' }];
+                    let n = n0; let out = '';
+                    for (const i of roman) while (n >= i.value) { out += i.numeral; n -= i.value; }
+                    return out;
+                },
+                romanoParaNumero(valor) {
+                    if (valor === null || valor === undefined) return null;
+                    const txt = String(valor).trim().toUpperCase();
+                    if (!txt) return null;
+                    if (/^\d+$/.test(txt)) return Number(txt);
+                    if (!/^[IVXLCDM]+$/.test(txt)) return null;
+                    const mapa = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
+                    let total = 0;
+                    for (let i = 0; i < txt.length; i++) {
+                        const atual = mapa[txt[i]] || 0;
+                        const prox = mapa[txt[i + 1]] || 0;
+                        total += atual < prox ? -atual : atual;
+                    }
+                    return total || null;
+                },
+                formatarNumeroOutroEjc(valor) {
+                    if (!valor) return '';
+                    const numero = this.romanoParaNumero(valor);
+                    if (!numero) return String(valor || '').trim().toUpperCase();
+                    return this.numeroParaRomano(numero);
+                },
+                formatarTelefonePadrao(v) {
+                    const digits = String(v || '').replace(/\D/g, '').slice(0, 11);
+                    if (!digits) return '';
+                    if (digits.length <= 2) return `(${digits}`;
+                    if (digits.length <= 7) return `(${digits.slice(0, 2)})${digits.slice(2)}`;
+                    return `(${digits.slice(0, 2)})${digits.slice(2, 7)}-${digits.slice(7)}`;
+                },
+                onNovoTelefoneInput() { this.novo.telefone = this.formatarTelefonePadrao(this.novo.telefone); },
+                onEditTelefoneInput() { this.edit.telefone = this.formatarTelefonePadrao(this.edit.telefone); },
+                normalizarNumeroEjcNovo() { this.novo.outro_ejc_numero = this.formatarNumeroOutroEjc(this.novo.outro_ejc_numero); },
+                normalizarNumeroEjcEdit() { this.edit.outro_ejc_numero = this.formatarNumeroOutroEjc(this.edit.outro_ejc_numero); },
+                formatarOrigem(item) {
+                    const partes = [item.outro_ejc_paroquia, item.outro_ejc_nome].filter(Boolean);
+                    return partes.length ? partes.join(' - ') : 'Não informado';
+                },
+                resetNovo() {
+                    this.novo = {
+                        nome_completo: '', telefone: '', data_nascimento: '', sexo: '', estado_civil: 'Solteiro',
+                        outro_ejc_numero: '', outro_ejc_id: '', circulo: '', instagram: '', transferencia_outro_ejc: 0,
+                        deficiencia: false, qual_deficiencia: '', restricao_alimentar: false, detalhes_restricao: '',
+                        ja_foi_moita_inconfidentes: 0, moita_ejc_id: '', moita_funcao: ''
+                    };
+                },
+                resetEdit() {
+                    this.edit = {
+                        id: null, nome_completo: '', telefone: '', data_nascimento: '', sexo: '', estado_civil: 'Solteiro',
+                        outro_ejc_numero: '', outro_ejc_id: '', circulo: '', instagram: '', transferencia_outro_ejc: 0,
+                        deficiencia: false, qual_deficiencia: '', restricao_alimentar: false, detalhes_restricao: '',
+                        ja_foi_moita_inconfidentes: 0, moita_ejc_id: '', moita_funcao: ''
+                    };
+                },
+                async carregarOutrosEjcs() {
+                    try { const res = await fetch('/api/outros-ejcs'); this.outrosEjcsList = res.ok ? await res.json() : []; }
+                    catch (_) { this.outrosEjcsList = []; }
+                },
+                async carregarEjcs() {
+                    try { const res = await fetch('/api/ejc'); this.ejcsList = res.ok ? await res.json() : []; }
+                    catch (_) { this.ejcsList = []; }
+                },
+                async carregarFuncoesMoita() {
+                    try { const res = await fetch('/api/moita/funcoes'); this.funcoesMoita = res.ok ? await res.json() : []; }
+                    catch (_) { this.funcoesMoita = []; }
+                },
+                async abrirModalNovo() {
+                    this.resetNovo();
+                    await Promise.all([this.carregarOutrosEjcs(), this.carregarEjcs(), this.carregarFuncoesMoita()]);
+                    if (!this.modalNovoInstance) this.modalNovoInstance = new bootstrap.Modal(document.getElementById('modalNovoOutroJovem'));
+                    this.modalNovoInstance.show();
+                },
+                async salvarNovo() {
+                    if (!this.novo.nome_completo || !this.novo.telefone) { this.mostrarAviso('Nome e telefone são obrigatórios.'); return; }
+                    if (!this.novo.outro_ejc_id) { this.mostrarAviso('Selecione qual EJC o jovem fez.'); return; }
+                    if (this.novo.ja_foi_moita_inconfidentes && (!this.novo.moita_ejc_id || !String(this.novo.moita_funcao || '').trim())) { this.mostrarAviso('Preencha o EJC e a função de moita.'); return; }
+                    try {
+                        const payload = {
+                            origem_ejc_tipo: 'OUTRO_EJC', nome_completo: this.novo.nome_completo, telefone: this.novo.telefone,
+                            data_nascimento: this.novo.data_nascimento || null, sexo: this.novo.sexo || null, estado_civil: this.novo.estado_civil || 'Solteiro',
+                            outro_ejc_numero: this.formatarNumeroOutroEjc(this.novo.outro_ejc_numero) || null, outro_ejc_id: this.novo.outro_ejc_id || null,
+                            circulo: this.novo.circulo || null, instagram: this.novo.instagram || null, transferencia_outro_ejc: this.novo.transferencia_outro_ejc ? 1 : 0,
+                            deficiencia: this.novo.deficiencia ? 1 : 0, qual_deficiencia: this.novo.qual_deficiencia || null,
+                            restricao_alimentar: this.novo.restricao_alimentar ? 1 : 0, detalhes_restricao: this.novo.detalhes_restricao || null,
+                            ja_foi_moita_inconfidentes: this.novo.ja_foi_moita_inconfidentes ? 1 : 0,
+                            moita_ejc_id: this.novo.ja_foi_moita_inconfidentes ? (this.novo.moita_ejc_id || null) : null,
+                            moita_funcao: this.novo.ja_foi_moita_inconfidentes ? (this.novo.moita_funcao || null) : null
+                        };
+                        const res = await fetch('/api/lista-mestre', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                        if (!res.ok) { const err = await res.json().catch(() => ({})); this.mostrarAviso(err.error || 'Erro ao salvar jovem.'); return; }
+                        if (this.modalNovoInstance) this.modalNovoInstance.hide();
+                        if (window.showFloatingToast) window.showFloatingToast('Jovem criado com sucesso.', 'success');
+                        await this.carregar();
+                    } catch (err) { console.error(err); this.mostrarAviso('Erro ao salvar jovem.'); }
+                },
+                async abrirModalEditar(item) {
+                    if (!item || !item.jovem_id) return;
+                    this.resetEdit();
+                    await Promise.all([this.carregarOutrosEjcs(), this.carregarEjcs(), this.carregarFuncoesMoita()]);
+                    try {
+                        const res = await fetch(`/api/lista-mestre/${item.jovem_id}`);
+                        if (!res.ok) { const err = await res.json().catch(() => ({})); this.mostrarAviso(err.error || 'Não foi possível carregar os dados do jovem.'); return; }
+                        const j = await res.json();
+                        this.edit = {
+                            id: j.id,
+                            nome_completo: j.nome_completo || '',
+                            telefone: this.formatarTelefonePadrao(j.telefone || ''),
+                            data_nascimento: j.data_nascimento ? String(j.data_nascimento).split('T')[0] : '',
+                            sexo: j.sexo || '',
+                            estado_civil: j.estado_civil || 'Solteiro',
+                            outro_ejc_numero: this.formatarNumeroOutroEjc(j.outro_ejc_numero || ''),
+                            outro_ejc_id: j.outro_ejc_id || '',
+                            circulo: j.circulo || '',
+                            instagram: j.instagram || '',
+                            transferencia_outro_ejc: j.transferencia_outro_ejc ? 1 : 0,
+                            deficiencia: !!j.deficiencia,
+                            qual_deficiencia: j.qual_deficiencia || '',
+                            restricao_alimentar: !!j.restricao_alimentar,
+                            detalhes_restricao: j.detalhes_restricao || '',
+                            ja_foi_moita_inconfidentes: j.ja_foi_moita_inconfidentes ? 1 : 0,
+                            moita_ejc_id: j.moita_ejc_id || '',
+                            moita_funcao: j.moita_funcao || ''
+                        };
+                        if (!this.modalEditarInstance) this.modalEditarInstance = new bootstrap.Modal(document.getElementById('modalEditarOutroJovem'));
+                        this.modalEditarInstance.show();
+                    } catch (err) { console.error(err); this.mostrarAviso('Não foi possível carregar os dados do jovem.'); }
+                },
+                async salvarEdicao() {
+                    if (!this.edit.id) return;
+                    if (!this.edit.nome_completo || !this.edit.telefone) { this.mostrarAviso('Nome e telefone são obrigatórios.'); return; }
+                    if (!this.edit.outro_ejc_id) { this.mostrarAviso('Selecione qual EJC o jovem fez.'); return; }
+                    if (this.edit.ja_foi_moita_inconfidentes && (!this.edit.moita_ejc_id || !String(this.edit.moita_funcao || '').trim())) { this.mostrarAviso('Preencha o EJC e a função de moita.'); return; }
+                    try {
+                        const payload = {
+                            origem_ejc_tipo: 'OUTRO_EJC', nome_completo: this.edit.nome_completo, telefone: this.edit.telefone,
+                            data_nascimento: this.edit.data_nascimento || null, sexo: this.edit.sexo || null, estado_civil: this.edit.estado_civil || 'Solteiro',
+                            outro_ejc_numero: this.formatarNumeroOutroEjc(this.edit.outro_ejc_numero) || null, outro_ejc_id: this.edit.outro_ejc_id || null,
+                            circulo: this.edit.circulo || null, instagram: this.edit.instagram || null, transferencia_outro_ejc: this.edit.transferencia_outro_ejc ? 1 : 0,
+                            deficiencia: this.edit.deficiencia ? 1 : 0, qual_deficiencia: this.edit.qual_deficiencia || null,
+                            restricao_alimentar: this.edit.restricao_alimentar ? 1 : 0, detalhes_restricao: this.edit.detalhes_restricao || null,
+                            ja_foi_moita_inconfidentes: this.edit.ja_foi_moita_inconfidentes ? 1 : 0,
+                            moita_ejc_id: this.edit.ja_foi_moita_inconfidentes ? (this.edit.moita_ejc_id || null) : null,
+                            moita_funcao: this.edit.ja_foi_moita_inconfidentes ? (this.edit.moita_funcao || null) : null
+                        };
+                        const res = await fetch(`/api/lista-mestre/${this.edit.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                        if (!res.ok) { const err = await res.json().catch(() => ({})); this.mostrarAviso(err.error || 'Erro ao salvar alterações.'); return; }
+                        if (this.modalEditarInstance) this.modalEditarInstance.hide();
+                        if (window.showFloatingToast) window.showFloatingToast('Jovem atualizado com sucesso.', 'success');
+                        await this.carregar();
+                    } catch (err) { console.error(err); this.mostrarAviso('Erro ao salvar alterações.'); }
+                },
+                async excluirJovem(item) {
+                    if (!item || !item.jovem_id) return;
+                    const ok = await window.showFloatingConfirm(`Deseja excluir "${item.nome_completo}"? Esta ação não pode ser desfeita.`);
+                    if (!ok) return;
+                    try {
+                        const res = await fetch(`/api/lista-mestre/${item.jovem_id}`, { method: 'DELETE' });
+                        if (!res.ok) { const err = await res.json().catch(() => ({})); this.mostrarAviso(err.error || 'Erro ao excluir jovem.'); return; }
+                        if (window.showFloatingToast) window.showFloatingToast('Jovem excluído com sucesso.', 'success');
+                        await this.carregar();
+                    } catch (err) { console.error(err); this.mostrarAviso('Erro ao excluir jovem.'); }
+                },
+                mostrarAviso(msg) {
+                    if (window.showFloatingAlert) {
+                        window.showFloatingAlert(String(msg || ''), 'Aviso');
+                        return;
+                    }
+                    if (window.showFloatingToast) {
+                        window.showFloatingToast(String(msg || ''), 'warning');
+                        return;
+                    }
+                },
+                async carregarNomeMeuEJC() {
+                    try {
+                        const res = await fetch('/api/meu-ejc');
+                        if (!res.ok) return;
+                        const data = await res.json().catch(() => ({}));
+                        if (data && data.nome) this.nomeMeuEJC = String(data.nome).trim() || this.nomeMeuEJC;
+                    } catch (_) { }
+                },
+                async carregar() {
+                    this.carregando = true;
+                    try {
+                        const res = await fetch('/api/lista-mestre/jovens-outro-ejc');
+                        this.itens = res.ok ? await res.json() : [];
+                    } catch (err) {
+                        console.error(err);
+                        this.itens = [];
+                    } finally {
+                        this.carregando = false;
+                    }
+                }
+            },
+            async mounted() {
+                await this.carregarNomeMeuEJC();
+                await this.carregar();
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

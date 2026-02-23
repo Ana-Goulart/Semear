@@ -86,6 +86,8 @@
                                         <tr>
                                             <th class="text-start ps-3">Nome</th>
                                             <th>Círculo</th>
+                                            <th>Moita</th>
+                                            <th>Função de Moita</th>
                                             <th>Telefone</th>
                                         </tr>
                                     </thead>
@@ -93,6 +95,12 @@
                                         <tr v-for="enc in encontristas" :key="enc.id">
                                             <td class="text-start ps-3 fw-medium">{{ enc.nome_completo }}</td>
                                             <td><span class="badge bg-secondary">{{ enc.circulo || '-' }}</span></td>
+                                            <td>
+                                                <span class="badge" :class="enc.foi_moita ? 'bg-success' : 'bg-light text-dark'">
+                                                    {{ enc.foi_moita ? 'Foi Moita' : '-' }}
+                                                </span>
+                                            </td>
+                                            <td>{{ enc.moita_funcao || '-' }}</td>
                                             <td>{{ enc.telefone || '-' }}</td>
                                         </tr>
                                     </tbody>
@@ -270,7 +278,7 @@
                         }
                     },
                     async deletarEJC(id, numero) {
-                        if (!confirm(`Tem certeza que deseja deletar o EJC ${this.numeroParaRomano(numero)}?`)) return;
+                        if (!(await window.showFloatingConfirm(`Tem certeza que deseja deletar o EJC ${this.numeroParaRomano(numero)}?`))) return;
 
                         try {
                             const res = await fetch(`/api/ejc/${id}`, { method: 'DELETE' });
@@ -289,7 +297,7 @@
                         }
                     },
                     async deletarEJCModal() {
-                        if (!confirm(`Tem certeza que deseja deletar o EJC ${this.numeroParaRomano(this.formulario.numero)}? Esta ação não pode ser desfeita.`)) return;
+                        if (!(await window.showFloatingConfirm(`Tem certeza que deseja deletar o EJC ${this.numeroParaRomano(this.formulario.numero)}? Esta ação não pode ser desfeita.`))) return;
 
                         try {
                             const res = await fetch(`/api/ejc/${this.formulario.id}`, { method: 'DELETE' });

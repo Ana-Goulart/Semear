@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SemeaJovens - Eventos</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="/css/velzon-theme.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="/js/menu.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+    <style>
+        .folder-item {
+            cursor: pointer;
+            transition: background-color 0.2s;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        .folder-item:hover,
+        .event-item:hover {
+            background-color: #e9ecef;
+            border-color: #dee2e6;
+        }
+
+        .event-item {
+            cursor: pointer;
+            transition: background-color 0.2s;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        .item-icon {
+            font-size: 2.5rem;
+            margin-bottom: 5px;
+        }
+
+        .item-name {
+            font-size: 0.9rem;
+            word-break: break-word;
+            text-align: center;
+        }
+
+        .breadcrumb-item {
+            cursor: pointer;
+        }
+
+        .breadcrumb-item.active {
+            cursor: default;
+        }
+
+        .delete-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            display: none;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid #ddd;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            text-align: center;
+            line-height: 22px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        .folder-item:hover .delete-btn,
+        .event-item:hover .delete-btn {
+            display: block;
+        }
+
+        .delete-btn:hover {
+            background-color: #ffcccc;
+            border-color: #ff9999;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <main class="container-fluid">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h3>🎉 Eventos</h3>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary" @click="criarPasta">➕ Nova Pasta</button>
+                    <button class="btn btn-success" @click="abrirModalNovoEvento">🎯 Novo Evento</button>
+                    <button class="btn btn-outline-secondary" @click="voltarPasta" :disabled="currentPath.length === 0">↩️ Voltar</button>
+                    <button class="btn btn-outline-primary" @click="carregarConteudo">🔄 Atualizar</button>
+                </div>
+            </div>
+
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb p-3 bg-light rounded-3">
+                    <li class="breadcrumb-item" :class="{ active: currentPath.length === 0 }" @click="navegarPara(null)">🏠 Início</li>
+                    <li v-for="(folder, index) in currentPath" :key="folder.id" class="breadcrumb-item" :class="{ active: index === currentPath.length - 1 }" @click="navegarPara(folder, index)">
+                        {{ folder.nome }}
+                    </li>
+                </ol>
+            </nav>
+
+            <div v-if="loading" class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Carregando...</span></div>
+            </div>
+
+            <div v-else class="row g-3">
+                <div v-if="pastas.length === 0 && formularios.length === 0" class="col-12 text-center py-5 text-muted">
+                    <p class="fs-4">📭 Pasta vazia</p>
+                    <p>Crie uma pasta ou um evento para começar.</p>
+                </div>
+
+                <div v-for="pasta in pastas" :key="pasta.id" class="col-6 col-md-4 col-lg-2">
+                    <div class="folder-item h-100 d-flex flex-column align-items-center position-relative" @click="entrarPasta(pasta)">
+                        <span class="delete-btn" @click.stop="deletarPasta(pasta)" title="Apagar Pasta">🗑️</span>
+                        <span class="item-icon">📁</span>
+                        <span class="item-name">{{ pasta.nome }}</span>
+                    </div>
+                </div>
+
+                <div v-for="evento in eventosValidos" :key="evento.id" class="col-6 col-md-4 col-lg-2">
+                    <div class="event-item h-100 d-flex flex-column align-items-center position-relative" @click="abrirEvento(evento)">
+                        <span class="delete-btn" @click.stop="deletarFormulario(evento)" title="Apagar Evento">🗑️</span>
+                        <span class="item-icon">🎯</span>
+                        <span class="item-name">{{ evento.titulo }}</span>
+                        <small class="text-muted text-center">{{ evento.tema || 'Sem tema' }}</small>
+                        <small class="text-muted text-center">{{ evento.evento_data ? formatarData(evento.evento_data) : 'Sem data' }}</small>
+                        <div class="d-flex flex-column align-items-center mt-1">
+                            <button class="btn btn-sm btn-link p-0" @click.stop="abrirEvento(evento)">Editar</button>
+                            <button v-if="Number(evento.criar_lista_presenca) === 1" class="btn btn-sm btn-link p-0" @click.stop="copiarLinkFormulario(evento)">Copiar link</button>
+                            <button v-if="Number(evento.criar_lista_presenca) === 1" class="btn btn-sm btn-link p-0" @click.stop="abrirQrFormulario(evento)">Ver QR</button>
+                            <button v-if="Number(evento.criar_lista_presenca) === 1" class="btn btn-sm btn-link p-0" @click.stop="baixarQrFormulario(evento)">Baixar QR</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <div class="modal fade" id="modalNovoEvento" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Novo Evento</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Nome do evento</label>
+                            <input type="text" class="form-control" v-model.trim="novoEvento.nomeEvento" maxlength="180">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Tema</label>
+                            <input type="text" class="form-control" v-model.trim="novoEvento.tema" maxlength="200">
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <label class="form-label">Data</label>
+                                <input type="date" class="form-control" v-model="novoEvento.data">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">Hora</label>
+                                <input type="time" class="form-control" v-model="novoEvento.hora">
+                            </div>
+                        </div>
+                        <label class="form-label d-block">Deseja criar lista de presença?</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" id="evtListaSim" :value="true" v-model="novoEvento.criarListaPresenca">
+                            <label class="form-check-label" for="evtListaSim">Sim</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" id="evtListaNao" :value="false" v-model="novoEvento.criarListaPresenca">
+                            <label class="form-check-label" for="evtListaNao">Não</label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button class="btn btn-primary" @click="avancarCriacaoEvento" :disabled="salvandoNovoEvento">
+                            {{ novoEvento.criarListaPresenca ? 'Continuar' : (salvandoNovoEvento ? 'Criando...' : 'Criar evento') }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="modalConfigPresenca" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Configurar Lista de Presença</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <label class="form-label">Perguntas do formulário</label>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="cfgJaFez" v-model="configPresenca.permitirJaFezEJC">
+                            <label class="form-check-label" for="cfgJaFez">Já fez EJC</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="cfgNaoFez" v-model="configPresenca.permitirNaoFezEJC">
+                            <label class="form-check-label" for="cfgNaoFez">Não fez EJC</label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-outline-secondary" @click="voltarParaDadosEvento">Voltar</button>
+                        <button class="btn btn-primary" @click="criarEventoComConfigPresenca" :disabled="salvandoNovoEvento">
+                            {{ salvandoNovoEvento ? 'Criando...' : 'Continuar e gerar QR' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="modalEvento" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Editar Evento</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <ul class="nav nav-tabs mb-3">
+                            <li class="nav-item"><button class="nav-link" :class="{ active: abaEventoEdicao === 'info' }" @click="abaEventoEdicao = 'info'">Informações</button></li>
+                            <li class="nav-item" v-if="eventoEmEdicao && Number(eventoEmEdicao.criar_lista_presenca) === 1"><button class="nav-link" :class="{ active: abaEventoEdicao === 'presencas' }" @click="carregarPresencasEvento">Presença</button></li>
+                        </ul>
+
+                        <div v-if="abaEventoEdicao === 'info' && eventoEmEdicao">
+                            <div class="row g-2">
+                                <div class="col-12">
+                                    <label class="form-label">Nome do evento</label>
+                                    <input type="text" class="form-control" v-model.trim="eventoEmEdicao.titulo">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label">Tema</label>
+                                    <input type="text" class="form-control" v-model.trim="eventoEmEdicao.tema">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">Data</label>
+                                    <input type="date" class="form-control" v-model="eventoEmEdicao.evento_data">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">Hora</label>
+                                    <input type="time" class="form-control" v-model="eventoEmEdicaoHora">
+                                </div>
+                            </div>
+                            <div class="mt-3 d-flex gap-2">
+                                <button class="btn btn-primary" @click="salvarEventoEdicao">Salvar</button>
+                                <button v-if="Number(eventoEmEdicao.criar_lista_presenca) === 1" class="btn btn-outline-primary" @click="abrirFormularioPublico(eventoEmEdicao)">Abrir formulário</button>
+                            </div>
+                        </div>
+
+                        <div v-if="abaEventoEdicao === 'presencas' && eventoEmEdicao">
+                            <div v-if="loadingPresencasEvento" class="text-muted">Carregando presenças...</div>
+                            <div v-else class="list-group">
+                                <div v-for="pres in presencasEvento" :key="pres.id" class="list-group-item">
+                                    <div class="fw-semibold">{{ pres.jovem_nome || pres.nome_completo || 'Sem nome' }}</div>
+                                    <small class="text-muted">Telefone: {{ pres.telefone || '-' }}</small>
+                                    <small
+                                        v-if="pres.origem_ja_fez === 'OUTRO_EJC' || (pres.outro_ejc_id && (pres.outro_ejc_nome || pres.ejc_origem))"
+                                        class="text-muted d-block"
+                                    >
+                                        Outro EJC:
+                                        {{ [pres.outro_ejc_paroquia, pres.outro_ejc_nome].filter(Boolean).join(' - ') || pres.ejc_origem || 'Não informado' }}
+                                    </small>
+                                </div>
+                                <div v-if="presencasEvento.length === 0" class="text-muted text-center p-3 bg-light border rounded">Nenhuma presença registrada.</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="modalQrFormulario" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header">
+                        <h5 class="modal-title">QR Code: {{ qrPreviewTitle || 'Evento' }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body text-center">
+                        <img v-if="qrPreviewDataUrl" :src="qrPreviewDataUrl" alt="QR Code do evento" class="img-fluid rounded border p-2 bg-white">
+                        <div v-else class="text-muted">Gerando QR Code...</div>
+                        <div v-if="qrPreviewLink" class="mt-3"><a :href="qrPreviewLink" target="_blank" rel="noopener noreferrer">{{ qrPreviewLink }}</a></div>
+                    </div>
+                    <div class="modal-footer">
+                        <a v-if="qrPreviewLink" class="btn btn-outline-primary" :href="qrPreviewLink" target="_blank" rel="noopener noreferrer">Visualizar</a>
+                        <button v-if="qrPreviewLink" class="btn btn-outline-dark" @click="copiarTexto(qrPreviewLink)">Copiar link</button>
+                        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+                        <button class="btn btn-primary" @click="downloadDataUrl(qrPreviewDataUrl, qrPreviewTitle || 'evento')">Baixar QR</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            injetarMenu('#app');
+            ativarMenu('/eventos');
+        });
+
+        createApp({
+            data() {
+                return {
+                    loading: false,
+                    pastas: [],
+                    formularios: [],
+                    currentFolderId: null,
+                    currentPath: [],
+                    createEventModal: null,
+                    configPresenceModal: null,
+                    editEventModal: null,
+                    qrModal: null,
+                    salvandoNovoEvento: false,
+                    novoEvento: {
+                        nomeEvento: '',
+                        tema: '',
+                        data: '',
+                        hora: '',
+                        criarListaPresenca: true
+                    },
+                    configPresenca: {
+                        permitirJaFezEJC: true,
+                        permitirNaoFezEJC: true
+                    },
+                    eventoEmEdicao: null,
+                    eventoEmEdicaoHora: '',
+                    abaEventoEdicao: 'info',
+                    presencasEvento: [],
+                    loadingPresencasEvento: false,
+                    qrLibraryLoading: null,
+                    qrPreviewTitle: '',
+                    qrPreviewDataUrl: '',
+                    qrPreviewLink: ''
+                };
+            },
+            computed: {
+                eventosValidos() {
+                    if (!Array.isArray(this.formularios)) return [];
+                    return this.formularios.filter(e => e && typeof e === 'object' && e.id && e.titulo);
+                }
+            },
+            methods: {
+                formatarData(data) {
+                    if (!data) return '-';
+                    const dt = new Date(`${data}T00:00:00`);
+                    if (Number.isNaN(dt.getTime())) return data;
+                    return dt.toLocaleDateString('pt-BR');
+                },
+                resetNovoEvento() {
+                    this.novoEvento = {
+                        nomeEvento: '',
+                        tema: '',
+                        data: '',
+                        hora: '',
+                        criarListaPresenca: true
+                    };
+                    this.configPresenca = {
+                        permitirJaFezEJC: true,
+                        permitirNaoFezEJC: true
+                    };
+                },
+                abrirModalNovoEvento() {
+                    this.resetNovoEvento();
+                    if (this.createEventModal) this.createEventModal.show();
+                },
+                async avancarCriacaoEvento() {
+                    if (!String(this.novoEvento.nomeEvento || '').trim()) {
+                        alert('Informe o nome do evento.');
+                        return;
+                    }
+                    if (this.novoEvento.criarListaPresenca) {
+                        if (this.createEventModal) this.createEventModal.hide();
+                        if (this.configPresenceModal) this.configPresenceModal.show();
+                        return;
+                    }
+                    await this.criarEvento(false);
+                },
+                voltarParaDadosEvento() {
+                    if (this.configPresenceModal) this.configPresenceModal.hide();
+                    if (this.createEventModal) this.createEventModal.show();
+                },
+                async criarEventoComConfigPresenca() {
+                    if (!this.configPresenca.permitirJaFezEJC && !this.configPresenca.permitirNaoFezEJC) {
+                        alert('Selecione ao menos uma opção: já fez EJC ou não fez EJC.');
+                        return;
+                    }
+                    await this.criarEvento(true);
+                },
+                async criarEvento(comLista) {
+                    this.salvandoNovoEvento = true;
+                    try {
+                        const res = await fetch('/api/formularios/forms', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                titulo: String(this.novoEvento.nomeEvento || '').trim(),
+                                tema: String(this.novoEvento.tema || '').trim(),
+                                pastaId: this.currentFolderId,
+                                data: this.novoEvento.data || null,
+                                hora: this.novoEvento.hora || null,
+                                criarListaPresenca: comLista,
+                                permitirJaFezEJC: comLista ? this.configPresenca.permitirJaFezEJC : false,
+                                permitirNaoFezEJC: comLista ? this.configPresenca.permitirNaoFezEJC : false
+                            })
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                            alert(data.error || 'Erro ao criar evento.');
+                            return;
+                        }
+
+                        if (this.createEventModal) this.createEventModal.hide();
+                        if (this.configPresenceModal) this.configPresenceModal.hide();
+                        await this.carregarConteudo();
+
+                        if (comLista && data.link) {
+                            this.qrPreviewTitle = this.novoEvento.nomeEvento || 'Evento';
+                            this.qrPreviewLink = `${window.location.origin}${data.link}`;
+                            this.qrPreviewDataUrl = '';
+                            if (this.qrModal) this.qrModal.show();
+                            this.qrPreviewDataUrl = await this.gerarQrDataUrl(this.qrPreviewLink);
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        alert('Erro ao criar evento.');
+                    } finally {
+                        this.salvandoNovoEvento = false;
+                    }
+                },
+                getPublicLink(form) {
+                    return `${window.location.origin}/eventos/public/${form.token}`;
+                },
+                async abrirEvento(form) {
+                    try {
+                        const res = await fetch(`/api/formularios/forms/${form.id}`);
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                            alert(data.error || 'Erro ao carregar evento.');
+                            return;
+                        }
+                        this.eventoEmEdicao = data;
+                        this.eventoEmEdicaoHora = data.evento_hora ? String(data.evento_hora).slice(0, 5) : '';
+                        this.abaEventoEdicao = 'info';
+                        this.presencasEvento = [];
+                        if (this.editEventModal) this.editEventModal.show();
+                    } catch (err) {
+                        console.error(err);
+                        alert('Erro ao carregar evento.');
+                    }
+                },
+                async salvarEventoEdicao() {
+                    if (!this.eventoEmEdicao || !this.eventoEmEdicao.id) return;
+                    const titulo = String(this.eventoEmEdicao.titulo || '').trim();
+                    if (!titulo) {
+                        alert('Informe o nome do evento.');
+                        return;
+                    }
+                    try {
+                        const res = await fetch(`/api/formularios/forms/${this.eventoEmEdicao.id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                titulo,
+                                tema: String(this.eventoEmEdicao.tema || '').trim(),
+                                data: this.eventoEmEdicao.evento_data || null,
+                                hora: this.eventoEmEdicaoHora || null
+                            })
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                            alert(data.error || 'Erro ao salvar evento.');
+                            return;
+                        }
+                        await this.carregarConteudo();
+                        alert('Evento salvo com sucesso.');
+                    } catch (err) {
+                        console.error(err);
+                        alert('Erro ao salvar evento.');
+                    }
+                },
+                async carregarPresencasEvento() {
+                    if (!this.eventoEmEdicao || !this.eventoEmEdicao.id) return;
+                    this.abaEventoEdicao = 'presencas';
+                    this.loadingPresencasEvento = true;
+                    try {
+                        const res = await fetch(`/api/formularios/forms/${this.eventoEmEdicao.id}/presencas`);
+                        const data = await res.json().catch(() => ([]));
+                        if (!res.ok) {
+                            this.presencasEvento = [];
+                            return;
+                        }
+                        this.presencasEvento = Array.isArray(data) ? data : [];
+                    } catch (err) {
+                        console.error(err);
+                        this.presencasEvento = [];
+                    } finally {
+                        this.loadingPresencasEvento = false;
+                    }
+                },
+                getQrCodeApi() {
+                    if (window.QRCode && typeof window.QRCode.toDataURL === 'function') return window.QRCode;
+                    if (window.qrcode && typeof window.qrcode.toDataURL === 'function') return window.qrcode;
+                    return null;
+                },
+                loadScript(src) {
+                    return new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = src;
+                        script.async = true;
+                        script.onload = () => resolve(true);
+                        script.onerror = () => reject(new Error(`Falha ao carregar script: ${src}`));
+                        document.head.appendChild(script);
+                    });
+                },
+                async garantirBibliotecaQr() {
+                    if (this.getQrCodeApi()) return true;
+                    if (this.qrLibraryLoading) return this.qrLibraryLoading;
+
+                    const sources = [
+                        'https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js',
+                        'https://unpkg.com/qrcode@1.5.4/build/qrcode.min.js',
+                        'https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.4/qrcode.min.js'
+                    ];
+
+                    this.qrLibraryLoading = (async () => {
+                        for (const src of sources) {
+                            try {
+                                await this.loadScript(src);
+                                if (this.getQrCodeApi()) return true;
+                            } catch (err) {
+                                console.warn(err.message);
+                            }
+                        }
+                        return false;
+                    })();
+
+                    const loaded = await this.qrLibraryLoading;
+                    this.qrLibraryLoading = null;
+                    return loaded;
+                },
+                async gerarQrViaServico(link) {
+                    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=420x420&margin=2&data=${encodeURIComponent(link)}`;
+                    const res = await fetch(qrUrl);
+                    if (!res.ok) throw new Error('Falha ao gerar QR Code no serviço de fallback.');
+                    const blob = await res.blob();
+                    return await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result);
+                        reader.onerror = () => reject(new Error('Falha ao converter QR para imagem.'));
+                        reader.readAsDataURL(blob);
+                    });
+                },
+                async gerarQrDataUrl(link) {
+                    const hasLibrary = await this.garantirBibliotecaQr();
+                    const qrApi = this.getQrCodeApi();
+
+                    if (hasLibrary && qrApi) {
+                        return qrApi.toDataURL(link, {
+                            width: 420,
+                            margin: 2,
+                            color: { dark: '#0f172a', light: '#ffffff' }
+                        });
+                    }
+                    return this.gerarQrViaServico(link);
+                },
+                normalizarNomeArquivo(nome) {
+                    return String(nome || 'evento')
+                        .trim()
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]+/g, '-')
+                        .replace(/^-+|-+$/g, '') || 'evento';
+                },
+                downloadDataUrl(dataUrl, nomeBase) {
+                    if (!dataUrl) return;
+                    const a = document.createElement('a');
+                    a.href = dataUrl;
+                    a.download = `${this.normalizarNomeArquivo(nomeBase)}-qrcode.png`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                },
+                async copiarTexto(texto) {
+                    if (!texto) return;
+                    try {
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                            await navigator.clipboard.writeText(texto);
+                        } else {
+                            const temp = document.createElement('input');
+                            temp.value = texto;
+                            document.body.appendChild(temp);
+                            temp.select();
+                            document.execCommand('copy');
+                            document.body.removeChild(temp);
+                        }
+                        alert('Link copiado.');
+                    } catch (err) {
+                        console.error(err);
+                        alert('Não foi possível copiar o link.');
+                    }
+                },
+                abrirFormularioPublico(form) {
+                    if (!form || Number(form.criar_lista_presenca) !== 1) return;
+                    window.open(this.getPublicLink(form), '_blank');
+                },
+                async abrirQrFormulario(form) {
+                    if (!form || Number(form.criar_lista_presenca) !== 1) return;
+                    try {
+                        this.qrPreviewTitle = form.titulo || 'Evento';
+                        this.qrPreviewLink = this.getPublicLink(form);
+                        this.qrPreviewDataUrl = '';
+                        if (this.qrModal) this.qrModal.show();
+                        this.qrPreviewDataUrl = await this.gerarQrDataUrl(this.qrPreviewLink);
+                    } catch (err) {
+                        console.error(err);
+                        alert('Não foi possível gerar o QR Code.');
+                    }
+                },
+                async baixarQrFormulario(form) {
+                    if (!form || Number(form.criar_lista_presenca) !== 1) return;
+                    try {
+                        const dataUrl = await this.gerarQrDataUrl(this.getPublicLink(form));
+                        this.downloadDataUrl(dataUrl, form.titulo || 'evento');
+                    } catch (err) {
+                        console.error(err);
+                        alert('Não foi possível baixar o QR Code.');
+                    }
+                },
+                async copiarLinkFormulario(form) {
+                    if (!form || Number(form.criar_lista_presenca) !== 1) return;
+                    await this.copiarTexto(this.getPublicLink(form));
+                },
+                async carregarConteudo() {
+                    this.loading = true;
+                    try {
+                        const query = this.currentFolderId ? `?parentId=${this.currentFolderId}` : '';
+                        const queryForms = this.currentFolderId ? `?pastaId=${this.currentFolderId}` : '';
+                        const [resPastas, resForms] = await Promise.all([
+                            fetch(`/api/formularios/pastas${query}`),
+                            fetch(`/api/formularios/forms${queryForms}`)
+                        ]);
+                        this.pastas = resPastas.ok ? await resPastas.json() : [];
+                        const formsData = resForms.ok ? await resForms.json() : [];
+                        this.formularios = Array.isArray(formsData) ? formsData.filter(i => i && typeof i === 'object') : [];
+                    } catch (err) {
+                        console.error(err);
+                        this.pastas = [];
+                        this.formularios = [];
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                entrarPasta(pasta) {
+                    this.currentPath.push(pasta);
+                    this.currentFolderId = pasta.id;
+                    this.carregarConteudo();
+                },
+                async criarPasta() {
+                    const nome = await window.showFloatingPrompt('Nome da nova pasta:', { title: 'Nova pasta', placeholder: 'Digite o nome da pasta' });
+                    if (!nome) return;
+                    try {
+                        const res = await fetch('/api/formularios/pastas', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ nome: String(nome).trim(), parentId: this.currentFolderId })
+                        });
+                        if (!res.ok) throw new Error('Erro ao criar pasta.');
+                        await this.carregarConteudo();
+                    } catch (err) {
+                        console.error(err);
+                        alert('Erro ao criar pasta.');
+                    }
+                },
+                async deletarFormulario(form) {
+                    if (!(await window.showFloatingConfirm(`Tem certeza que deseja apagar o evento "${form.titulo}"?`))) return;
+                    try {
+                        const res = await fetch(`/api/formularios/forms/${form.id}`, { method: 'DELETE' });
+                        if (!res.ok) throw new Error('Erro ao deletar evento.');
+                        await this.carregarConteudo();
+                    } catch (err) {
+                        console.error(err);
+                        alert('Erro ao deletar evento.');
+                    }
+                },
+                async deletarPasta(pasta) {
+                    if (!(await window.showFloatingConfirm(`Tem certeza que deseja apagar a pasta "${pasta.nome}" e todo o conteúdo interno?`))) return;
+                    try {
+                        const res = await fetch(`/api/formularios/pastas/${pasta.id}`, { method: 'DELETE' });
+                        if (!res.ok) throw new Error('Erro ao deletar pasta.');
+                        await this.carregarConteudo();
+                    } catch (err) {
+                        console.error(err);
+                        alert('Erro ao deletar pasta.');
+                    }
+                },
+                navegarPara(folder, index) {
+                    if (folder === null) {
+                        this.currentPath = [];
+                        this.currentFolderId = null;
+                    } else {
+                        this.currentPath = this.currentPath.slice(0, index + 1);
+                        this.currentFolderId = folder.id;
+                    }
+                    this.carregarConteudo();
+                },
+                voltarPasta() {
+                    if (!this.currentPath.length) return;
+                    this.currentPath.pop();
+                    const ultimo = this.currentPath[this.currentPath.length - 1] || null;
+                    this.currentFolderId = ultimo ? ultimo.id : null;
+                    this.carregarConteudo();
+                }
+            },
+            async mounted() {
+                const modalNovoEventoEl = document.getElementById('modalNovoEvento');
+                if (modalNovoEventoEl && window.bootstrap && window.bootstrap.Modal) {
+                    this.createEventModal = new window.bootstrap.Modal(modalNovoEventoEl);
+                }
+                const modalConfigPresencaEl = document.getElementById('modalConfigPresenca');
+                if (modalConfigPresencaEl && window.bootstrap && window.bootstrap.Modal) {
+                    this.configPresenceModal = new window.bootstrap.Modal(modalConfigPresencaEl);
+                }
+                const modalEventoEl = document.getElementById('modalEvento');
+                if (modalEventoEl && window.bootstrap && window.bootstrap.Modal) {
+                    this.editEventModal = new window.bootstrap.Modal(modalEventoEl);
+                }
+                const modalQrEl = document.getElementById('modalQrFormulario');
+                if (modalQrEl && window.bootstrap && window.bootstrap.Modal) {
+                    this.qrModal = new window.bootstrap.Modal(modalQrEl);
+                }
+                await this.garantirBibliotecaQr();
+                await this.carregarConteudo();
+            }
+        }).mount('#app');
+    </script>
+</body>
+
+</html>

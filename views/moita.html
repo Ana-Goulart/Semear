@@ -203,18 +203,28 @@
                         <div v-if="!reservasVisualizacao.length" class="text-muted">
                             Nenhuma pessoa nesta lista.
                         </div>
-                        <ul v-else class="list-group list-group-flush">
-                            <li class="list-group-item d-flex justify-content-between align-items-center"
-                                v-for="r in reservasVisualizacao" :key="`rv-${r.id}`">
-                                <div>
-                                    <div class="fw-semibold">{{ r.nome_completo }}</div>
-                                    <small class="text-muted">
-                                        {{ r.telefone || '-' }} • {{ resumoNascimento(r) }} • EJC de origem: {{ formatarEjcOrigem(r) }}
-                                    </small>
-                                </div>
-                                <button class="btn btn-sm btn-outline-danger" @click="removerReserva(r.id)">Remover</button>
-                            </li>
-                        </ul>
+                        <div v-else class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Nome Completo</th>
+                                        <th>Telefone</th>
+                                        <th>Idade</th>
+                                        <th>Número do EJC que fez</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="r in reservasVisualizacao" :key="`rv-${r.id}`">
+                                        <td>{{ r.nome_completo }}</td>
+                                        <td>{{ r.telefone || '-' }}</td>
+                                        <td>{{ calcularIdade(r.data_nascimento) || '-' }}</td>
+                                        <td>{{ formatarEjcOrigemCompleto(r) }}</td>
+                                        <td><button class="btn btn-sm btn-outline-danger" @click="removerReserva(r.id)">Remover</button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
@@ -234,6 +244,7 @@
         createApp({
             data() {
                 return {
+                    nomeMeuEJC: (window.__NOME_EJC_ATUAL && String(window.__NOME_EJC_ATUAL).trim()) || 'Inconfidentes',
                     carregando: true,
                     registros: [],
                     erroApi: '',
@@ -290,7 +301,7 @@
                     await this.carregarFuncoes();
                 },
                 async removerFuncao(id) {
-                    if (!confirm('Remover esta função?')) return;
+                    if (!(await window.showFloatingConfirm('Remover esta função?'))) return;
                     const res = await fetch(`/api/moita/funcoes/${id}`, { method: 'DELETE' });
                     if (!res.ok) {
                         const err = await res.json().catch(() => ({}));
@@ -357,6 +368,27 @@
                     const numero = item?.ejc_origem_numero || item?.numero_ejc_fez;
                     return numero ? `${numero}º EJC` : '-';
                 },
+                numeroParaRomano(num) {
+                    if (!num) return '';
+                    const roman = [{ value: 1000, numeral: 'M' }, { value: 900, numeral: 'CM' }, { value: 500, numeral: 'D' }, { value: 400, numeral: 'CD' }, { value: 100, numeral: 'C' }, { value: 90, numeral: 'XC' }, { value: 50, numeral: 'L' }, { value: 40, numeral: 'XL' }, { value: 10, numeral: 'X' }, { value: 9, numeral: 'IX' }, { value: 5, numeral: 'V' }, { value: 4, numeral: 'IV' }, { value: 1, numeral: 'I' }];
+                    let result = '', n = parseInt(num, 10);
+                    for (let i = 0; i < roman.length; i++) while (n >= roman[i].value) { result += roman[i].numeral; n -= roman[i].value; }
+                    return result;
+                },
+                formatarEjcOrigemCompleto(item) {
+                    const numero = item?.ejc_origem_numero || item?.numero_ejc_fez;
+                    if (!numero) return '-';
+                    return `${this.numeroParaRomano(numero)} EJC ${this.nomeMeuEJC}`;
+                },
+                async carregarNomeMeuEJC() {
+                    try {
+                        const res = await fetch('/api/meu-ejc');
+                        if (!res.ok) return;
+                        const data = await res.json().catch(() => ({}));
+                        const nome = data && data.nome ? String(data.nome).trim() : '';
+                        if (nome) this.nomeMeuEJC = nome;
+                    } catch (_) { }
+                },
                 async executarBusca() {
                     const res = await fetch(`/api/jovens/search?q=${encodeURIComponent(this.searchQuery)}`);
                     if (!res.ok) {
@@ -386,7 +418,7 @@
                     await this.carregarReservas();
                 },
                 async removerReserva(id) {
-                    if (!confirm('Remover jovem da lista de reserva?')) return;
+                    if (!(await window.showFloatingConfirm('Remover jovem da lista de reserva?'))) return;
                     const res = await fetch(`/api/moita/reservas/${id}`, { method: 'DELETE' });
                     if (!res.ok) {
                         const err = await res.json().catch(() => ({}));
@@ -416,6 +448,7 @@
                 }
             },
             mounted() {
+                this.carregarNomeMeuEJC();
                 this.carregarFuncoes();
                 this.carregarReservas();
                 this.carregarRegistros();

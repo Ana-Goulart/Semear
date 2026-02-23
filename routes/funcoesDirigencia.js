@@ -119,6 +119,59 @@ router.post('/', async (req, res) => {
     }
 });
 
+router.put('/:id', async (req, res) => {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ error: 'ID inválido.' });
+
+    const nome = String(req.body.nome || '').trim();
+    const descricao = String(req.body.descricao || '').trim() || null;
+    const usuarios = toIntArray(req.body.usuarios);
+
+    if (!nome) return res.status(400).json({ error: 'Nome da função é obrigatório.' });
+    if (!usuarios.length) return res.status(400).json({ error: 'Selecione ao menos um usuário.' });
+
+    const connection = await pool.getConnection();
+    try {
+        await garantirEstrutura();
+        await connection.beginTransaction();
+
+        const [exists] = await connection.query(
+            `SELECT id FROM funcoes_dirigencia WHERE LOWER(nome) = LOWER(?) AND id <> ? LIMIT 1`,
+            [nome, id]
+        );
+        if (exists.length) {
+            await connection.rollback();
+            return res.status(409).json({ error: 'Já existe uma função com esse nome.' });
+        }
+
+        const [resultUpdate] = await connection.query(
+            `UPDATE funcoes_dirigencia SET nome = ?, descricao = ? WHERE id = ?`,
+            [nome, descricao, id]
+        );
+        if (!resultUpdate.affectedRows) {
+            await connection.rollback();
+            return res.status(404).json({ error: 'Função não encontrada.' });
+        }
+
+        await connection.query(`DELETE FROM funcoes_dirigencia_usuarios WHERE funcao_id = ?`, [id]);
+        for (const usuarioId of usuarios) {
+            await connection.query(
+                `INSERT INTO funcoes_dirigencia_usuarios (funcao_id, usuario_id) VALUES (?, ?)`,
+                [id, usuarioId]
+            );
+        }
+
+        await connection.commit();
+        res.json({ message: 'Função atualizada com sucesso.' });
+    } catch (err) {
+        await connection.rollback();
+        console.error('Erro ao atualizar função da dirigência:', err);
+        res.status(500).json({ error: 'Erro ao atualizar função da dirigência' });
+    } finally {
+        connection.release();
+    }
+});
+
 router.delete('/:id', async (req, res) => {
     const id = Number(req.params.id);
     if (!id) return res.status(400).json({ error: 'ID inválido.' });

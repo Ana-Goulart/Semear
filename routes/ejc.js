@@ -1,12 +1,26 @@
 const express = require('express');
 const router = express.Router();
 const { pool, registrarLog } = require('../database');
+const { getTenantId } = require('../lib/tenantIsolation');
+
+async function hasColumn(tableName, columnName) {
+    const [rows] = await pool.query(`
+        SELECT COUNT(*) AS cnt
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = ?
+          AND COLUMN_NAME = ?
+    `, [tableName, columnName]);
+    return !!(rows && rows[0] && rows[0].cnt > 0);
+}
 
 // GET - Listar todos os EJCs
 router.get('/', async (req, res) => {
     try {
+        const tenantId = getTenantId(req);
         const [rows] = await pool.query(
-            'SELECT * FROM ejc ORDER BY numero DESC'
+            'SELECT * FROM ejc WHERE tenant_id = ? ORDER BY numero DESC',
+            [tenantId]
         );
         res.json(rows);
     } catch (err) {
@@ -18,9 +32,10 @@ router.get('/', async (req, res) => {
 // GET - Buscar um EJC específico
 router.get('/:id', async (req, res) => {
     try {
+        const tenantId = getTenantId(req);
         const [rows] = await pool.query(
-            'SELECT * FROM ejc WHERE id = ?',
-            [req.params.id]
+            'SELECT * FROM ejc WHERE id = ? AND tenant_id = ?',
+            [req.params.id, tenantId]
         );
         if (rows.length === 0) {
             return res.status(404).json({ error: "EJC não encontrado" });
@@ -35,10 +50,40 @@ router.get('/:id', async (req, res) => {
 // GET - Buscar encontristas de um EJC específico
 router.get('/:id/encontristas', async (req, res) => {
     try {
-        const [rows] = await pool.query(
-            'SELECT id, nome_completo, circulo, telefone FROM jovens WHERE numero_ejc_fez = ? ORDER BY nome_completo ASC',
-            [req.params.id]
-        );
+        const tenantId = getTenantId(req);
+        const comOrigem = await hasColumn('jovens', 'origem_ejc_tipo');
+        const comFoiMoita = await hasColumn('jovens', 'ja_foi_moita_inconfidentes');
+        const comMoitaEjc = await hasColumn('jovens', 'moita_ejc_id');
+        const comMoitaFuncao = await hasColumn('jovens', 'moita_funcao');
+
+        const usarRegraMoita = comOrigem && comFoiMoita && comMoitaEjc;
+        const selectFoiMoita = usarRegraMoita
+            ? "CASE WHEN (j.origem_ejc_tipo = 'OUTRO_EJC' AND j.ja_foi_moita_inconfidentes = 1 AND j.moita_ejc_id = ?) THEN 1 ELSE 0 END AS foi_moita"
+            : "0 AS foi_moita";
+        const selectMoitaFuncao = usarRegraMoita && comMoitaFuncao
+            ? "CASE WHEN (j.origem_ejc_tipo = 'OUTRO_EJC' AND j.ja_foi_moita_inconfidentes = 1 AND j.moita_ejc_id = ?) THEN j.moita_funcao ELSE NULL END AS moita_funcao"
+            : "NULL AS moita_funcao";
+
+        const sql = usarRegraMoita
+            ? `SELECT DISTINCT j.id, j.nome_completo, j.circulo, j.telefone,
+                      ${selectFoiMoita},
+                      ${selectMoitaFuncao}
+               FROM jovens j
+               WHERE j.tenant_id = ?
+                 AND (j.numero_ejc_fez = ?
+                  OR (j.origem_ejc_tipo = 'OUTRO_EJC' AND j.ja_foi_moita_inconfidentes = 1 AND j.moita_ejc_id = ?))
+               ORDER BY nome_completo ASC`
+            : `SELECT j.id, j.nome_completo, j.circulo, j.telefone,
+                      ${selectFoiMoita},
+                      ${selectMoitaFuncao}
+               FROM jovens j
+               WHERE j.tenant_id = ?
+                 AND j.numero_ejc_fez = ?
+               ORDER BY nome_completo ASC`;
+        const params = usarRegraMoita
+            ? [req.params.id, req.params.id, tenantId, req.params.id, req.params.id]
+            : [tenantId, req.params.id];
+        const [rows] = await pool.query(sql, params);
         res.json(rows);
     } catch (err) {
         console.error("Erro ao buscar encontristas:", err);
@@ -56,16 +101,17 @@ router.post('/', async (req, res) => {
     }
 
     try {
+        const tenantId = getTenantId(req);
         const [result] = await pool.query(
-            'INSERT INTO ejc (numero, paroquia, ano, data_inicio, data_fim, descricao) VALUES (?, ?, ?, ?, ?, ?)',
-            [numero, paroquia, ano || new Date().getFullYear(), data_inicio || null, data_fim || null, descricao || null]
+            'INSERT INTO ejc (tenant_id, numero, paroquia, ano, data_inicio, data_fim, descricao) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [tenantId, numero, paroquia, ano || new Date().getFullYear(), data_inicio || null, data_fim || null, descricao || null]
         );
 
         // Ao criar um novo EJC, vincula automaticamente todas as equipes já cadastradas.
         await pool.query(
             `INSERT IGNORE INTO equipes_ejc (ejc_id, equipe_id)
-             SELECT ?, id FROM equipes`,
-            [result.insertId]
+             SELECT ?, id FROM equipes WHERE tenant_id = ?`,
+            [result.insertId, tenantId]
         );
 
         await registrarLog('sistema', 'CREATE', `EJC ${numero} criado`);
@@ -92,9 +138,10 @@ router.put('/:id', async (req, res) => {
     }
 
     try {
+        const tenantId = getTenantId(req);
         const [result] = await pool.query(
-            'UPDATE ejc SET numero=?, paroquia=?, ano=?, data_inicio=?, data_fim=?, descricao=? WHERE id=?',
-            [numero, paroquia, ano, data_inicio || null, data_fim || null, descricao || null, req.params.id]
+            'UPDATE ejc SET numero=?, paroquia=?, ano=?, data_inicio=?, data_fim=?, descricao=? WHERE id=? AND tenant_id = ?',
+            [numero, paroquia, ano, data_inicio || null, data_fim || null, descricao || null, req.params.id, tenantId]
         );
 
         if (result.affectedRows === 0) {
@@ -113,10 +160,11 @@ router.put('/:id', async (req, res) => {
 // DELETE - Deletar EJC
 router.delete('/:id', async (req, res) => {
     try {
+        const tenantId = getTenantId(req);
         // Verificar se há jovens vinculados
         const [jovens] = await pool.query(
-            'SELECT COUNT(*) as count FROM jovens WHERE numero_ejc_fez = ?',
-            [req.params.id]
+            'SELECT COUNT(*) as count FROM jovens WHERE numero_ejc_fez = ? AND tenant_id = ?',
+            [req.params.id, tenantId]
         );
 
         if (jovens[0].count > 0) {
@@ -126,8 +174,8 @@ router.delete('/:id', async (req, res) => {
         }
 
         const [result] = await pool.query(
-            'DELETE FROM ejc WHERE id = ?',
-            [req.params.id]
+            'DELETE FROM ejc WHERE id = ? AND tenant_id = ?',
+            [req.params.id, tenantId]
         );
 
         if (result.affectedRows === 0) {

@@ -196,7 +196,7 @@
                     }
                 },
                 async criarPasta() {
-                    const nome = prompt("Nome da nova pasta:");
+                    const nome = await window.showFloatingPrompt("Nome da nova pasta:", { title: 'Nova pasta', placeholder: 'Digite o nome da pasta' });
                     if (!nome) return;
 
                     try {
@@ -266,7 +266,7 @@
                     window.open(url, '_blank');
                 },
                 async deletarItem(tipo, item) {
-                    if (!confirm(`Tem certeza que deseja apagar ${tipo} "${item.nome}"? Esta ação não pode ser desfeita.`)) return;
+                    if (!(await window.showFloatingConfirm(`Tem certeza que deseja apagar ${tipo} "${item.nome}"? Esta ação não pode ser desfeita.`))) return;
 
                     const endpoint = tipo === 'pasta' ? `/api/anexos/pastas/${item.id}` : `/api/anexos/arquivos/${item.id}`;
                     try {

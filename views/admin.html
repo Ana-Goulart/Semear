@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SemeaJovens - Administração</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/velzon-theme.css">
+    <style>
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.45);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1050;
+            padding: 16px;
+        }
+
+        .dialog-card {
+            width: 100%;
+            max-width: 640px;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 18px 50px rgba(15, 23, 42, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div id="app" class="container-fluid">
+        <div class="row min-vh-100">
+            <aside class="col-md-3 col-lg-2 bg-light border-end p-3">
+                <h5 class="mb-3">Admin</h5>
+                <div class="list-group">
+                    <button class="list-group-item list-group-item-action" :class="{active: aba==='cadastro'}" @click="abrirCadastro">Cadastrar EJC</button>
+                    <button class="list-group-item list-group-item-action" :class="{active: aba==='lista'}" @click="carregarTenants">EJCs cadastrados</button>
+                </div>
+                <button class="btn btn-outline-secondary btn-sm mt-3 w-100" @click="sair">Sair</button>
+            </aside>
+            <main class="col-md-9 col-lg-10 p-4">
+                <h3 class="mb-3">Sistema Administrador de EJCs</h3>
+
+                <div v-if="mensagem.texto" class="alert" :class="mensagem.tipo==='erro' ? 'alert-danger' : 'alert-success'">
+                    {{ mensagem.texto }}
+                </div>
+
+                <div v-if="aba==='cadastro'" class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <h5 class="mb-3">{{ editandoId ? 'Editar EJC' : 'Cadastrar EJC' }}</h5>
+                        <div class="row g-3">
+                            <div class="col-md-6"><label class="form-label">Nome do EJC</label><input class="form-control" v-model.trim="form.nome_ejc"></div>
+                            <div class="col-md-6"><label class="form-label">Paróquia</label><input class="form-control" v-model.trim="form.paroquia"></div>
+                            <div class="col-md-6"><label class="form-label">Endereço</label><input class="form-control" v-model.trim="form.endereco"></div>
+                            <div class="col-md-3"><label class="form-label">Cidade</label><input class="form-control" v-model.trim="form.cidade"></div>
+                            <div class="col-md-3"><label class="form-label">Estado</label><input class="form-control" v-model.trim="form.estado" placeholder="Ex: MG"></div>
+                            <template v-if="!editandoId">
+                                <div class="col-md-4"><label class="form-label">Usuário do EJC</label><input class="form-control" v-model.trim="form.username"></div>
+                                <div class="col-md-4"><label class="form-label">Senha do EJC</label><input type="password" class="form-control" v-model="form.senha"></div>
+                                <div class="col-md-4"><label class="form-label">Nome do admin local</label><input class="form-control" v-model.trim="form.nome_admin"></div>
+                            </template>
+                        </div>
+                        <div class="mt-3 d-flex justify-content-end gap-2">
+                            <button v-if="editandoId" class="btn btn-light" @click="abrirCadastro">Cancelar</button>
+                            <button class="btn btn-primary" @click="salvar" :disabled="saving">{{ saving ? 'Salvando...' : (editandoId ? 'Salvar alterações' : 'Criar EJC') }}</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-else class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="mb-0">EJCs Cadastrados</h5>
+                            <button class="btn btn-sm btn-soft-primary" @click="carregarTenants">Atualizar</button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead><tr><th>EJC</th><th>Paróquia</th><th>Cidade</th><th>Estado</th><th>Status</th><th>Usuário</th><th>Ações</th></tr></thead>
+                                <tbody>
+                                    <tr v-for="t in tenants" :key="t.id">
+                                        <td>{{ t.nome_ejc }}</td>
+                                        <td>{{ t.paroquia }}</td>
+                                        <td>{{ t.cidade }}</td>
+                                        <td>{{ t.estado }}</td>
+                                        <td>
+                                            <span class="badge" :class="t.ativo ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning'">
+                                                {{ t.ativo ? 'Ativo' : 'Desabilitado' }}
+                                            </span>
+                                        </td>
+                                        <td>{{ t.usuario_username || '-' }}</td>
+                                        <td class="d-flex gap-1 flex-wrap">
+                                            <button class="btn btn-sm btn-outline-primary" @click="editarTenant(t)">Editar</button>
+                                            <button v-if="t.ativo" class="btn btn-sm btn-outline-warning" @click="abrirDesabilitar(t)">Desabilitar</button>
+                                            <button v-else class="btn btn-sm btn-outline-success" @click="habilitar(t)">Habilitar</button>
+                                            <button class="btn btn-sm btn-outline-danger" @click="abrirExcluir(t)">Excluir</button>
+                                        </td>
+                                    </tr>
+                                    <tr v-if="!tenants.length"><td colspan="7" class="text-muted text-center">Nenhum EJC cadastrado.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <div v-if="dialogExcluir.aberto" class="overlay">
+            <div class="dialog-card p-4">
+                <h5 class="mb-2">Excluir EJC</h5>
+                <p class="text-muted mb-3">Tem certeza que deseja excluir <strong>{{ dialogExcluir.item?.nome_ejc }}</strong>? Esta ação remove os dados deste EJC.</p>
+                <div class="d-flex justify-content-end gap-2">
+                    <button class="btn btn-light" @click="dialogExcluir.aberto=false">Cancelar</button>
+                    <button class="btn btn-danger" :disabled="saving" @click="confirmarExcluir">Excluir EJC</button>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="dialogDesabilitar.aberto" class="overlay">
+            <div class="dialog-card p-4">
+                <h5 class="mb-2">Desabilitar EJC</h5>
+                <p class="text-muted mb-3">Informe o motivo que será exibido no login para o EJC <strong>{{ dialogDesabilitar.item?.nome_ejc }}</strong>.</p>
+                <textarea class="form-control" rows="4" v-model.trim="dialogDesabilitar.motivo" placeholder="Ex: Sistema temporariamente bloqueado por pendência cadastral."></textarea>
+                <div class="d-flex justify-content-end gap-2 mt-3">
+                    <button class="btn btn-light" @click="dialogDesabilitar.aberto=false">Cancelar</button>
+                    <button class="btn btn-warning" :disabled="saving" @click="confirmarDesabilitar">Desabilitar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+        createApp({
+            data() {
+                return {
+                    aba: 'cadastro',
+                    saving: false,
+                    editandoId: null,
+                    tenants: [],
+                    mensagem: { tipo: '', texto: '' },
+                    dialogExcluir: { aberto: false, item: null },
+                    dialogDesabilitar: { aberto: false, item: null, motivo: '' },
+                    form: { nome_ejc: '', paroquia: '', endereco: '', cidade: '', estado: '', username: '', senha: '', nome_admin: 'Administrador do EJC' }
+                };
+            },
+            async mounted() {
+                const me = await fetch('/api/admin/me').then(r => r.json()).catch(() => ({}));
+                if (!me.logged) { window.location.href = '/admin/login'; return; }
+                await this.carregarTenants();
+                this.aba = 'cadastro';
+            },
+            methods: {
+                limparMensagem() {
+                    this.mensagem = { tipo: '', texto: '' };
+                },
+                sucesso(texto) {
+                    this.mensagem = { tipo: 'ok', texto };
+                },
+                erro(texto) {
+                    this.mensagem = { tipo: 'erro', texto };
+                },
+                abrirCadastro() {
+                    this.editandoId = null;
+                    this.form = { nome_ejc: '', paroquia: '', endereco: '', cidade: '', estado: '', username: '', senha: '', nome_admin: 'Administrador do EJC' };
+                    this.aba = 'cadastro';
+                    this.limparMensagem();
+                },
+                editarTenant(t) {
+                    this.editandoId = t.id;
+                    this.form = {
+                        nome_ejc: t.nome_ejc || '',
+                        paroquia: t.paroquia || '',
+                        endereco: t.endereco || '',
+                        cidade: t.cidade || '',
+                        estado: t.estado || '',
+                        username: '',
+                        senha: '',
+                        nome_admin: 'Administrador do EJC'
+                    };
+                    this.aba = 'cadastro';
+                    this.limparMensagem();
+                },
+                async salvar() {
+                    const f = this.form;
+                    this.limparMensagem();
+                    if (!f.nome_ejc || !f.paroquia || !f.cidade || !f.estado) {
+                        this.erro('Preencha nome do EJC, paróquia, cidade e estado.');
+                        return;
+                    }
+                    if (!this.editandoId && (!f.username || !f.senha)) {
+                        this.erro('Preencha também usuário e senha para criar o EJC.');
+                        return;
+                    }
+
+                    this.saving = true;
+                    try {
+                        const url = this.editandoId ? `/api/admin/tenants/${this.editandoId}` : '/api/admin/tenants';
+                        const method = this.editandoId ? 'PUT' : 'POST';
+                        const payload = this.editandoId
+                            ? { nome_ejc: f.nome_ejc, paroquia: f.paroquia, endereco: f.endereco, cidade: f.cidade, estado: f.estado }
+                            : f;
+
+                        const res = await fetch(url, {
+                            method,
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) { this.erro(data.error || 'Erro ao salvar EJC.'); return; }
+
+                        this.sucesso(this.editandoId ? 'EJC atualizado com sucesso.' : 'EJC cadastrado com sucesso.');
+                        this.aba = 'lista';
+                        this.editandoId = null;
+                        await this.carregarTenants();
+                    } catch (_) {
+                        this.erro('Erro ao conectar com o servidor.');
+                    } finally {
+                        this.saving = false;
+                    }
+                },
+                async carregarTenants() {
+                    this.aba = 'lista';
+                    try {
+                        const res = await fetch('/api/admin/tenants');
+                        this.tenants = res.ok ? await res.json() : [];
+                    } catch (_) {
+                        this.tenants = [];
+                    }
+                },
+                abrirExcluir(t) {
+                    this.dialogExcluir = { aberto: true, item: t };
+                },
+                async confirmarExcluir() {
+                    if (!this.dialogExcluir.item) return;
+                    this.saving = true;
+                    this.limparMensagem();
+                    try {
+                        const res = await fetch(`/api/admin/tenants/${this.dialogExcluir.item.id}`, { method: 'DELETE' });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) { this.erro(data.error || 'Erro ao excluir EJC.'); return; }
+                        this.dialogExcluir = { aberto: false, item: null };
+                        this.sucesso('EJC excluído com sucesso.');
+                        await this.carregarTenants();
+                    } catch (_) {
+                        this.erro('Erro ao conectar com o servidor.');
+                    } finally {
+                        this.saving = false;
+                    }
+                },
+                abrirDesabilitar(t) {
+                    this.dialogDesabilitar = { aberto: true, item: t, motivo: '' };
+                },
+                async confirmarDesabilitar() {
+                    if (!this.dialogDesabilitar.item) return;
+                    if (!this.dialogDesabilitar.motivo) {
+                        this.erro('Informe o motivo da desabilitação.');
+                        return;
+                    }
+                    this.saving = true;
+                    this.limparMensagem();
+                    try {
+                        const res = await fetch(`/api/admin/tenants/${this.dialogDesabilitar.item.id}/status`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ ativo: false, motivo_desabilitacao: this.dialogDesabilitar.motivo })
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) { this.erro(data.error || 'Erro ao desabilitar EJC.'); return; }
+                        this.dialogDesabilitar = { aberto: false, item: null, motivo: '' };
+                        this.sucesso('EJC desabilitado com sucesso.');
+                        await this.carregarTenants();
+                    } catch (_) {
+                        this.erro('Erro ao conectar com o servidor.');
+                    } finally {
+                        this.saving = false;
+                    }
+                },
+                async habilitar(t) {
+                    this.saving = true;
+                    this.limparMensagem();
+                    try {
+                        const res = await fetch(`/api/admin/tenants/${t.id}/status`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ ativo: true })
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) { this.erro(data.error || 'Erro ao habilitar EJC.'); return; }
+                        this.sucesso('EJC habilitado com sucesso.');
+                        await this.carregarTenants();
+                    } catch (_) {
+                        this.erro('Erro ao conectar com o servidor.');
+                    } finally {
+                        this.saving = false;
+                    }
+                },
+                async sair() {
+                    await fetch('/api/admin/logout', { method: 'POST' }).catch(() => {});
+                    window.location.href = '/admin/login';
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

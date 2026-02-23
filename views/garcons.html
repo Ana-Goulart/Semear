@@ -312,7 +312,7 @@
                     await this.carregarTudo();
                 },
                 async removerEquipe(equipe) {
-                    if (!confirm(`Remover equipe de garçom do ${equipe.ejc_numero}º EJC?`)) return;
+                    if (!(await window.showFloatingConfirm(`Remover equipe de garçom do ${equipe.ejc_numero}º EJC?`))) return;
                     const res = await fetch(`/api/garcons/equipes/${equipe.id}`, { method: 'DELETE' });
                     if (!res.ok) {
                         const err = await res.json().catch(() => ({}));
@@ -373,7 +373,7 @@
                     await this.carregarTudo();
                 },
                 async removerMembro(membroId) {
-                    if (!confirm('Remover este jovem da equipe?')) return;
+                    if (!(await window.showFloatingConfirm('Remover este jovem da equipe?'))) return;
                     const res = await fetch(`/api/garcons/membros/${membroId}`, { method: 'DELETE' });
                     if (!res.ok) {
                         const err = await res.json().catch(() => ({}));
