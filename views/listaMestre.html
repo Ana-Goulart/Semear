@@ -4,6 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <title>SemeaJovens - Lista Mestre</title>
+    <link rel="icon" type="image/png" href="/assets/logo-oficial.png">
+    <link rel="apple-touch-icon" href="/assets/logo-oficial.png">
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -31,6 +33,10 @@
                         @click="abrirModalImportacao">
                         <span>📥</span> Importar
                     </button>
+                    <a class="btn btn-soft-warning d-flex align-items-center gap-1 text-nowrap"
+                        href="/jovens/atualizar-cadastro" target="_blank" rel="noopener">
+                        <span>🔗</span> Formulário atualização cadastral
+                    </a>
                     <div class="vr mx-1"></div>
 
                     <div class="btn-group">
@@ -324,6 +330,34 @@
                                         <div v-if="!isEditing" class="py-1 px-2 bg-light border rounded">{{
                                             jovemEditando.telefone }}</div>
                                         <input v-else type="text" v-model="jovemEditando.telefone" class="form-control">
+                                    </div>
+                                    <div class="col-md-12">
+                                        <label class="text-muted small mb-0">Pastorais</label>
+                                        <div v-if="!isEditing" class="py-1 px-2 bg-light border rounded">
+                                            <span v-if="jovemPastoraisTexto">{{ jovemPastoraisTexto }}</span>
+                                            <span v-else>Não pertence a nenhuma pastoral</span>
+                                        </div>
+                                        <div v-else class="border rounded p-2">
+                                            <div class="form-check form-switch mb-2">
+                                                <input class="form-check-input" type="checkbox" id="pertencePastoral"
+                                                    v-model="jovemPertencePastoral" @change="onTogglePastoral">
+                                                <label class="form-check-label" for="pertencePastoral">Pertence a alguma pastoral?</label>
+                                            </div>
+                                            <div v-if="jovemPertencePastoral">
+                                                <div class="d-flex flex-wrap gap-2">
+                                                    <div class="form-check" v-for="p in pastorais" :key="`jovem-p-${p.id}`">
+                                                        <input class="form-check-input" type="checkbox"
+                                                            :id="`pastoral-${p.id}`" :value="p.id"
+                                                            v-model="jovemPastoraisSelecionadas">
+                                                        <label class="form-check-label" :for="`pastoral-${p.id}`">{{ p.nome }}</label>
+                                                    </div>
+                                                </div>
+                                                <div v-if="!pastorais.length" class="text-muted small mt-2">
+                                                    Nenhuma pastoral cadastrada.
+                                                </div>
+                                            </div>
+                                            <div v-else class="text-muted small">Este jovem não pertence a nenhuma pastoral.</div>
+                                        </div>
                                     </div>
                                     <div class="col-md-4">
                                         <label class="text-muted small mb-0">Sexo</label>
@@ -1159,6 +1193,7 @@ Campo estado_civil fora do padrão: "Solteira". Padrão normal: Solteiro, Casado
                     isEditing: false,
                     tabEdicao: 'dados', // Controle de abas
                     jovemBackup: null,
+                    jovemPastoraisBackup: [],
                     ejcsList: [],
                     conjFezOutroEjc: false,
                     searchQuery: '',
@@ -1173,6 +1208,9 @@ Campo estado_civil fora do padrão: "Solteira". Padrão normal: Solteiro, Casado
                     modalMoita: null,
                     outrosEjcsList: [], // Lista de EJCs de fora
                     funcoesMoita: [],
+                    pastorais: [],
+                    jovemPastoraisSelecionadas: [],
+                    jovemPertencePastoral: false,
                     formMoita: {
                         ejc_numero: null,
                         outro_ejc_id: null,
@@ -1290,6 +1328,14 @@ Campo estado_civil fora do padrão: "Solteira". Padrão normal: Solteiro, Casado
                 textoCirculosImportacao() {
                     return this.cores.length ? this.cores.join(', ') : 'Nenhum círculo cadastrado';
                 },
+                jovemPastoraisTexto() {
+                    if (!this.jovemPastoraisSelecionadas || !this.jovemPastoraisSelecionadas.length) return '';
+                    const mapa = new Map((this.pastorais || []).map(p => [Number(p.id), p.nome]));
+                    return this.jovemPastoraisSelecionadas
+                        .map(id => mapa.get(Number(id)))
+                        .filter(Boolean)
+                        .join(', ');
+                },
 
             },
             watch: {
@@ -1309,6 +1355,51 @@ Campo estado_civil fora do padrão: "Solteira". Padrão normal: Solteiro, Casado
                         const nome = data && data.nome ? String(data.nome).trim() : '';
                         if (nome) this.nomeMeuEJC = nome;
                     } catch (_) { }
+                },
+                async carregarPastorais() {
+                    try {
+                        const res = await fetch('/api/pastorais');
+                        const data = await res.json().catch(() => ([]));
+                        this.pastorais = res.ok && Array.isArray(data) ? data : [];
+                    } catch (err) {
+                        console.error('Erro ao carregar pastorais:', err);
+                        this.pastorais = [];
+                    }
+                },
+                async carregarPastoraisDoJovem(jovemId) {
+                    if (!jovemId) {
+                        this.jovemPastoraisSelecionadas = [];
+                        this.jovemPertencePastoral = false;
+                        return;
+                    }
+                    try {
+                        const res = await fetch(`/api/lista-mestre/${jovemId}/pastorais`);
+                        const data = await res.json().catch(() => ([]));
+                        const ids = res.ok && Array.isArray(data) ? data.map(p => Number(p.id)).filter(id => Number.isFinite(id)) : [];
+                        this.jovemPastoraisSelecionadas = ids;
+                        this.jovemPertencePastoral = ids.length > 0;
+                    } catch (err) {
+                        console.error('Erro ao carregar pastorais do jovem:', err);
+                        this.jovemPastoraisSelecionadas = [];
+                        this.jovemPertencePastoral = false;
+                    }
+                },
+                onTogglePastoral() {
+                    if (!this.jovemPertencePastoral) {
+                        this.jovemPastoraisSelecionadas = [];
+                    }
+                },
+                async salvarPastoraisJovem() {
+                    const ids = this.jovemPertencePastoral ? this.jovemPastoraisSelecionadas : [];
+                    const res = await fetch(`/api/lista-mestre/${this.jovemEditando.id}/pastorais`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ pastorais: ids })
+                    });
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        throw new Error(err.error || 'Erro ao salvar pastorais.');
+                    }
                 },
                 async carregarTodasEquipes() {
                     if (this.todasEquipes.length) return;
@@ -1889,6 +1980,8 @@ Campo estado_civil fora do padrão: "Solteira". Padrão normal: Solteiro, Casado
                     // Normalizar formatos de data para inputs do tipo date (YYYY-MM-DD)
                     if (this.jovemEditando.data_nascimento) this.jovemEditando.data_nascimento = String(this.jovemEditando.data_nascimento).split('T')[0];
                     if (this.jovemEditando.data_casamento) this.jovemEditando.data_casamento = String(this.jovemEditando.data_casamento).split('T')[0];
+                    this.carregarPastorais();
+                    await this.carregarPastoraisDoJovem(j.id);
 
                     try {
                         const res = await fetch(`/api/lista-mestre/historico/${j.id}`);
@@ -1943,6 +2036,7 @@ Campo estado_civil fora do padrão: "Solteira". Padrão normal: Solteiro, Casado
                 toggleEditing() {
                     if (!this.isEditing) {
                         this.jovemBackup = { ...this.jovemEditando };
+                        this.jovemPastoraisBackup = [...(this.jovemPastoraisSelecionadas || [])];
                         this.carregarEjcs();
                         this.carregarTodasEquipes(); // Carregar equipes ao editar
                         this.carregarPapeisEquipe();
@@ -1951,6 +2045,10 @@ Campo estado_civil fora do padrão: "Solteira". Padrão normal: Solteiro, Casado
                 },
                 async cancelarEdicao() {
                     if (this.jovemBackup) this.jovemEditando = { ...this.jovemBackup };
+                    if (this.jovemPastoraisBackup) {
+                        this.jovemPastoraisSelecionadas = [...this.jovemPastoraisBackup];
+                        this.jovemPertencePastoral = this.jovemPastoraisSelecionadas.length > 0;
+                    }
                     this.isEditing = false;
                 },
                 abrirModalNovoJovem() {
@@ -2086,6 +2184,12 @@ Campo estado_civil fora do padrão: "Solteira". Padrão normal: Solteiro, Casado
                             method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
                         });
                         if (!res.ok) { const err = await res.json(); alert(err.error || 'Erro ao salvar jovem'); return; }
+                        try {
+                            await this.salvarPastoraisJovem();
+                        } catch (err) {
+                            alert(err.message || 'Erro ao salvar pastorais.');
+                            return;
+                        }
                         alert('Dados salvos com sucesso');
                         this.isEditing = false;
                         this.buscarJovens();
@@ -2097,6 +2201,8 @@ Campo estado_civil fora do padrão: "Solteira". Padrão normal: Solteiro, Casado
                     this.jovemEditando.instrumentos_musicais = this.normalizarInstrumentos(this.jovemEditando.instrumentos_musicais);
                     this.isEditing = false;
                     this.tabEdicao = 'dados';
+                    this.carregarPastorais();
+                    await this.carregarPastoraisDoJovem(j.id);
                     // Carregar dados necessários para os dropdowns do histórico e edição
                     this.carregarEjcs();
                     this.carregarTodasEquipes();

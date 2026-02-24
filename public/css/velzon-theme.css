@@ -1,48 +1,61 @@
-@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap");
 
 :root {
-  /* Velzon Colors */
-  --vz-primary: #405189;
-  --vz-secondary: #3577f1;
-  --vz-success: #0ab39c;
-  --vz-info: #299cdb;
-  --vz-warning: #f7b84b;
-  --vz-danger: #f06548;
-  --vz-light: #f3f6f9;
-  --vz-dark: #212529;
+  --vz-primary: #b88732;
+  --vz-secondary: #7b5f2a;
+  --vz-success: #588157;
+  --vz-info: #7a6a4d;
+  --vz-warning: #d4a941;
+  --vz-danger: #a94438;
+  --vz-light: #f7f2e8;
+  --vz-dark: #2f2418;
 
-  --vz-primary-rgb: 64, 81, 137;
-  --vz-secondary-rgb: 53, 119, 241;
-  --vz-success-rgb: 10, 179, 156;
-  --vz-info-rgb: 41, 156, 219;
-  --vz-warning-rgb: 247, 184, 75;
-  --vz-danger-rgb: 240, 101, 72;
+  --vz-primary-rgb: 184, 135, 50;
+  --vz-secondary-rgb: 123, 95, 42;
+  --vz-success-rgb: 88, 129, 87;
+  --vz-info-rgb: 122, 106, 77;
+  --vz-warning-rgb: 212, 169, 65;
+  --vz-danger-rgb: 169, 68, 56;
 
-  --vz-body-bg: #f3f3f9;
-  --vz-body-color: #212529;
-  --vz-body-color-rgb: 33, 37, 41;
+  --vz-body-bg: #f6f2ea;
+  --vz-body-color: #2f2418;
+  --vz-body-color-rgb: 47, 36, 24;
 
-  --vz-border-color: #e9ebec;
-  --vz-box-shadow: 0 1px 2px rgba(56, 65, 74, 0.15);
+  --vz-border-color: #e6dccb;
+  --vz-box-shadow: 0 10px 25px rgba(52, 37, 16, 0.09);
 
-  --vz-sidebar-bg: #405189;
-  --vz-sidebar-menu-item-color: #abb9e8;
-  --vz-sidebar-menu-item-hover-color: #fff;
-  --vz-sidebar-menu-item-active-color: #fff;
+  --vz-sidebar-bg: #3a2c1b;
+  --vz-sidebar-menu-item-color: #e8d9b5;
+  --vz-sidebar-menu-item-hover-color: #fff8e8;
+  --vz-sidebar-menu-item-active-color: #f3d391;
 
-  --vz-card-bg: #fff;
-  --vz-topbar-bg: #fff;
-  --vz-topbar-shadow: 0 1px 2px rgba(56, 65, 74, 0.15);
+  --vz-card-bg: #fffdf8;
+  --vz-topbar-bg: #fffaf0;
+  --vz-topbar-shadow: 0 8px 20px rgba(58, 41, 16, 0.08);
 }
 
 body {
   margin: 0;
-  font-family: "Poppins", sans-serif;
-  font-size: 0.8125rem;
+  font-family: "Source Sans 3", sans-serif;
+  font-size: 0.95rem;
   font-weight: 400;
   line-height: 1.5;
   color: var(--vz-body-color);
   background-color: var(--vz-body-bg);
+  background-image:
+    radial-gradient(circle at 10% 10%, rgba(212, 169, 65, 0.13), transparent 40%),
+    radial-gradient(circle at 90% 85%, rgba(139, 94, 33, 0.11), transparent 42%);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.card-title,
+#sidebar .logo-box .brand-name {
+  font-family: "Cinzel", serif;
 }
 
 /* ==============================================
@@ -58,7 +71,7 @@ body {
 /* SIDEBAR */
 #sidebar {
   width: 250px;
-  background-color: var(--vz-sidebar-bg);
+  background: linear-gradient(180deg, #2b1f12 0%, #43311e 45%, #2f2215 100%);
   height: 100vh;
   overflow-y: auto;
   overflow-x: hidden;
@@ -66,7 +79,7 @@ body {
   display: flex;
   flex-direction: column;
   z-index: 1004;
-  box-shadow: 0 2px 4px rgba(15, 34, 58, 0.12);
+  box-shadow: 0 18px 34px rgba(20, 13, 7, 0.24);
   flex-shrink: 0;
 }
 
@@ -115,14 +128,41 @@ body {
 }
 
 #sidebar .logo-box {
-  height: 70px;
+  min-height: 126px;
+  padding: 0.8rem 0.7rem;
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 22px;
-  font-weight: 600;
-  color: #fff;
-  letter-spacing: 1px;
+  gap: 0.65rem;
+  justify-content: flex-start;
+  color: #fff8e8;
+  border-bottom: 1px solid rgba(243, 211, 145, 0.25);
+}
+
+#sidebar .brand-mark {
+  width: 92px;
+  height: 92px;
+  flex-shrink: 0;
+  object-fit: contain;
+  object-position: center;
+}
+
+#sidebar .brand-stack {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+}
+
+#sidebar .brand-name {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+#sidebar .brand-subtitle {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+  color: #e5c889;
 }
 
 #sidebar .nav-link {
@@ -138,10 +178,12 @@ body {
 
 #sidebar .nav-link:hover {
   color: var(--vz-sidebar-menu-item-hover-color);
+  background: rgba(243, 211, 145, 0.12);
 }
 
 #sidebar .nav-link.active {
   color: var(--vz-sidebar-menu-item-active-color);
+  background: rgba(243, 211, 145, 0.18);
 }
 
 #sidebar .nav-link.active::before {
@@ -160,13 +202,17 @@ body {
 }
 
 #sidebar.collapsed .link-text,
-#sidebar.collapsed .logo-box span {
+#sidebar.collapsed .brand-stack {
   display: none !important;
 }
 
 #sidebar.collapsed .nav-link {
   justify-content: center;
   padding: 1rem 0;
+}
+
+#sidebar.collapsed .logo-box {
+  justify-content: center;
 }
 
 #sidebar.collapsed .nav-link.active::before {
@@ -201,6 +247,7 @@ body {
   background-color: var(--vz-topbar-bg);
   box-shadow: var(--vz-topbar-shadow);
   z-index: 1002;
+  border-bottom: 1px solid rgba(184, 135, 50, 0.15);
 }
 
 #sidebarToggle {
@@ -259,8 +306,8 @@ body {
 .card {
   margin-bottom: 1.5rem;
   box-shadow: var(--vz-box-shadow);
-  border: none;
-  border-radius: 0.25rem;
+  border: 1px solid rgba(184, 135, 50, 0.16);
+  border-radius: 0.75rem;
   background-color: var(--vz-card-bg);
 }
 
@@ -276,8 +323,8 @@ body {
 .card-title {
   font-size: 16px;
   margin: 0;
-  color: #495057;
-  font-weight: 500;
+  color: #5b4729;
+  font-weight: 600;
 }
 
 .card-body {
@@ -286,8 +333,9 @@ body {
 
 /* BUTTONS */
 .btn {
-  font-weight: 400;
-  box-shadow: 0 2px 6px 0 rgba(114, 124, 142, 0.12);
+  font-weight: 600;
+  border-radius: 0.45rem;
+  box-shadow: 0 6px 14px 0 rgba(88, 60, 23, 0.12);
 }
 
 .btn-primary {
@@ -296,8 +344,8 @@ body {
 }
 
 .btn-primary:hover {
-  background-color: #364574;
-  border-color: #33416e;
+  background-color: #a3782d;
+  border-color: #966c26;
 }
 
 .btn-success {
@@ -356,12 +404,12 @@ body {
 }
 
 .table-light {
-  background-color: var(--vz-light);
+  background-color: #fbf6ed;
 }
 
 .table thead th {
   font-weight: 500;
-  color: #878a99;
+  color: #81643a;
   border-bottom-width: 1px;
 }
 
@@ -410,7 +458,7 @@ body {
 
 .form-control:focus,
 .form-select:focus {
-  border-color: #8db4ff;
+  border-color: rgba(184, 135, 50, 0.7);
   box-shadow: 0 0 0 0.15rem rgba(var(--vz-primary-rgb), 0.25);
 }
 
@@ -451,7 +499,7 @@ body {
 
 .nav-tabs .nav-link {
   border: none;
-  color: #495057;
+  color: #59452b;
   font-weight: 500;
   padding: 0.75rem 1rem;
   background-color: transparent;

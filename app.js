@@ -25,6 +25,11 @@ const rotasAtaReunioes = require('./routes/ataReunioes');
 const rotasFuncoesDirigencia = require('./routes/funcoesDirigencia');
 const rotasFormularios = require('./routes/formularios');
 const rotasFormulariosPublic = require('./routes/formulariosPublic');
+const rotasVisitantes = require('./routes/visitantes');
+const rotasContatos = require('./routes/contatos');
+const rotasPastorais = require('./routes/pastorais');
+const rotasTios = require('./routes/tios');
+const rotasJovensPublic = require('./routes/jovensPublic');
 const rotasAuth = require('./routes/auth');
 const rotasMeuEjc = require('./routes/meuEjc');
 const rotasCirculos = require('./routes/circulos');
@@ -34,6 +39,7 @@ app.use(express.json());
 app.use(attachUserFromSession);
 app.use(attachAdminFromSession);
 app.use(express.static('public')); // Serve arquivos estáticos
+app.get('/favicon.ico', (_req, res) => res.redirect('/assets/logo-oficial.png'));
 
 async function requireLoginView(req, res, next) {
     if (!req.user || !req.user.id) return res.redirect('/login');
@@ -98,6 +104,8 @@ app.get('/admin/login', (req, res) => res.sendFile(path.join(__dirname, 'views',
 app.get('/admin', requireAdminView, (_req, res) => res.sendFile(path.join(__dirname, 'views', 'admin.html')));
 app.get('/formularios/public/:token', (req, res) => res.sendFile(path.join(__dirname, 'views', 'formulario-publico.html')));
 app.get('/eventos/public/:token', (req, res) => res.sendFile(path.join(__dirname, 'views', 'formulario-publico.html')));
+app.get('/inscricoes/public/:token', (req, res) => res.sendFile(path.join(__dirname, 'views', 'formulario-publico.html')));
+app.get('/jovens/atualizar-cadastro', (_req, res) => res.sendFile(path.join(__dirname, 'views', 'jovens-atualizar.html')));
 app.get('/', requireLoginView, (_req, res) => res.redirect('/dashboard'));
 app.get('/dashboard', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'dashboard.html')));
 app.get('/ejc', (req, res) => res.redirect('/historico-equipes'));
@@ -117,7 +125,11 @@ app.get('/funcoes-dirigencia', requireLoginView, (req, res) => res.sendFile(path
 app.get('/calendario', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'calendario.html')));
 app.get('/formularios', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'formularios.html')));
 app.get('/eventos', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'formularios.html')));
+app.get('/inscricoes', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'formularios.html')));
 app.get('/meu-ejc', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'meu-ejc.html')));
+app.get('/visitantes', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'visitantes.html')));
+app.get('/contatos', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'contatos.html')));
+app.get('/tios', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'tios.html')));
 
 // --- ROTAS NOVAS DE NAVEGAÇÃO AGRUPADA ---
 app.get('/gestaodoencontro/listamestre', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'listaMestre.html')));
@@ -125,6 +137,8 @@ app.get('/gestaodoencontro/equipes', requireLoginView, (req, res) => res.sendFil
 app.get('/gestaodoencontro/ejc', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'historico-equipes.html')));
 app.get('/gestaodoencontro/outrosejcs', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'outros-ejcs.html')));
 app.get('/gestaodoencontro/jovensoutroejc', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'jovens-outro-ejc.html')));
+app.get('/gestaodoencontro/visitantes', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'visitantes.html')));
+app.get('/gestaodoencontro/tios', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'tios.html')));
 app.get('/gestaodoencontro/montarencontro', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'montar-encontro.html')));
 app.get('/gestaodoencontro/moita', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'moita.html')));
 app.get('/gestaodoencontro/garcons', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'garcons.html')));
@@ -132,10 +146,12 @@ app.get('/gestaodoencontro/votacao', requireLoginView, (req, res) => res.sendFil
 
 app.get('/planejamento/calendario', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'calendario.html')));
 app.get('/planejamento/eventos', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'formularios.html')));
+app.get('/planejamento/inscricoes', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'formularios.html')));
 app.get('/planejamento/atasdereuniao', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'ata-reunioes.html')));
 
 app.get('/administrativo/financeiro', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'financeiro.html')));
 app.get('/administrativo/anexos', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'anexos.html')));
+app.get('/administrativo/contatos', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'contatos.html')));
 
 app.get('/configuracoes/usuarios', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'usuarios.html')));
 app.get('/configuracoes/coordenacoes', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'coordenadores.html')));
@@ -147,6 +163,7 @@ app.get('/configuracoes/circulos', requireLoginView, (req, res) => res.sendFile(
 app.use('/api/auth', rotasAuth);
 app.use('/api/admin', rotasAdminSistema);
 app.use('/api/formularios/public', rotasFormulariosPublic);
+app.use('/api/jovens-public', rotasJovensPublic);
 app.use('/api', requireLoginApi);
 app.use('/api/ejc', rotasEJC);
 app.use('/api/lista-mestre', rotasListaMestre);
@@ -164,6 +181,10 @@ app.use('/api/moita', rotasMoita);
 app.use('/api/ata-reunioes', rotasAtaReunioes);
 app.use('/api/funcoes-dirigencia', rotasFuncoesDirigencia);
 app.use('/api/formularios', rotasFormularios);
+app.use('/api/visitantes', rotasVisitantes);
+app.use('/api/contatos', rotasContatos);
+app.use('/api/pastorais', rotasPastorais);
+app.use('/api/tios', rotasTios);
 app.use('/api/meu-ejc', rotasMeuEjc);
 app.use('/api/circulos', rotasCirculos);
 

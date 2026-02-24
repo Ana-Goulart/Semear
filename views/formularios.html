@@ -4,7 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SemeaJovens - Eventos</title>
+    <title>SemeaJovens - Inscricoes</title>
+    <link rel="icon" type="image/png" href="/assets/logo-oficial.png">
+    <link rel="apple-touch-icon" href="/assets/logo-oficial.png">
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -13,72 +15,47 @@
     <script src="/js/menu.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
     <style>
-        .folder-item {
+        body {
+            background: radial-gradient(circle at 20% 20%, #fff7ed 0%, #f8fafc 45%, #e2e8f0 100%);
+        }
+
+        .title-wrap {
+            background: linear-gradient(120deg, #0f172a 0%, #1e293b 40%, #0ea5e9 100%);
+            color: #fff;
+            border-radius: 14px;
+            padding: 22px;
+            box-shadow: 0 18px 38px rgba(2, 6, 23, 0.18);
+        }
+
+        .grid-card {
+            border-radius: 14px;
+            border: 1px solid #dbe1ea;
+            background: #fff;
+            padding: 16px;
+            height: 100%;
             cursor: pointer;
-            transition: background-color 0.2s;
-            border: 1px solid transparent;
-            border-radius: 8px;
-            padding: 10px;
+            transition: transform .15s ease, box-shadow .15s ease;
         }
 
-        .folder-item:hover,
-        .event-item:hover {
-            background-color: #e9ecef;
-            border-color: #dee2e6;
+        .grid-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 14px 24px rgba(15, 23, 42, 0.08);
         }
 
-        .event-item {
-            cursor: pointer;
-            transition: background-color 0.2s;
-            border: 1px solid transparent;
-            border-radius: 8px;
-            padding: 10px;
+        .chip {
+            display: inline-block;
+            border: 1px solid #cbd5e1;
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: .76rem;
+            color: #334155;
         }
 
-        .item-icon {
-            font-size: 2.5rem;
-            margin-bottom: 5px;
-        }
-
-        .item-name {
-            font-size: 0.9rem;
-            word-break: break-word;
-            text-align: center;
-        }
-
-        .breadcrumb-item {
-            cursor: pointer;
-        }
-
-        .breadcrumb-item.active {
-            cursor: default;
-        }
-
-        .delete-btn {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            display: none;
-            background: rgba(255, 255, 255, 0.9);
-            border: 1px solid #ddd;
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            text-align: center;
-            line-height: 22px;
-            font-size: 0.8rem;
-            cursor: pointer;
-            z-index: 10;
-        }
-
-        .folder-item:hover .delete-btn,
-        .event-item:hover .delete-btn {
-            display: block;
-        }
-
-        .delete-btn:hover {
-            background-color: #ffcccc;
-            border-color: #ff9999;
+        .builder-box {
+            border: 1px dashed #94a3b8;
+            border-radius: 12px;
+            padding: 12px;
+            background: #f8fafc;
         }
     </style>
 </head>
@@ -86,213 +63,185 @@
 <body>
     <div id="app">
         <main class="container-fluid">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h3>🎉 Eventos</h3>
-                <div class="d-flex gap-2">
-                    <button class="btn btn-primary" @click="criarPasta">➕ Nova Pasta</button>
-                    <button class="btn btn-success" @click="abrirModalNovoEvento">🎯 Novo Evento</button>
-                    <button class="btn btn-outline-secondary" @click="voltarPasta" :disabled="currentPath.length === 0">↩️ Voltar</button>
-                    <button class="btn btn-outline-primary" @click="carregarConteudo">🔄 Atualizar</button>
+            <div class="title-wrap mb-4">
+                <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+                    <div>
+                        <h3 class="mb-1">Inscricoes</h3>
+                        <p class="mb-0 opacity-75">Crie formularios personalizados, gere link/QR Code e acompanhe as inscricoes na mesma tela.</p>
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button class="btn btn-light" @click="criarPasta">Nova pasta</button>
+                        <button class="btn btn-warning" @click="abrirNovoFormulario">Novo formulario</button>
+                        <button class="btn btn-outline-light" @click="voltarPasta" :disabled="currentPath.length===0">Voltar</button>
+                        <button class="btn btn-outline-light" @click="carregarConteudo">Atualizar</button>
+                    </div>
                 </div>
             </div>
 
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb p-3 bg-light rounded-3">
-                    <li class="breadcrumb-item" :class="{ active: currentPath.length === 0 }" @click="navegarPara(null)">🏠 Início</li>
-                    <li v-for="(folder, index) in currentPath" :key="folder.id" class="breadcrumb-item" :class="{ active: index === currentPath.length - 1 }" @click="navegarPara(folder, index)">
-                        {{ folder.nome }}
-                    </li>
+            <nav aria-label="breadcrumb" class="mb-3">
+                <ol class="breadcrumb bg-white p-2 rounded border">
+                    <li class="breadcrumb-item" :class="{active: currentPath.length===0}" @click="navegarPara(null)">Inicio</li>
+                    <li v-for="(folder, idx) in currentPath" :key="folder.id" class="breadcrumb-item" :class="{active: idx===currentPath.length-1}" @click="navegarPara(folder, idx)">{{ folder.nome }}</li>
                 </ol>
             </nav>
 
-            <div v-if="loading" class="text-center py-5">
-                <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Carregando...</span></div>
-            </div>
-
+            <div v-if="loading" class="text-center py-5"><div class="spinner-border"></div></div>
             <div v-else class="row g-3">
-                <div v-if="pastas.length === 0 && formularios.length === 0" class="col-12 text-center py-5 text-muted">
-                    <p class="fs-4">📭 Pasta vazia</p>
-                    <p>Crie uma pasta ou um evento para começar.</p>
-                </div>
+                <div v-if="pastas.length===0 && formularios.length===0" class="col-12 text-center text-muted py-5">Pasta vazia</div>
 
-                <div v-for="pasta in pastas" :key="pasta.id" class="col-6 col-md-4 col-lg-2">
-                    <div class="folder-item h-100 d-flex flex-column align-items-center position-relative" @click="entrarPasta(pasta)">
-                        <span class="delete-btn" @click.stop="deletarPasta(pasta)" title="Apagar Pasta">🗑️</span>
-                        <span class="item-icon">📁</span>
-                        <span class="item-name">{{ pasta.nome }}</span>
+                <div v-for="pasta in pastas" :key="`p-${pasta.id}`" class="col-6 col-md-4 col-lg-2">
+                    <div class="grid-card" @click="entrarPasta(pasta)">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div class="fs-3">📁</div>
+                            <button class="btn btn-sm btn-outline-danger" @click.stop="deletarPasta(pasta)">X</button>
+                        </div>
+                        <div class="fw-semibold small">{{ pasta.nome }}</div>
                     </div>
                 </div>
 
-                <div v-for="evento in eventosValidos" :key="evento.id" class="col-6 col-md-4 col-lg-2">
-                    <div class="event-item h-100 d-flex flex-column align-items-center position-relative" @click="abrirEvento(evento)">
-                        <span class="delete-btn" @click.stop="deletarFormulario(evento)" title="Apagar Evento">🗑️</span>
-                        <span class="item-icon">🎯</span>
-                        <span class="item-name">{{ evento.titulo }}</span>
-                        <small class="text-muted text-center">{{ evento.tema || 'Sem tema' }}</small>
-                        <small class="text-muted text-center">{{ evento.evento_data ? formatarData(evento.evento_data) : 'Sem data' }}</small>
-                        <div class="d-flex flex-column align-items-center mt-1">
-                            <button class="btn btn-sm btn-link p-0" @click.stop="abrirEvento(evento)">Editar</button>
-                            <button v-if="Number(evento.criar_lista_presenca) === 1" class="btn btn-sm btn-link p-0" @click.stop="copiarLinkFormulario(evento)">Copiar link</button>
-                            <button v-if="Number(evento.criar_lista_presenca) === 1" class="btn btn-sm btn-link p-0" @click.stop="abrirQrFormulario(evento)">Ver QR</button>
-                            <button v-if="Number(evento.criar_lista_presenca) === 1" class="btn btn-sm btn-link p-0" @click.stop="baixarQrFormulario(evento)">Baixar QR</button>
+                <div v-for="form in formularios" :key="`f-${form.id}`" class="col-12 col-md-6 col-lg-4">
+                    <div class="grid-card" @click="abrirFormulario(form)">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="chip">{{ labelTipo(form) }}</span>
+                            <button class="btn btn-sm btn-outline-danger" @click.stop="deletarFormulario(form)">X</button>
+                        </div>
+                        <h6 class="mb-1">{{ form.titulo }}</h6>
+                        <p class="text-muted small mb-2">{{ form.descricao || form.tema || 'Sem descricao' }}</p>
+                        <div class="small text-muted">{{ form.evento_data ? formatarData(form.evento_data) : '' }}</div>
+                        <div class="d-flex gap-2 mt-2">
+                            <button class="btn btn-sm btn-outline-primary" @click.stop="copiarLink(form)">Copiar link</button>
+                            <button class="btn btn-sm btn-outline-secondary" @click.stop="abrirQr(form)">QR</button>
                         </div>
                     </div>
                 </div>
             </div>
         </main>
 
-        <div class="modal fade" id="modalNovoEvento" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog">
+        <div class="modal fade" id="modalForm" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-scrollable">
                 <div class="modal-content border-0 shadow">
                     <div class="modal-header">
-                        <h5 class="modal-title">Novo Evento</h5>
+                        <h5 class="modal-title">{{ modoEdicao ? 'Editar formulario' : 'Novo formulario' }}</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label">Nome do evento</label>
-                            <input type="text" class="form-control" v-model.trim="novoEvento.nomeEvento" maxlength="180">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Tema</label>
-                            <input type="text" class="form-control" v-model.trim="novoEvento.tema" maxlength="200">
-                        </div>
-                        <div class="row g-2 mb-3">
-                            <div class="col-6">
-                                <label class="form-label">Data</label>
-                                <input type="date" class="form-control" v-model="novoEvento.data">
-                            </div>
-                            <div class="col-6">
-                                <label class="form-label">Hora</label>
-                                <input type="time" class="form-control" v-model="novoEvento.hora">
-                            </div>
-                        </div>
-                        <label class="form-label d-block">Deseja criar lista de presença?</label>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" id="evtListaSim" :value="true" v-model="novoEvento.criarListaPresenca">
-                            <label class="form-check-label" for="evtListaSim">Sim</label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" id="evtListaNao" :value="false" v-model="novoEvento.criarListaPresenca">
-                            <label class="form-check-label" for="evtListaNao">Não</label>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button class="btn btn-primary" @click="avancarCriacaoEvento" :disabled="salvandoNovoEvento">
-                            {{ novoEvento.criarListaPresenca ? 'Continuar' : (salvandoNovoEvento ? 'Criando...' : 'Criar evento') }}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="modal fade" id="modalConfigPresenca" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content border-0 shadow">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Configurar Lista de Presença</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <label class="form-label">Perguntas do formulário</label>
-                        <div class="form-check mb-2">
-                            <input class="form-check-input" type="checkbox" id="cfgJaFez" v-model="configPresenca.permitirJaFezEJC">
-                            <label class="form-check-label" for="cfgJaFez">Já fez EJC</label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="cfgNaoFez" v-model="configPresenca.permitirNaoFezEJC">
-                            <label class="form-check-label" for="cfgNaoFez">Não fez EJC</label>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button class="btn btn-outline-secondary" @click="voltarParaDadosEvento">Voltar</button>
-                        <button class="btn btn-primary" @click="criarEventoComConfigPresenca" :disabled="salvandoNovoEvento">
-                            {{ salvandoNovoEvento ? 'Criando...' : 'Continuar e gerar QR' }}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="modal fade" id="modalEvento" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-lg modal-dialog-scrollable">
-                <div class="modal-content border-0 shadow">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Editar Evento</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <ul class="nav nav-tabs mb-3">
-                            <li class="nav-item"><button class="nav-link" :class="{ active: abaEventoEdicao === 'info' }" @click="abaEventoEdicao = 'info'">Informações</button></li>
-                            <li class="nav-item" v-if="eventoEmEdicao && Number(eventoEmEdicao.criar_lista_presenca) === 1"><button class="nav-link" :class="{ active: abaEventoEdicao === 'presencas' }" @click="carregarPresencasEvento">Presença</button></li>
+                        <ul v-if="modoEdicao" class="nav nav-tabs mb-3">
+                            <li class="nav-item"><button class="nav-link" :class="{active: abaEdicao==='dados'}" @click="abaEdicao='dados'">Dados</button></li>
+                            <li class="nav-item"><button class="nav-link" :class="{active: abaEdicao==='respostas'}" @click="carregarRespostasEdicao">Inscricoes</button></li>
                         </ul>
 
-                        <div v-if="abaEventoEdicao === 'info' && eventoEmEdicao">
-                            <div class="row g-2">
-                                <div class="col-12">
-                                    <label class="form-label">Nome do evento</label>
-                                    <input type="text" class="form-control" v-model.trim="eventoEmEdicao.titulo">
+                        <div v-if="!modoEdicao || abaEdicao==='dados'">
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">Tipo</label>
+                                    <select class="form-select" v-model="formDraft.tipo">
+                                        <option value="INSCRICAO">Inscricao personalizada</option>
+                                        <option value="LISTA_PRESENCA">Lista de presenca</option>
+                                        <option value="EVENTO">Evento sem formulario</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label">Titulo</label>
+                                    <input type="text" class="form-control" v-model.trim="formDraft.titulo" maxlength="180">
                                 </div>
                                 <div class="col-12">
-                                    <label class="form-label">Tema</label>
-                                    <input type="text" class="form-control" v-model.trim="eventoEmEdicao.tema">
-                                </div>
-                                <div class="col-6">
-                                    <label class="form-label">Data</label>
-                                    <input type="date" class="form-control" v-model="eventoEmEdicao.evento_data">
-                                </div>
-                                <div class="col-6">
-                                    <label class="form-label">Hora</label>
-                                    <input type="time" class="form-control" v-model="eventoEmEdicaoHora">
+                                    <label class="form-label">Descricao</label>
+                                    <textarea class="form-control" rows="2" v-model.trim="formDraft.descricao"></textarea>
                                 </div>
                             </div>
-                            <div class="mt-3 d-flex gap-2">
-                                <button class="btn btn-primary" @click="salvarEventoEdicao">Salvar</button>
-                                <button v-if="Number(eventoEmEdicao.criar_lista_presenca) === 1" class="btn btn-outline-primary" @click="abrirFormularioPublico(eventoEmEdicao)">Abrir formulário</button>
+
+                            <div v-if="formDraft.tipo==='INSCRICAO'" class="builder-box mb-3">
+                                <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                                    <strong>Campos do formulario</strong>
+                                    <div class="d-flex gap-2 flex-wrap">
+                                        <button class="btn btn-sm btn-outline-primary" @click="addCampoPersonalizado('texto')">Texto</button>
+                                        <button class="btn btn-sm btn-outline-primary" @click="addCampoPersonalizado('textarea')">Textarea</button>
+                                        <button class="btn btn-sm btn-outline-primary" @click="addCampoPersonalizado('select')">Selecao</button>
+                                        <button class="btn btn-sm btn-outline-primary" @click="addCampoPersonalizado('checkbox')">Checkbox</button>
+                                        <button class="btn btn-sm btn-outline-primary" @click="addCampoPersonalizado('data')">Data</button>
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-2 flex-wrap mb-2">
+                                    <button v-for="base in camposBase" :key="base.id" class="btn btn-sm btn-light border" @click="addCampoBase(base)">+ {{ base.label }}</button>
+                                </div>
+
+                                <div v-for="(campo, idx) in formDraft.campos" :key="campo.uid" class="card mb-2">
+                                    <div class="card-body">
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-md-4">
+                                                <label class="form-label small">Pergunta</label>
+                                                <input class="form-control" v-model.trim="campo.label" maxlength="180">
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label small">Tipo</label>
+                                                <select class="form-select" v-model="campo.tipo">
+                                                    <option value="texto">Texto</option>
+                                                    <option value="textarea">Textarea</option>
+                                                    <option value="telefone">Telefone</option>
+                                                    <option value="email">Email</option>
+                                                    <option value="data">Data</option>
+                                                    <option value="numero">Numero</option>
+                                                    <option value="select">Selecao</option>
+                                                    <option value="radio">Radio</option>
+                                                    <option value="checkbox">Checkbox</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label small">Placeholder</label>
+                                                <input class="form-control" v-model.trim="campo.placeholder" maxlength="140">
+                                            </div>
+                                            <div class="col-md-2 form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" :id="`ob-${campo.uid}`" v-model="campo.obrigatorio">
+                                                <label class="form-check-label" :for="`ob-${campo.uid}`">Obrigatorio</label>
+                                            </div>
+                                            <div class="col-md-1 text-end">
+                                                <button class="btn btn-sm btn-outline-danger" @click="removerCampo(idx)">X</button>
+                                            </div>
+                                        </div>
+                                        <div v-if="['select','radio','checkbox'].includes(campo.tipo)" class="mt-2">
+                                            <label class="form-label small">Opcoes (uma por linha)</label>
+                                            <textarea class="form-control" rows="2" v-model="campo.opcoesTexto"></textarea>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        <div v-if="abaEventoEdicao === 'presencas' && eventoEmEdicao">
-                            <div v-if="loadingPresencasEvento" class="text-muted">Carregando presenças...</div>
+                        <div v-if="modoEdicao && abaEdicao==='respostas'">
+                            <div v-if="loadingRespostas" class="text-muted">Carregando...</div>
+                            <div v-else-if="respostasEdicao.length===0" class="text-muted">Nenhuma inscricao registrada.</div>
                             <div v-else class="list-group">
-                                <div v-for="pres in presencasEvento" :key="pres.id" class="list-group-item">
-                                    <div class="fw-semibold">{{ pres.jovem_nome || pres.nome_completo || 'Sem nome' }}</div>
-                                    <small class="text-muted">Telefone: {{ pres.telefone || '-' }}</small>
-                                    <small
-                                        v-if="pres.origem_ja_fez === 'OUTRO_EJC' || (pres.outro_ejc_id && (pres.outro_ejc_nome || pres.ejc_origem))"
-                                        class="text-muted d-block"
-                                    >
-                                        Outro EJC:
-                                        {{ [pres.outro_ejc_paroquia, pres.outro_ejc_nome].filter(Boolean).join(' - ') || pres.ejc_origem || 'Não informado' }}
-                                    </small>
+                                <div class="list-group-item" v-for="resp in respostasEdicao" :key="resp.id">
+                                    <div class="fw-semibold">{{ resp.nome_referencia || resp.jovem_nome || resp.nome_completo || 'Sem nome' }}</div>
+                                    <div class="small text-muted mb-2">{{ resp.telefone_referencia || resp.telefone || '-' }} • {{ formatarDataHora(resp.registrado_em) }}</div>
+                                    <div v-if="resp.resposta && Array.isArray(resp.resposta.campos)">
+                                        <div v-for="item in resp.resposta.campos" :key="`${resp.id}-${item.id}`" class="small">
+                                            <strong>{{ item.label }}:</strong>
+                                            <span>{{ formatarValorResposta(item.valor) }}</span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div v-if="presencasEvento.length === 0" class="text-muted text-center p-3 bg-light border rounded">Nenhuma presença registrada.</div>
                             </div>
                         </div>
                     </div>
-                    <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button></div>
+                    <div class="modal-footer">
+                        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+                        <button class="btn btn-primary" @click="salvarFormulario" :disabled="saving">{{ saving ? 'Salvando...' : 'Salvar' }}</button>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="modal fade" id="modalQrFormulario" tabindex="-1" aria-hidden="true">
+        <div class="modal fade" id="modalQr" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content border-0 shadow">
                     <div class="modal-header">
-                        <h5 class="modal-title">QR Code: {{ qrPreviewTitle || 'Evento' }}</h5>
+                        <h5 class="modal-title">QR Code</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body text-center">
-                        <img v-if="qrPreviewDataUrl" :src="qrPreviewDataUrl" alt="QR Code do evento" class="img-fluid rounded border p-2 bg-white">
-                        <div v-else class="text-muted">Gerando QR Code...</div>
-                        <div v-if="qrPreviewLink" class="mt-3"><a :href="qrPreviewLink" target="_blank" rel="noopener noreferrer">{{ qrPreviewLink }}</a></div>
-                    </div>
-                    <div class="modal-footer">
-                        <a v-if="qrPreviewLink" class="btn btn-outline-primary" :href="qrPreviewLink" target="_blank" rel="noopener noreferrer">Visualizar</a>
-                        <button v-if="qrPreviewLink" class="btn btn-outline-dark" @click="copiarTexto(qrPreviewLink)">Copiar link</button>
-                        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
-                        <button class="btn btn-primary" @click="downloadDataUrl(qrPreviewDataUrl, qrPreviewTitle || 'evento')">Baixar QR</button>
+                        <img v-if="qrDataUrl" :src="qrDataUrl" class="img-fluid border rounded p-2 bg-white">
+                        <div class="mt-2 small"><a :href="qrLink" target="_blank">{{ qrLink }}</a></div>
                     </div>
                 </div>
             </div>
@@ -304,356 +253,222 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             injetarMenu('#app');
-            ativarMenu('/eventos');
+            ativarMenu('/inscricoes');
         });
 
         createApp({
             data() {
                 return {
                     loading: false,
+                    saving: false,
                     pastas: [],
                     formularios: [],
                     currentFolderId: null,
                     currentPath: [],
-                    createEventModal: null,
-                    configPresenceModal: null,
-                    editEventModal: null,
+                    formModal: null,
                     qrModal: null,
-                    salvandoNovoEvento: false,
-                    novoEvento: {
-                        nomeEvento: '',
-                        tema: '',
-                        data: '',
-                        hora: '',
-                        criarListaPresenca: true
+                    modoEdicao: false,
+                    abaEdicao: 'dados',
+                    editId: null,
+                    formDraft: {
+                        tipo: 'INSCRICAO',
+                        titulo: '',
+                        descricao: '',
+                        campos: []
                     },
-                    configPresenca: {
-                        permitirJaFezEJC: true,
-                        permitirNaoFezEJC: true
-                    },
-                    eventoEmEdicao: null,
-                    eventoEmEdicaoHora: '',
-                    abaEventoEdicao: 'info',
-                    presencasEvento: [],
-                    loadingPresencasEvento: false,
-                    qrLibraryLoading: null,
-                    qrPreviewTitle: '',
-                    qrPreviewDataUrl: '',
-                    qrPreviewLink: ''
+                    respostasEdicao: [],
+                    loadingRespostas: false,
+                    qrDataUrl: '',
+                    qrLink: '',
+                    camposBase: [
+                        { id: 'nome_completo', label: 'Nome completo', tipo: 'texto', obrigatorio: true },
+                        { id: 'telefone', label: 'Telefone', tipo: 'telefone', obrigatorio: true },
+                        { id: 'sexo', label: 'Sexo', tipo: 'select', obrigatorio: true, opcoes: ['Masculino', 'Feminino'] },
+                        { id: 'data_nascimento', label: 'Data de nascimento', tipo: 'data', obrigatorio: true },
+                        { id: 'estado_civil', label: 'Estado civil', tipo: 'select', obrigatorio: false, opcoes: ['Solteiro(a)', 'Casado(a)', 'Outro'] },
+                        { id: 'deficiencia', label: 'Possui deficiencia? Qual?', tipo: 'texto', obrigatorio: false },
+                        { id: 'restricao_alimentar', label: 'Possui restricao alimentar? Qual?', tipo: 'texto', obrigatorio: false },
+                        { id: 'musico', label: 'E musico? Qual instrumento?', tipo: 'texto', obrigatorio: false },
+                        { id: 'batizado', label: 'Foi batizado na Igreja Catolica?', tipo: 'radio', obrigatorio: true, opcoes: ['Sim', 'Nao'] },
+                        { id: 'crisma', label: 'Fez Crisma?', tipo: 'radio', obrigatorio: true, opcoes: ['Sim', 'Nao'] }
+                    ]
                 };
-            },
-            computed: {
-                eventosValidos() {
-                    if (!Array.isArray(this.formularios)) return [];
-                    return this.formularios.filter(e => e && typeof e === 'object' && e.id && e.titulo);
-                }
             },
             methods: {
                 formatarData(data) {
-                    if (!data) return '-';
+                    if (!data) return '';
                     const dt = new Date(`${data}T00:00:00`);
-                    if (Number.isNaN(dt.getTime())) return data;
-                    return dt.toLocaleDateString('pt-BR');
+                    return Number.isNaN(dt.getTime()) ? data : dt.toLocaleDateString('pt-BR');
                 },
-                resetNovoEvento() {
-                    this.novoEvento = {
-                        nomeEvento: '',
-                        tema: '',
-                        data: '',
-                        hora: '',
-                        criarListaPresenca: true
+                formatarDataHora(dataHora) {
+                    if (!dataHora) return '-';
+                    const dt = new Date(dataHora);
+                    return Number.isNaN(dt.getTime()) ? dataHora : dt.toLocaleString('pt-BR');
+                },
+                formatarValorResposta(valor) {
+                    if (Array.isArray(valor)) return valor.join(', ');
+                    return valor || '-';
+                },
+                labelTipo(form) {
+                    const tipo = String(form.tipo || '').toUpperCase();
+                    if (tipo === 'INSCRICAO') return 'Inscricao';
+                    if (tipo === 'LISTA_PRESENCA') return 'Lista de presenca';
+                    return 'Evento';
+                },
+                novoCampo(c) {
+                    return {
+                        uid: `${Date.now()}-${Math.random()}`,
+                        id: c.id || '',
+                        label: c.label || '',
+                        tipo: c.tipo || 'texto',
+                        obrigatorio: !!c.obrigatorio,
+                        placeholder: c.placeholder || '',
+                        opcoesTexto: Array.isArray(c.opcoes) ? c.opcoes.join('\n') : ''
                     };
-                    this.configPresenca = {
-                        permitirJaFezEJC: true,
-                        permitirNaoFezEJC: true
+                },
+                addCampoBase(base) {
+                    this.formDraft.campos.push(this.novoCampo(base));
+                },
+                addCampoPersonalizado(tipo) {
+                    this.formDraft.campos.push(this.novoCampo({ label: 'Nova pergunta', tipo }));
+                },
+                removerCampo(idx) {
+                    this.formDraft.campos.splice(idx, 1);
+                },
+                prepararPayload() {
+                    const payload = {
+                        tipo: this.formDraft.tipo,
+                        titulo: String(this.formDraft.titulo || '').trim(),
+                        descricao: String(this.formDraft.descricao || '').trim() || null,
+                        pastaId: this.currentFolderId
                     };
+                    if (this.formDraft.tipo === 'INSCRICAO') {
+                        payload.campos = this.formDraft.campos.map((c) => ({
+                            id: String(c.id || '').trim() || null,
+                            label: String(c.label || '').trim(),
+                            tipo: c.tipo,
+                            obrigatorio: !!c.obrigatorio,
+                            placeholder: String(c.placeholder || '').trim() || null,
+                            opcoes: ['select', 'radio', 'checkbox'].includes(c.tipo)
+                                ? String(c.opcoesTexto || '').split('\n').map((v) => v.trim()).filter(Boolean)
+                                : []
+                        }));
+                    } else if (this.formDraft.tipo === 'LISTA_PRESENCA') {
+                        payload.criarListaPresenca = true;
+                        payload.permitirJaFezEJC = true;
+                        payload.permitirNaoFezEJC = true;
+                    } else {
+                        payload.criarListaPresenca = false;
+                    }
+                    return payload;
                 },
-                abrirModalNovoEvento() {
-                    this.resetNovoEvento();
-                    if (this.createEventModal) this.createEventModal.show();
-                },
-                async avancarCriacaoEvento() {
-                    if (!String(this.novoEvento.nomeEvento || '').trim()) {
-                        alert('Informe o nome do evento.');
+                async salvarFormulario() {
+                    const payload = this.prepararPayload();
+                    if (!payload.titulo) {
+                        alert('Informe o titulo.');
                         return;
                     }
-                    if (this.novoEvento.criarListaPresenca) {
-                        if (this.createEventModal) this.createEventModal.hide();
-                        if (this.configPresenceModal) this.configPresenceModal.show();
-                        return;
-                    }
-                    await this.criarEvento(false);
-                },
-                voltarParaDadosEvento() {
-                    if (this.configPresenceModal) this.configPresenceModal.hide();
-                    if (this.createEventModal) this.createEventModal.show();
-                },
-                async criarEventoComConfigPresenca() {
-                    if (!this.configPresenca.permitirJaFezEJC && !this.configPresenca.permitirNaoFezEJC) {
-                        alert('Selecione ao menos uma opção: já fez EJC ou não fez EJC.');
-                        return;
-                    }
-                    await this.criarEvento(true);
-                },
-                async criarEvento(comLista) {
-                    this.salvandoNovoEvento = true;
+                    this.saving = true;
                     try {
-                        const res = await fetch('/api/formularios/forms', {
-                            method: 'POST',
+                        const url = this.modoEdicao ? `/api/formularios/forms/${this.editId}` : '/api/formularios/forms';
+                        const method = this.modoEdicao ? 'PUT' : 'POST';
+                        const res = await fetch(url, {
+                            method,
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                titulo: String(this.novoEvento.nomeEvento || '').trim(),
-                                tema: String(this.novoEvento.tema || '').trim(),
-                                pastaId: this.currentFolderId,
-                                data: this.novoEvento.data || null,
-                                hora: this.novoEvento.hora || null,
-                                criarListaPresenca: comLista,
-                                permitirJaFezEJC: comLista ? this.configPresenca.permitirJaFezEJC : false,
-                                permitirNaoFezEJC: comLista ? this.configPresenca.permitirNaoFezEJC : false
-                            })
+                            body: JSON.stringify(payload)
                         });
                         const data = await res.json().catch(() => ({}));
                         if (!res.ok) {
-                            alert(data.error || 'Erro ao criar evento.');
+                            alert(data.error || 'Erro ao salvar.');
                             return;
                         }
-
-                        if (this.createEventModal) this.createEventModal.hide();
-                        if (this.configPresenceModal) this.configPresenceModal.hide();
+                        if (this.formModal) this.formModal.hide();
                         await this.carregarConteudo();
-
-                        if (comLista && data.link) {
-                            this.qrPreviewTitle = this.novoEvento.nomeEvento || 'Evento';
-                            this.qrPreviewLink = `${window.location.origin}${data.link}`;
-                            this.qrPreviewDataUrl = '';
-                            if (this.qrModal) this.qrModal.show();
-                            this.qrPreviewDataUrl = await this.gerarQrDataUrl(this.qrPreviewLink);
+                        if (!this.modoEdicao && data.token) {
+                            await this.abrirQr({ token: data.token });
                         }
                     } catch (err) {
                         console.error(err);
-                        alert('Erro ao criar evento.');
+                        alert('Erro ao salvar.');
                     } finally {
-                        this.salvandoNovoEvento = false;
+                        this.saving = false;
                     }
+                },
+                async carregarRespostasEdicao() {
+                    if (!this.editId) return;
+                    this.abaEdicao = 'respostas';
+                    this.loadingRespostas = true;
+                    try {
+                        const tipo = String(this.formDraft.tipo || '').toUpperCase();
+                        const url = tipo === 'INSCRICAO'
+                            ? `/api/formularios/forms/${this.editId}/respostas`
+                            : `/api/formularios/forms/${this.editId}/presencas`;
+                        const res = await fetch(url);
+                        const data = await res.json().catch(() => ([]));
+                        this.respostasEdicao = res.ok && Array.isArray(data) ? data : [];
+                    } finally {
+                        this.loadingRespostas = false;
+                    }
+                },
+                resetDraft() {
+                    this.formDraft = { tipo: 'INSCRICAO', titulo: '', descricao: '', campos: [] };
+                    this.editId = null;
+                    this.modoEdicao = false;
+                    this.abaEdicao = 'dados';
+                    this.respostasEdicao = [];
+                },
+                abrirNovoFormulario() {
+                    this.resetDraft();
+                    this.formModal.show();
+                },
+                async abrirFormulario(form) {
+                    const res = await fetch(`/api/formularios/forms/${form.id}`);
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        alert(data.error || 'Erro ao abrir formulario.');
+                        return;
+                    }
+                    this.modoEdicao = true;
+                    this.editId = form.id;
+                    this.formDraft.tipo = String(data.tipo || 'INSCRICAO').toUpperCase();
+                    this.formDraft.titulo = data.titulo || '';
+                    this.formDraft.descricao = data.descricao || '';
+                    this.formDraft.campos = (Array.isArray(data.campos_config) ? data.campos_config : []).map((c) => this.novoCampo(c));
+                    this.abaEdicao = 'dados';
+                    this.respostasEdicao = [];
+                    this.formModal.show();
                 },
                 getPublicLink(form) {
-                    return `${window.location.origin}/eventos/public/${form.token}`;
+                    const token = String((form && form.token) || '').trim();
+                    return `${window.location.origin}/inscricoes/public/${token}`;
                 },
-                async abrirEvento(form) {
+                async copiarLink(form) {
+                    const link = this.getPublicLink(form);
                     try {
-                        const res = await fetch(`/api/formularios/forms/${form.id}`);
-                        const data = await res.json().catch(() => ({}));
-                        if (!res.ok) {
-                            alert(data.error || 'Erro ao carregar evento.');
-                            return;
-                        }
-                        this.eventoEmEdicao = data;
-                        this.eventoEmEdicaoHora = data.evento_hora ? String(data.evento_hora).slice(0, 5) : '';
-                        this.abaEventoEdicao = 'info';
-                        this.presencasEvento = [];
-                        if (this.editEventModal) this.editEventModal.show();
-                    } catch (err) {
-                        console.error(err);
-                        alert('Erro ao carregar evento.');
-                    }
-                },
-                async salvarEventoEdicao() {
-                    if (!this.eventoEmEdicao || !this.eventoEmEdicao.id) return;
-                    const titulo = String(this.eventoEmEdicao.titulo || '').trim();
-                    if (!titulo) {
-                        alert('Informe o nome do evento.');
-                        return;
-                    }
-                    try {
-                        const res = await fetch(`/api/formularios/forms/${this.eventoEmEdicao.id}`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                titulo,
-                                tema: String(this.eventoEmEdicao.tema || '').trim(),
-                                data: this.eventoEmEdicao.evento_data || null,
-                                hora: this.eventoEmEdicaoHora || null
-                            })
-                        });
-                        const data = await res.json().catch(() => ({}));
-                        if (!res.ok) {
-                            alert(data.error || 'Erro ao salvar evento.');
-                            return;
-                        }
-                        await this.carregarConteudo();
-                        alert('Evento salvo com sucesso.');
-                    } catch (err) {
-                        console.error(err);
-                        alert('Erro ao salvar evento.');
-                    }
-                },
-                async carregarPresencasEvento() {
-                    if (!this.eventoEmEdicao || !this.eventoEmEdicao.id) return;
-                    this.abaEventoEdicao = 'presencas';
-                    this.loadingPresencasEvento = true;
-                    try {
-                        const res = await fetch(`/api/formularios/forms/${this.eventoEmEdicao.id}/presencas`);
-                        const data = await res.json().catch(() => ([]));
-                        if (!res.ok) {
-                            this.presencasEvento = [];
-                            return;
-                        }
-                        this.presencasEvento = Array.isArray(data) ? data : [];
-                    } catch (err) {
-                        console.error(err);
-                        this.presencasEvento = [];
-                    } finally {
-                        this.loadingPresencasEvento = false;
-                    }
-                },
-                getQrCodeApi() {
-                    if (window.QRCode && typeof window.QRCode.toDataURL === 'function') return window.QRCode;
-                    if (window.qrcode && typeof window.qrcode.toDataURL === 'function') return window.qrcode;
-                    return null;
-                },
-                loadScript(src) {
-                    return new Promise((resolve, reject) => {
-                        const script = document.createElement('script');
-                        script.src = src;
-                        script.async = true;
-                        script.onload = () => resolve(true);
-                        script.onerror = () => reject(new Error(`Falha ao carregar script: ${src}`));
-                        document.head.appendChild(script);
-                    });
-                },
-                async garantirBibliotecaQr() {
-                    if (this.getQrCodeApi()) return true;
-                    if (this.qrLibraryLoading) return this.qrLibraryLoading;
-
-                    const sources = [
-                        'https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js',
-                        'https://unpkg.com/qrcode@1.5.4/build/qrcode.min.js',
-                        'https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.4/qrcode.min.js'
-                    ];
-
-                    this.qrLibraryLoading = (async () => {
-                        for (const src of sources) {
-                            try {
-                                await this.loadScript(src);
-                                if (this.getQrCodeApi()) return true;
-                            } catch (err) {
-                                console.warn(err.message);
-                            }
-                        }
-                        return false;
-                    })();
-
-                    const loaded = await this.qrLibraryLoading;
-                    this.qrLibraryLoading = null;
-                    return loaded;
-                },
-                async gerarQrViaServico(link) {
-                    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=420x420&margin=2&data=${encodeURIComponent(link)}`;
-                    const res = await fetch(qrUrl);
-                    if (!res.ok) throw new Error('Falha ao gerar QR Code no serviço de fallback.');
-                    const blob = await res.blob();
-                    return await new Promise((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.onload = () => resolve(reader.result);
-                        reader.onerror = () => reject(new Error('Falha ao converter QR para imagem.'));
-                        reader.readAsDataURL(blob);
-                    });
-                },
-                async gerarQrDataUrl(link) {
-                    const hasLibrary = await this.garantirBibliotecaQr();
-                    const qrApi = this.getQrCodeApi();
-
-                    if (hasLibrary && qrApi) {
-                        return qrApi.toDataURL(link, {
-                            width: 420,
-                            margin: 2,
-                            color: { dark: '#0f172a', light: '#ffffff' }
-                        });
-                    }
-                    return this.gerarQrViaServico(link);
-                },
-                normalizarNomeArquivo(nome) {
-                    return String(nome || 'evento')
-                        .trim()
-                        .toLowerCase()
-                        .replace(/[^a-z0-9]+/g, '-')
-                        .replace(/^-+|-+$/g, '') || 'evento';
-                },
-                downloadDataUrl(dataUrl, nomeBase) {
-                    if (!dataUrl) return;
-                    const a = document.createElement('a');
-                    a.href = dataUrl;
-                    a.download = `${this.normalizarNomeArquivo(nomeBase)}-qrcode.png`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                },
-                async copiarTexto(texto) {
-                    if (!texto) return;
-                    try {
-                        if (navigator.clipboard && navigator.clipboard.writeText) {
-                            await navigator.clipboard.writeText(texto);
-                        } else {
-                            const temp = document.createElement('input');
-                            temp.value = texto;
-                            document.body.appendChild(temp);
-                            temp.select();
-                            document.execCommand('copy');
-                            document.body.removeChild(temp);
-                        }
+                        await navigator.clipboard.writeText(link);
                         alert('Link copiado.');
-                    } catch (err) {
-                        console.error(err);
-                        alert('Não foi possível copiar o link.');
+                    } catch (_) {
+                        prompt('Copie o link:', link);
                     }
                 },
-                abrirFormularioPublico(form) {
-                    if (!form || Number(form.criar_lista_presenca) !== 1) return;
-                    window.open(this.getPublicLink(form), '_blank');
-                },
-                async abrirQrFormulario(form) {
-                    if (!form || Number(form.criar_lista_presenca) !== 1) return;
-                    try {
-                        this.qrPreviewTitle = form.titulo || 'Evento';
-                        this.qrPreviewLink = this.getPublicLink(form);
-                        this.qrPreviewDataUrl = '';
-                        if (this.qrModal) this.qrModal.show();
-                        this.qrPreviewDataUrl = await this.gerarQrDataUrl(this.qrPreviewLink);
-                    } catch (err) {
-                        console.error(err);
-                        alert('Não foi possível gerar o QR Code.');
-                    }
-                },
-                async baixarQrFormulario(form) {
-                    if (!form || Number(form.criar_lista_presenca) !== 1) return;
-                    try {
-                        const dataUrl = await this.gerarQrDataUrl(this.getPublicLink(form));
-                        this.downloadDataUrl(dataUrl, form.titulo || 'evento');
-                    } catch (err) {
-                        console.error(err);
-                        alert('Não foi possível baixar o QR Code.');
-                    }
-                },
-                async copiarLinkFormulario(form) {
-                    if (!form || Number(form.criar_lista_presenca) !== 1) return;
-                    await this.copiarTexto(this.getPublicLink(form));
+                async abrirQr(form) {
+                    const link = this.getPublicLink(form);
+                    this.qrLink = link;
+                    this.qrDataUrl = await QRCode.toDataURL(link, { width: 420, margin: 2 });
+                    this.qrModal.show();
                 },
                 async carregarConteudo() {
                     this.loading = true;
                     try {
                         const query = this.currentFolderId ? `?parentId=${this.currentFolderId}` : '';
                         const queryForms = this.currentFolderId ? `?pastaId=${this.currentFolderId}` : '';
-                        const [resPastas, resForms] = await Promise.all([
+                        const [r1, r2] = await Promise.all([
                             fetch(`/api/formularios/pastas${query}`),
                             fetch(`/api/formularios/forms${queryForms}`)
                         ]);
-                        this.pastas = resPastas.ok ? await resPastas.json() : [];
-                        const formsData = resForms.ok ? await resForms.json() : [];
-                        this.formularios = Array.isArray(formsData) ? formsData.filter(i => i && typeof i === 'object') : [];
-                    } catch (err) {
-                        console.error(err);
-                        this.pastas = [];
-                        this.formularios = [];
+                        this.pastas = r1.ok ? await r1.json() : [];
+                        const forms = r2.ok ? await r2.json() : [];
+                        this.formularios = Array.isArray(forms) ? forms : [];
                     } finally {
                         this.loading = false;
                     }
@@ -663,81 +478,46 @@
                     this.currentFolderId = pasta.id;
                     this.carregarConteudo();
                 },
-                async criarPasta() {
-                    const nome = await window.showFloatingPrompt('Nome da nova pasta:', { title: 'Nova pasta', placeholder: 'Digite o nome da pasta' });
-                    if (!nome) return;
-                    try {
-                        const res = await fetch('/api/formularios/pastas', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ nome: String(nome).trim(), parentId: this.currentFolderId })
-                        });
-                        if (!res.ok) throw new Error('Erro ao criar pasta.');
-                        await this.carregarConteudo();
-                    } catch (err) {
-                        console.error(err);
-                        alert('Erro ao criar pasta.');
-                    }
+                voltarPasta() {
+                    if (!this.currentPath.length) return;
+                    this.currentPath.pop();
+                    this.currentFolderId = this.currentPath.length ? this.currentPath[this.currentPath.length - 1].id : null;
+                    this.carregarConteudo();
                 },
-                async deletarFormulario(form) {
-                    if (!(await window.showFloatingConfirm(`Tem certeza que deseja apagar o evento "${form.titulo}"?`))) return;
-                    try {
-                        const res = await fetch(`/api/formularios/forms/${form.id}`, { method: 'DELETE' });
-                        if (!res.ok) throw new Error('Erro ao deletar evento.');
-                        await this.carregarConteudo();
-                    } catch (err) {
-                        console.error(err);
-                        alert('Erro ao deletar evento.');
-                    }
-                },
-                async deletarPasta(pasta) {
-                    if (!(await window.showFloatingConfirm(`Tem certeza que deseja apagar a pasta "${pasta.nome}" e todo o conteúdo interno?`))) return;
-                    try {
-                        const res = await fetch(`/api/formularios/pastas/${pasta.id}`, { method: 'DELETE' });
-                        if (!res.ok) throw new Error('Erro ao deletar pasta.');
-                        await this.carregarConteudo();
-                    } catch (err) {
-                        console.error(err);
-                        alert('Erro ao deletar pasta.');
-                    }
-                },
-                navegarPara(folder, index) {
-                    if (folder === null) {
+                navegarPara(folder, idx) {
+                    if (!folder) {
                         this.currentPath = [];
                         this.currentFolderId = null;
                     } else {
-                        this.currentPath = this.currentPath.slice(0, index + 1);
+                        this.currentPath = this.currentPath.slice(0, idx + 1);
                         this.currentFolderId = folder.id;
                     }
                     this.carregarConteudo();
                 },
-                voltarPasta() {
-                    if (!this.currentPath.length) return;
-                    this.currentPath.pop();
-                    const ultimo = this.currentPath[this.currentPath.length - 1] || null;
-                    this.currentFolderId = ultimo ? ultimo.id : null;
-                    this.carregarConteudo();
+                async criarPasta() {
+                    const nome = prompt('Nome da pasta:');
+                    if (!nome) return;
+                    const res = await fetch('/api/formularios/pastas', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ nome, parentId: this.currentFolderId })
+                    });
+                    if (res.ok) this.carregarConteudo();
+                },
+                async deletarPasta(pasta) {
+                    if (!confirm(`Apagar pasta "${pasta.nome}"?`)) return;
+                    const res = await fetch(`/api/formularios/pastas/${pasta.id}`, { method: 'DELETE' });
+                    if (res.ok) this.carregarConteudo();
+                },
+                async deletarFormulario(form) {
+                    if (!confirm(`Apagar formulario "${form.titulo}"?`)) return;
+                    const res = await fetch(`/api/formularios/forms/${form.id}`, { method: 'DELETE' });
+                    if (res.ok) this.carregarConteudo();
                 }
             },
-            async mounted() {
-                const modalNovoEventoEl = document.getElementById('modalNovoEvento');
-                if (modalNovoEventoEl && window.bootstrap && window.bootstrap.Modal) {
-                    this.createEventModal = new window.bootstrap.Modal(modalNovoEventoEl);
-                }
-                const modalConfigPresencaEl = document.getElementById('modalConfigPresenca');
-                if (modalConfigPresencaEl && window.bootstrap && window.bootstrap.Modal) {
-                    this.configPresenceModal = new window.bootstrap.Modal(modalConfigPresencaEl);
-                }
-                const modalEventoEl = document.getElementById('modalEvento');
-                if (modalEventoEl && window.bootstrap && window.bootstrap.Modal) {
-                    this.editEventModal = new window.bootstrap.Modal(modalEventoEl);
-                }
-                const modalQrEl = document.getElementById('modalQrFormulario');
-                if (modalQrEl && window.bootstrap && window.bootstrap.Modal) {
-                    this.qrModal = new window.bootstrap.Modal(modalQrEl);
-                }
-                await this.garantirBibliotecaQr();
-                await this.carregarConteudo();
+            mounted() {
+                this.formModal = new bootstrap.Modal(document.getElementById('modalForm'));
+                this.qrModal = new bootstrap.Modal(document.getElementById('modalQr'));
+                this.carregarConteudo();
             }
         }).mount('#app');
     </script>

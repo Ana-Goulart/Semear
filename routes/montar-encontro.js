@@ -5,6 +5,7 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { pool } = require('../database');
+const { getTenantId } = require('../lib/tenantIsolation');
 
 let hasPapelBaseColumnCache = null;
 let hasSubfuncaoColumnCache = null;
@@ -173,6 +174,22 @@ async function garantirEstruturaMontagemJovensServir() {
     `);
 }
 
+async function garantirEstruturaMontagemTiosServir() {
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS montagem_tios_servir (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            montagem_id INT NOT NULL,
+            casal_id INT NOT NULL,
+            pode_servir TINYINT(1) NOT NULL DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uniq_montagem_tio_servir (montagem_id, casal_id),
+            KEY idx_montagem_tios_servir_casal (casal_id),
+            CONSTRAINT fk_montagem_tios_servir_montagem FOREIGN KEY (montagem_id) REFERENCES montagens(id) ON DELETE CASCADE
+        )
+    `);
+}
+
 // Listar montagens de encontros
 router.get('/', async (req, res) => {
     try {
@@ -235,6 +252,48 @@ router.post('/', async (req, res) => {
     } catch (err) {
         console.error("Erro ao criar montagem:", err);
         res.status(500).json({ error: "Erro ao criar montagem" });
+    }
+});
+
+// Atualizar informações da montagem (ex: número EJC e datas)
+router.put('/:id', async (req, res) => {
+    const montagemId = Number(req.params.id);
+    const { numero_ejc, data_inicio, data_fim } = req.body || {};
+    if (!montagemId) return res.status(400).json({ error: 'Montagem inválida.' });
+    if (!numero_ejc || !data_inicio || !data_fim) {
+        return res.status(400).json({ error: 'Preencha número do EJC, data de início e data de fim.' });
+    }
+
+    const inicio = normalizarDataISO(data_inicio);
+    const fim = normalizarDataISO(data_fim);
+    if (inicio > fim) {
+        return res.status(400).json({ error: 'A data fim não pode ser menor que a data início.' });
+    }
+
+    try {
+        await garantirEstruturaMontagemMembrosExtra();
+        const [exists] = await pool.query('SELECT id FROM montagens WHERE id = ? LIMIT 1', [montagemId]);
+        if (!exists.length) return res.status(404).json({ error: 'Montagem não encontrada.' });
+
+        const comDataInicio = await hasMontagemDataInicioColumn();
+        const comDataFim = await hasMontagemDataFimColumn();
+
+        if (comDataInicio && comDataFim) {
+            await pool.query(
+                'UPDATE montagens SET numero_ejc = ?, data_encontro = ?, data_inicio = ?, data_fim = ? WHERE id = ?',
+                [numero_ejc, inicio, inicio, fim, montagemId]
+            );
+        } else {
+            await pool.query(
+                'UPDATE montagens SET numero_ejc = ?, data_encontro = ? WHERE id = ?',
+                [numero_ejc, inicio, montagemId]
+            );
+        }
+
+        return res.json({ message: 'Montagem atualizada com sucesso.' });
+    } catch (err) {
+        console.error('Erro ao atualizar montagem:', err);
+        return res.status(500).json({ error: 'Erro ao atualizar montagem.' });
     }
 });
 
@@ -384,6 +443,59 @@ router.patch('/:id/jovens-para-servir/:jovemId', async (req, res) => {
     } catch (err) {
         console.error('Erro ao atualizar jovem para servir:', err);
         return res.status(500).json({ error: 'Erro ao atualizar lista de jovens para servir.' });
+    }
+});
+
+router.get('/:id/tios-para-servir', async (req, res) => {
+    const montagemId = Number(req.params.id);
+    if (!montagemId) return res.status(400).json({ error: 'ID inválido.' });
+    try {
+        await garantirEstruturaMontagemTiosServir();
+        const tenantId = getTenantId(req);
+        const [rows] = await pool.query(`
+            SELECT
+                c.id,
+                c.nome_tio,
+                c.nome_tia,
+                c.telefone_tio,
+                c.telefone_tia,
+                COALESCE(mts.pode_servir, 0) AS pode_servir
+            FROM tios_casais c
+            LEFT JOIN montagem_tios_servir mts ON mts.casal_id = c.id AND mts.montagem_id = ?
+            WHERE c.tenant_id = ?
+            ORDER BY c.nome_tio ASC, c.nome_tia ASC
+        `, [montagemId, tenantId]);
+        return res.json(rows);
+    } catch (err) {
+        console.error('Erro ao listar tios para servir:', err);
+        return res.status(500).json({ error: 'Erro ao listar tios para servir.' });
+    }
+});
+
+router.patch('/:id/tios-para-servir/:casalId', async (req, res) => {
+    const montagemId = Number(req.params.id);
+    const casalId = Number(req.params.casalId);
+    const podeServir = req.body && req.body.pode_servir ? 1 : 0;
+    if (!montagemId || !casalId) return res.status(400).json({ error: 'Parâmetros inválidos.' });
+    try {
+        await garantirEstruturaMontagemTiosServir();
+        const tenantId = getTenantId(req);
+        const [casalRows] = await pool.query(
+            'SELECT id FROM tios_casais WHERE id = ? AND tenant_id = ? LIMIT 1',
+            [casalId, tenantId]
+        );
+        if (!casalRows.length) return res.status(404).json({ error: 'Casal de tios não encontrado.' });
+
+        await pool.query(
+            `INSERT INTO montagem_tios_servir (montagem_id, casal_id, pode_servir)
+             VALUES (?, ?, ?)
+             ON DUPLICATE KEY UPDATE pode_servir = VALUES(pode_servir)`,
+            [montagemId, casalId, podeServir]
+        );
+        return res.json({ message: 'Lista de tios para servir atualizada.' });
+    } catch (err) {
+        console.error('Erro ao atualizar tio para servir:', err);
+        return res.status(500).json({ error: 'Erro ao atualizar lista de tios para servir.' });
     }
 });
 

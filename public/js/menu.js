@@ -8,45 +8,64 @@ const menuTemplate = `
     <div id="sidebarOverlay"></div>
     <nav id="sidebar">
         <div class="logo-box">
-            <span>🌱 SemeaJovens</span>
+            <img src="/assets/logo-oficial.png" alt="Semear Paroquial" class="brand-mark">
+            <div class="brand-stack">
+                <span class="brand-name">SEMEAR</span>
+                <span class="brand-subtitle">PAROQUIAL</span>
+            </div>
         </div>
         <div class="nav flex-column mt-2">
             <a href="/dashboard" class="nav-link" title="Dashboard">
-                <span class="fs-5">📊</span> <span class="link-text">Dashboard</span>
+                <span class="fs-5">📊</span> <span class="link-text">Visão Geral</span>
             </a>
 
             <div class="menu-group" data-group="gestao">
                 <button type="button" class="menu-group-toggle" data-group-toggle="gestao">
-                    <span class="group-title">Gestão do Encontro</span>
+                    <span class="group-title">Encontro</span>
                     <span class="menu-chevron">▸</span>
                 </button>
                 <div class="menu-group-links" data-group-links="gestao">
                     <a href="/gestaodoencontro/listamestre" class="nav-link" title="Lista Mestre">
-                        <span class="fs-5">📋</span> <span class="link-text">Lista Mestre</span>
+                        <span class="fs-5">📋</span> <span class="link-text">Cadastro de Jovens</span>
+                    </a>
+                    <a href="/gestaodoencontro/tios" class="nav-link" title="Tios">
+                        <span class="fs-5">👫</span> <span class="link-text">Tios</span>
                     </a>
                     <a href="/gestaodoencontro/equipes" class="nav-link" title="Equipes">
-                        <span class="fs-5">👥</span> <span class="link-text">Equipes</span>
+                        <span class="fs-5">👥</span> <span class="link-text">Equipes e Funções</span>
                     </a>
                     <a href="/gestaodoencontro/ejc" class="nav-link" title="EJC">
-                        <span class="fs-5">🎯</span> <span class="link-text">EJC</span>
+                        <span class="fs-5">🎯</span> <span class="link-text">Edições do EJC</span>
                     </a>
+                    <a href="/gestaodoencontro/montarencontro" class="nav-link" title="Montar Encontro">
+                        <span class="fs-5">🧩</span> <span class="link-text">Montagem do Encontro</span>
+                    </a>
+                    <a href="/gestaodoencontro/votacao" class="nav-link" title="Votação">
+                        <span class="fs-5">🗳️</span> <span class="link-text">Votação</span>
+                    </a>
+                </div>
+            </div>
+
+            <div class="menu-group" data-group="participacoes">
+                <button type="button" class="menu-group-toggle" data-group-toggle="participacoes">
+                    <span class="group-title">Participações</span>
+                    <span class="menu-chevron">▸</span>
+                </button>
+                <div class="menu-group-links" data-group-links="participacoes">
                     <a href="/gestaodoencontro/outrosejcs" class="nav-link" title="Outros EJCs">
                         <span class="fs-5">🌍</span> <span class="link-text">Outros EJCs</span>
                     </a>
                     <a href="/gestaodoencontro/jovensoutroejc" class="nav-link" title="Jovens de Outro EJC">
                         <span class="fs-5">🧾</span> <span class="link-text">Jovens de Outro EJC</span>
                     </a>
-                    <a href="/gestaodoencontro/montarencontro" class="nav-link" title="Montar Encontro">
-                        <span class="fs-5">🧩</span> <span class="link-text">Montar Encontro</span>
+                    <a href="/gestaodoencontro/visitantes" class="nav-link" title="Visitantes">
+                        <span class="fs-5">🙋</span> <span class="link-text">Visitantes</span>
                     </a>
                     <a href="/gestaodoencontro/moita" class="nav-link" title="Moita">
                         <span class="fs-5">🌿</span> <span class="link-text">Moita</span>
                     </a>
                     <a href="/gestaodoencontro/garcons" class="nav-link" title="Garçons">
                         <span class="fs-5">🍽️</span> <span class="link-text">Garçons</span>
-                    </a>
-                    <a href="/gestaodoencontro/votacao" class="nav-link" title="Votação">
-                        <span class="fs-5">🗳️</span> <span class="link-text">Votação</span>
                     </a>
                 </div>
             </div>
@@ -60,8 +79,8 @@ const menuTemplate = `
                     <a href="/planejamento/calendario" class="nav-link" title="Calendário">
                         <span class="fs-5">📅</span> <span class="link-text">Calendário</span>
                     </a>
-                    <a href="/planejamento/eventos" class="nav-link" title="Eventos">
-                        <span class="fs-5">🎉</span> <span class="link-text">Eventos</span>
+                    <a href="/planejamento/inscricoes" class="nav-link" title="Inscricoes">
+                        <span class="fs-5">🎉</span> <span class="link-text">Eventos e Presença</span>
                     </a>
                     <a href="/planejamento/atasdereuniao" class="nav-link" title="Atas de Reunião">
                         <span class="fs-5">📝</span> <span class="link-text">Atas de Reunião</span>
@@ -81,12 +100,15 @@ const menuTemplate = `
                     <a href="/administrativo/anexos" class="nav-link" title="Anexos">
                         <span class="fs-5">📁</span> <span class="link-text">Anexos</span>
                     </a>
+                    <a href="/administrativo/contatos" class="nav-link" title="Contatos">
+                        <span class="fs-5">📞</span> <span class="link-text">Contatos</span>
+                    </a>
                 </div>
             </div>
 
             <div class="menu-group" data-group="configuracoes">
                 <button type="button" class="menu-group-toggle" data-group-toggle="configuracoes">
-                    <span class="group-title">Configurações</span>
+                    <span class="group-title">Cadastros Base</span>
                     <span class="menu-chevron">▸</span>
                 </button>
                 <div class="menu-group-links" data-group-links="configuracoes">
@@ -604,14 +626,52 @@ function injetarMenu(selector = '#app', position = 'prepend') {
 function ativarMenu(identifier) {
     const links = document.querySelectorAll('#sidebar .nav-link');
     const pathAtual = window.location.pathname;
+    const aliases = {
+        '/historico-equipes': '/gestaodoencontro/ejc',
+        '/ejc': '/gestaodoencontro/ejc',
+        '/equipes': '/gestaodoencontro/equipes',
+        '/outros-ejcs': '/gestaodoencontro/outrosejcs',
+        '/jovens-outro-ejc': '/gestaodoencontro/jovensoutroejc',
+        '/visitantes': '/gestaodoencontro/visitantes',
+        '/tios': '/gestaodoencontro/tios',
+        '/montar-encontro': '/gestaodoencontro/montarencontro',
+        '/moita': '/gestaodoencontro/moita',
+        '/garcons': '/gestaodoencontro/garcons',
+        '/votacao': '/gestaodoencontro/votacao',
+        '/calendario': '/planejamento/calendario',
+        '/eventos': '/planejamento/inscricoes',
+        '/formularios': '/planejamento/inscricoes',
+        '/inscricoes': '/planejamento/inscricoes',
+        '/planejamento/eventos': '/planejamento/inscricoes',
+        '/ata-reunioes': '/planejamento/atasdereuniao',
+        '/financeiro': '/administrativo/financeiro',
+        '/anexos': '/administrativo/anexos',
+        '/contatos': '/administrativo/contatos',
+        '/usuarios': '/configuracoes/usuarios',
+        '/coordenadores': '/configuracoes/coordenacoes',
+        '/funcoes-dirigencia': '/configuracoes/funcoes-dirigencia',
+        '/meu-ejc': '/configuracoes/meuejc',
+        '/circulos': '/configuracoes/circulos'
+    };
+    const canonicalizar = (valor) => aliases[String(valor || '').trim()] || String(valor || '').trim();
+    const identifierCanonico = canonicalizar(identifier);
+    const pathAtualCanonico = canonicalizar(pathAtual);
+
     links.forEach(link => {
         const href = link.getAttribute('href');
+        const hrefCanonico = canonicalizar(href);
         // Buscar texto dentro do span .link-text se existir, senão textContent normal
         const textSpan = link.querySelector('.link-text');
         const text = textSpan ? textSpan.textContent.trim() : link.textContent.trim();
 
         // Verifica se o identificador corresponde ao href ou ao texto exato
-        if (href === identifier || text === identifier || href === pathAtual) {
+        if (
+            href === identifier ||
+            href === pathAtual ||
+            hrefCanonico === identifierCanonico ||
+            hrefCanonico === pathAtualCanonico ||
+            text === identifier
+        ) {
             link.classList.add('active');
             link.classList.remove('text-white-50');
         } else {

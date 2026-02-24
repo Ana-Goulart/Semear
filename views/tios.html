@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>SemeaJovens - Tios</title>
+    <link rel="icon" type="image/png" href="/assets/logo-oficial.png">
+    <link rel="apple-touch-icon" href="/assets/logo-oficial.png">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="/css/velzon-theme.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="/js/menu.js"></script>
+</head>
+<body>
+    <div id="app">
+        <main class="container-fluid">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h3 class="mb-1">Tios</h3>
+                    <p class="text-muted mb-0">Cadastro de casais (tio e tia), ECC e histórico de serviço no EJC.</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button v-if="aba==='casais'" class="btn btn-primary" @click="abrirNovoCasal">Adicionar casal</button>
+                    <button v-if="aba==='ecc'" class="btn btn-primary" @click="abrirNovoEcc">Adicionar ECC</button>
+                    <button class="btn btn-soft-primary" @click="carregarTudo">Atualizar</button>
+                </div>
+            </div>
+
+            <ul class="nav nav-tabs mb-3">
+                <li class="nav-item"><button class="nav-link" :class="{active: aba==='casais'}" @click="aba='casais'">Casais</button></li>
+                <li class="nav-item"><button class="nav-link" :class="{active: aba==='ecc'}" @click="aba='ecc'">ECC</button></li>
+            </ul>
+
+            <div v-if="aba==='casais'" class="card border-0 shadow-sm">
+                <div class="card-body border-bottom">
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Buscar casal</label>
+                            <input class="form-control" v-model.trim="filtroNome" placeholder="Nome do tio ou tia">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Buscar telefone</label>
+                            <input class="form-control" v-model.trim="filtroTelefone" placeholder="Telefone do tio ou tia">
+                        </div>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Casal</th>
+                                <th>Telefones</th>
+                                <th>ECC</th>
+                                <th>Serviços no EJC</th>
+                                <th style="width: 180px;">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="c in casaisFiltrados" :key="c.id">
+                                <td>
+                                    <div class="fw-semibold">{{ c.nome_tio }}</div>
+                                    <div class="text-muted">{{ c.nome_tia }}</div>
+                                </td>
+                                <td>
+                                    <div>{{ c.telefone_tio || '-' }}</div>
+                                    <div class="text-muted">{{ c.telefone_tia || '-' }}</div>
+                                </td>
+                                <td>{{ c.ecc_numero || '-' }}</td>
+                                <td class="small">
+                                    <span v-if="!c.servicos || !c.servicos.length" class="text-muted">-</span>
+                                    <div v-for="(srv, idx) in (c.servicos || [])" :key="`${c.id}-${srv.equipe_id}-${srv.ejc_id || 0}-${idx}`">
+                                        <span class="badge bg-soft-primary text-primary">{{ formatarServicoLabel(srv) }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-2">
+                                        <button class="btn btn-sm btn-warning text-white" @click="abrirEditarCasal(c)">Editar</button>
+                                        <button class="btn btn-sm btn-danger" @click="excluirCasal(c)">Excluir</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr v-if="loadingCasais">
+                                <td colspan="5" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary me-2"></div>Carregando...</td>
+                            </tr>
+                            <tr v-else-if="!casaisFiltrados.length">
+                                <td colspan="5" class="text-center text-muted py-4">Nenhum casal encontrado.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div v-if="aba==='ecc'" class="card border-0 shadow-sm">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Número ECC</th>
+                                <th>Descrição</th>
+                                <th style="width: 180px;">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="e in eccs" :key="e.id">
+                                <td class="fw-semibold">{{ e.numero }}</td>
+                                <td>{{ e.descricao || '-' }}</td>
+                                <td>
+                                    <div class="d-flex gap-2">
+                                        <button class="btn btn-sm btn-warning text-white" @click="abrirEditarEcc(e)">Editar</button>
+                                        <button class="btn btn-sm btn-danger" @click="excluirEcc(e)">Excluir</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr v-if="loadingEcc">
+                                <td colspan="3" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary me-2"></div>Carregando...</td>
+                            </tr>
+                            <tr v-else-if="!eccs.length">
+                                <td colspan="3" class="text-center text-muted py-4">Nenhum ECC cadastrado.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+
+        <div class="modal fade" id="modalCasal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header bg-light">
+                        <h5 class="modal-title">{{ formCasal.id ? 'Editar casal' : 'Novo casal' }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-12"><h6 class="text-muted mb-0">Dados do Tio</h6></div>
+                            <div class="col-md-6"><label class="form-label">Nome do tio</label><input class="form-control" v-model.trim="formCasal.nome_tio" maxlength="180"></div>
+                            <div class="col-md-3"><label class="form-label">Telefone</label><input class="form-control" v-model.trim="formCasal.telefone_tio" maxlength="30"></div>
+                            <div class="col-md-3"><label class="form-label">Nascimento</label><input type="date" class="form-control" v-model="formCasal.data_nascimento_tio"></div>
+
+                            <div class="col-12 pt-2"><h6 class="text-muted mb-0">Dados da Tia</h6></div>
+                            <div class="col-md-6"><label class="form-label">Nome da tia</label><input class="form-control" v-model.trim="formCasal.nome_tia" maxlength="180"></div>
+                            <div class="col-md-3"><label class="form-label">Telefone</label><input class="form-control" v-model.trim="formCasal.telefone_tia" maxlength="30"></div>
+                            <div class="col-md-3"><label class="form-label">Nascimento</label><input type="date" class="form-control" v-model="formCasal.data_nascimento_tia"></div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Número do ECC</label>
+                                <select class="form-select" v-model="formCasal.ecc_id">
+                                    <option :value="null">Selecione...</option>
+                                    <option v-for="e in eccs" :key="`ecc-${e.id}`" :value="e.id">{{ e.numero }}{{ e.descricao ? ` - ${e.descricao}` : '' }}</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label d-flex justify-content-between align-items-center">
+                                    <span>Onde serviram (equipe + edição)</span>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" @click="adicionarServicoCasal">Adicionar</button>
+                                </label>
+                                <div class="border rounded p-2 d-grid gap-2">
+                                    <div v-for="(srv, idx) in formCasal.servicos" :key="`srv-casal-${idx}`" class="row g-2 align-items-center">
+                                        <div class="col-md-5">
+                                            <select class="form-select form-select-sm" v-model="srv.equipe_id">
+                                                <option :value="null">Equipe...</option>
+                                                <option v-for="eq in equipes" :key="`eq-casal-${eq.id}`" :value="eq.id">{{ eq.nome }}</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <select class="form-select form-select-sm" v-model="srv.ejc_id">
+                                                <option :value="null">Edição EJC...</option>
+                                                <option v-for="ejc in ejcs" :key="`ejc-casal-${ejc.id}`" :value="ejc.id">{{ formatarEjcOption(ejc) }}</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-1 d-grid">
+                                            <button type="button" class="btn btn-sm btn-outline-danger" @click="removerServicoCasal(idx)">&times;</button>
+                                        </div>
+                                    </div>
+                                    <div v-if="!formCasal.servicos.length" class="text-muted small">Nenhum serviço informado.</div>
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label">Observações</label>
+                                <textarea class="form-control" rows="2" v-model.trim="formCasal.observacoes" maxlength="255"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button class="btn btn-primary" @click="salvarCasal">Salvar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="modalEcc" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header bg-light">
+                        <h5 class="modal-title">{{ formEcc.id ? 'Editar ECC' : 'Novo ECC' }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Número do ECC</label>
+                            <input class="form-control" v-model.trim="formEcc.numero" maxlength="30">
+                        </div>
+                        <div class="mb-1">
+                            <label class="form-label">Descrição</label>
+                            <input class="form-control" v-model.trim="formEcc.descricao" maxlength="160">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button class="btn btn-primary" @click="salvarEcc">Salvar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            injetarMenu('#app');
+            ativarMenu('/gestaodoencontro/tios');
+        });
+
+        const { createApp } = Vue;
+        createApp({
+            data() {
+                return {
+                    aba: 'casais',
+                    loadingCasais: false,
+                    loadingEcc: false,
+                    casais: [],
+                    eccs: [],
+                    equipes: [],
+                    ejcs: [],
+                    filtroNome: '',
+                    filtroTelefone: '',
+                    modalCasal: null,
+                    modalEcc: null,
+                    formCasal: {
+                        id: null,
+                        nome_tio: '',
+                        telefone_tio: '',
+                        data_nascimento_tio: '',
+                        nome_tia: '',
+                        telefone_tia: '',
+                        data_nascimento_tia: '',
+                        ecc_id: null,
+                        equipe_ids: [],
+                        servicos: [],
+                        observacoes: ''
+                    },
+                    formEcc: { id: null, numero: '', descricao: '' }
+                };
+            },
+            computed: {
+                casaisFiltrados() {
+                    const nome = String(this.filtroNome || '').trim().toLowerCase();
+                    const tel = String(this.filtroTelefone || '').trim().toLowerCase();
+                    return (this.casais || []).filter((c) => {
+                        const nomeCasal = `${c.nome_tio || ''} ${c.nome_tia || ''}`.toLowerCase();
+                        const tels = `${c.telefone_tio || ''} ${c.telefone_tia || ''}`.toLowerCase();
+                        const okNome = !nome || nomeCasal.includes(nome);
+                        const okTel = !tel || tels.includes(tel);
+                        return okNome && okTel;
+                    });
+                }
+            },
+            methods: {
+                async carregarTudo() {
+                    await Promise.all([this.carregarCasais(), this.carregarEccs(), this.carregarEquipes(), this.carregarEjcs()]);
+                },
+                async carregarCasais() {
+                    this.loadingCasais = true;
+                    try {
+                        const res = await fetch('/api/tios/casais');
+                        const data = await res.json().catch(() => ([]));
+                        this.casais = res.ok && Array.isArray(data) ? data : [];
+                    } catch (err) {
+                        console.error(err);
+                        this.casais = [];
+                    } finally {
+                        this.loadingCasais = false;
+                    }
+                },
+                async carregarEccs() {
+                    this.loadingEcc = true;
+                    try {
+                        const res = await fetch('/api/tios/ecc');
+                        const data = await res.json().catch(() => ([]));
+                        this.eccs = res.ok && Array.isArray(data) ? data : [];
+                    } catch (err) {
+                        console.error(err);
+                        this.eccs = [];
+                    } finally {
+                        this.loadingEcc = false;
+                    }
+                },
+                async carregarEquipes() {
+                    try {
+                        const res = await fetch('/api/tios/equipes');
+                        const data = await res.json().catch(() => ([]));
+                        this.equipes = res.ok && Array.isArray(data) ? data : [];
+                    } catch (err) {
+                        console.error(err);
+                        this.equipes = [];
+                    }
+                },
+                async carregarEjcs() {
+                    try {
+                        const res = await fetch('/api/tios/ejcs');
+                        const data = await res.json().catch(() => ([]));
+                        this.ejcs = res.ok && Array.isArray(data) ? data : [];
+                    } catch (err) {
+                        console.error(err);
+                        this.ejcs = [];
+                    }
+                },
+                formatarEjcOption(ejc) {
+                    if (!ejc) return '-';
+                    const numero = ejc.numero ? `${this.numeroParaRomano(ejc.numero)} EJC` : 'EJC';
+                    const local = [ejc.paroquia, ejc.ano].filter(Boolean).join(' - ');
+                    return [numero, local].filter(Boolean).join(' | ');
+                },
+                formatarServicoLabel(srv) {
+                    if (!srv) return '-';
+                    const equipe = srv.equipe_nome || '-';
+                    if (srv.ejc_numero) {
+                        const numero = `${this.numeroParaRomano(srv.ejc_numero)} EJC`;
+                        const local = srv.ejc_paroquia ? ` ${srv.ejc_paroquia}` : '';
+                        return `${equipe} - ${numero}${local}`;
+                    }
+                    return `${equipe} - edição não informada`;
+                },
+                numeroParaRomano(valor) {
+                    const num = Number(valor);
+                    if (!Number.isInteger(num) || num <= 0) return String(valor || '');
+                    const mapa = [
+                        [1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'],
+                        [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'],
+                        [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']
+                    ];
+                    let n = num;
+                    let out = '';
+                    for (const [v, r] of mapa) {
+                        while (n >= v) {
+                            out += r;
+                            n -= v;
+                        }
+                    }
+                    return out;
+                },
+                abrirNovoCasal() {
+                    this.formCasal = {
+                        id: null,
+                        nome_tio: '',
+                        telefone_tio: '',
+                        data_nascimento_tio: '',
+                        nome_tia: '',
+                        telefone_tia: '',
+                        data_nascimento_tia: '',
+                        ecc_id: null,
+                        equipe_ids: [],
+                        servicos: [{ equipe_id: null, ejc_id: null }],
+                        observacoes: ''
+                    };
+                    if (!this.modalCasal) this.modalCasal = new bootstrap.Modal(document.getElementById('modalCasal'));
+                    this.modalCasal.show();
+                },
+                abrirEditarCasal(item) {
+                    this.formCasal = {
+                        id: item.id,
+                        nome_tio: item.nome_tio || '',
+                        telefone_tio: item.telefone_tio || '',
+                        data_nascimento_tio: item.data_nascimento_tio || '',
+                        nome_tia: item.nome_tia || '',
+                        telefone_tia: item.telefone_tia || '',
+                        data_nascimento_tia: item.data_nascimento_tia || '',
+                        ecc_id: item.ecc_id || null,
+                        equipe_ids: Array.isArray(item.equipe_ids) ? item.equipe_ids.slice() : [],
+                        servicos: Array.isArray(item.servicos) && item.servicos.length
+                            ? item.servicos.map((s) => ({ equipe_id: s.equipe_id || null, ejc_id: s.ejc_id || null }))
+                            : [{ equipe_id: null, ejc_id: null }],
+                        observacoes: item.observacoes || ''
+                    };
+                    if (!this.modalCasal) this.modalCasal = new bootstrap.Modal(document.getElementById('modalCasal'));
+                    this.modalCasal.show();
+                },
+                adicionarServicoCasal() {
+                    this.formCasal.servicos.push({ equipe_id: null, ejc_id: null });
+                },
+                removerServicoCasal(idx) {
+                    this.formCasal.servicos.splice(idx, 1);
+                },
+                async salvarCasal() {
+                    if (!this.formCasal.nome_tio || !this.formCasal.telefone_tio || !this.formCasal.nome_tia || !this.formCasal.telefone_tia) {
+                        alert('Preencha nome e telefone do tio e da tia.');
+                        return;
+                    }
+                    const servicosValidos = (this.formCasal.servicos || [])
+                        .map((s) => ({
+                            equipe_id: s && s.equipe_id ? Number(s.equipe_id) : null,
+                            ejc_id: s && s.ejc_id ? Number(s.ejc_id) : null
+                        }))
+                        .filter((s) => s.equipe_id);
+                    const payload = {
+                        ...this.formCasal,
+                        servicos: servicosValidos,
+                        equipe_ids: Array.from(new Set(servicosValidos.map((s) => s.equipe_id)))
+                    };
+                    try {
+                        const isEdit = !!this.formCasal.id;
+                        const res = await fetch(isEdit ? `/api/tios/casais/${this.formCasal.id}` : '/api/tios/casais', {
+                            method: isEdit ? 'PUT' : 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                            alert(data.error || 'Erro ao salvar casal.');
+                            return;
+                        }
+                        if (this.modalCasal) this.modalCasal.hide();
+                        await this.carregarCasais();
+                    } catch (err) {
+                        console.error(err);
+                        alert('Erro ao salvar casal.');
+                    }
+                },
+                async excluirCasal(item) {
+                    if (!window.confirm('Excluir este casal de tios?')) return;
+                    try {
+                        const res = await fetch(`/api/tios/casais/${item.id}`, { method: 'DELETE' });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                            alert(data.error || 'Erro ao excluir casal.');
+                            return;
+                        }
+                        await this.carregarCasais();
+                    } catch (err) {
+                        console.error(err);
+                        alert('Erro ao excluir casal.');
+                    }
+                },
+                abrirNovoEcc() {
+                    this.formEcc = { id: null, numero: '', descricao: '' };
+                    if (!this.modalEcc) this.modalEcc = new bootstrap.Modal(document.getElementById('modalEcc'));
+                    this.modalEcc.show();
+                },
+                abrirEditarEcc(item) {
+                    this.formEcc = { id: item.id, numero: item.numero || '', descricao: item.descricao || '' };
+                    if (!this.modalEcc) this.modalEcc = new bootstrap.Modal(document.getElementById('modalEcc'));
+                    this.modalEcc.show();
+                },
+                async salvarEcc() {
+                    if (!this.formEcc.numero) {
+                        alert('Informe o número do ECC.');
+                        return;
+                    }
+                    try {
+                        const isEdit = !!this.formEcc.id;
+                        const res = await fetch(isEdit ? `/api/tios/ecc/${this.formEcc.id}` : '/api/tios/ecc', {
+                            method: isEdit ? 'PUT' : 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.formEcc)
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                            alert(data.error || 'Erro ao salvar ECC.');
+                            return;
+                        }
+                        if (this.modalEcc) this.modalEcc.hide();
+                        await this.carregarEccs();
+                    } catch (err) {
+                        console.error(err);
+                        alert('Erro ao salvar ECC.');
+                    }
+                },
+                async excluirEcc(item) {
+                    if (!window.confirm('Excluir este ECC?')) return;
+                    try {
+                        const res = await fetch(`/api/tios/ecc/${item.id}`, { method: 'DELETE' });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                            alert(data.error || 'Erro ao excluir ECC.');
+                            return;
+                        }
+                        await this.carregarEccs();
+                    } catch (err) {
+                        console.error(err);
+                        alert('Erro ao excluir ECC.');
+                    }
+                }
+            },
+            mounted() {
+                this.carregarTudo();
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

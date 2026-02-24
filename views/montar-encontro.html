@@ -4,6 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <title>SemeaJovens - Montar Encontro</title>
+    <link rel="icon" type="image/png" href="/assets/logo-oficial.png">
+    <link rel="apple-touch-icon" href="/assets/logo-oficial.png">
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -173,6 +175,9 @@
                         <p class="text-muted small mb-0">Período: {{ formatarData(montagemAtiva.data_inicio || montagemAtiva.data_encontro) }} até {{ formatarData(montagemAtiva.data_fim || montagemAtiva.data_encontro) }}</p>
                     </div>
                     <div class="d-flex gap-2">
+                        <button class="btn btn-outline-primary" @click="abrirModalEditarMontagem">
+                            <i class="fas fa-pen"></i> Editar Informações
+                        </button>
                         <button class="btn btn-soft-primary" @click="carregarEstrutura"><i class="fas fa-sync-alt"></i>
                             Atualizar Dados</button>
                         <button class="btn btn-primary" @click="baixarPowerPointAceitos"><i class="fas fa-file-powerpoint"></i> Fazer Power Point</button>
@@ -215,17 +220,9 @@
                 <div v-else-if="abaMontagem==='jovens_servir'" class="card border-0 shadow-sm">
                     <div class="card-body border-bottom">
                         <div class="row g-2 align-items-end">
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <label class="form-label small text-muted mb-1">Buscar por nome</label>
                                 <input v-model="filtroJovensServir.nome" class="form-control form-control-sm" placeholder="Digite o nome">
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label small text-muted mb-1">Origem</label>
-                                <select v-model="filtroJovensServir.origem" class="form-select form-select-sm">
-                                    <option value="">Todos</option>
-                                    <option value="INCONFIDENTES">Lista Mestre</option>
-                                    <option value="OUTRO_EJC">Jovens de outro EJC</option>
-                                </select>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label small text-muted mb-1">Pode servir?</label>
@@ -235,55 +232,146 @@
                                     <option value="0">Não</option>
                                 </select>
                             </div>
-                            <div class="col-md-2 d-flex gap-2">
+                            <div class="col-md-3 d-flex gap-2">
                                 <button class="btn btn-sm btn-soft-primary w-100" @click="carregarJovensParaServir">Atualizar</button>
                             </div>
                         </div>
                     </div>
                     <div class="card-body">
+                        <ul class="nav nav-tabs mb-3">
+                            <li class="nav-item">
+                                <button class="nav-link" :class="{active: abaJovensServir==='lista_mestre'}" @click="abaJovensServir='lista_mestre'">Jovens - Lista Mestre</button>
+                            </li>
+                            <li class="nav-item">
+                                <button class="nav-link" :class="{active: abaJovensServir==='outro_ejc'}" @click="abaJovensServir='outro_ejc'">Jovens - Outro EJC</button>
+                            </li>
+                            <li class="nav-item">
+                                <button class="nav-link" :class="{active: abaJovensServir==='tios'}" @click="abaJovensServir='tios'">Tios</button>
+                            </li>
+                        </ul>
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <div class="small text-muted">
-                                Selecionados para servir: <strong>{{ totalJovensSelecionados }}</strong> de <strong>{{ jovensParaServir.length }}</strong>
+                                Selecionados para servir:
+                                Jovens Lista Mestre <strong>{{ totalJovensMeuEjcSelecionados }}</strong> / {{ jovensMeuEjcParaServir.length }}
+                                | Jovens Outro EJC <strong>{{ totalJovensOutroEjcSelecionados }}</strong> / {{ jovensOutroEjcParaServir.length }}
+                                | Tios <strong>{{ totalTiosSelecionados }}</strong> / {{ tiosParaServir.length }}
                             </div>
                             <div class="d-flex gap-2">
-                                <button class="btn btn-sm btn-outline-success" @click="marcarTodosFiltrados(true)">Marcar filtrados</button>
-                                <button class="btn btn-sm btn-outline-secondary" @click="marcarTodosFiltrados(false)">Desmarcar filtrados</button>
+                                <button v-if="abaJovensServir==='lista_mestre'" class="btn btn-sm btn-outline-success" @click="marcarTodosFiltradosMeuEjc(true)">Marcar jovens filtrados</button>
+                                <button v-if="abaJovensServir==='lista_mestre'" class="btn btn-sm btn-outline-secondary" @click="marcarTodosFiltradosMeuEjc(false)">Desmarcar jovens filtrados</button>
+                                <button v-if="abaJovensServir==='outro_ejc'" class="btn btn-sm btn-outline-success" @click="marcarTodosFiltradosOutroEjc(true)">Marcar jovens filtrados</button>
+                                <button v-if="abaJovensServir==='outro_ejc'" class="btn btn-sm btn-outline-secondary" @click="marcarTodosFiltradosOutroEjc(false)">Desmarcar jovens filtrados</button>
+                                <button v-if="abaJovensServir==='tios'" class="btn btn-sm btn-outline-success" @click="marcarTodosFiltradosTios(true)">Marcar tios filtrados</button>
+                                <button v-if="abaJovensServir==='tios'" class="btn btn-sm btn-outline-secondary" @click="marcarTodosFiltradosTios(false)">Desmarcar tios filtrados</button>
                             </div>
                         </div>
                         <div v-if="carregandoJovensParaServir" class="text-center py-4">
                             <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
-                            Carregando jovens...
+                            Carregando listas...
                         </div>
-                        <div v-else class="table-responsive">
-                            <table class="table table-sm table-hover align-middle">
-                                <thead>
-                                    <tr>
-                                        <th style="width: 90px;">Servir</th>
-                                        <th>Nome completo</th>
-                                        <th>Número e lugar do EJC que fez</th>
-                                        <th>Idade</th>
-                                        <th>Sexo</th>
-                                        <th>Estado civil</th>
-                                        <th>Músico</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr v-for="j in jovensParaServirFiltrados" :key="'servir-'+j.id">
-                                        <td>
-                                            <input type="checkbox" class="form-check-input" :checked="!!j.pode_servir" @change="toggleJovemParaServir(j, $event.target.checked)">
-                                        </td>
-                                        <td>{{ j.nome_completo }}</td>
-                                        <td>{{ formatarOrigemJovemParaServir(j) }}</td>
-                                        <td>{{ calcularIdade(j.data_nascimento) || '-' }}</td>
-                                        <td>{{ j.sexo || '-' }}</td>
-                                        <td>{{ j.estado_civil || '-' }}</td>
-                                        <td>{{ j.eh_musico ? 'Sim' : 'Não' }}</td>
-                                    </tr>
-                                    <tr v-if="!jovensParaServirFiltrados.length">
-                                        <td colspan="7" class="text-muted text-center py-3">Nenhum jovem encontrado nos filtros.</td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                        <div v-else>
+                            <div v-if="abaJovensServir==='lista_mestre'">
+                                <h6 class="text-primary mt-1 mb-2">Jovens (Lista Mestre)</h6>
+                                <div class="table-responsive mb-4">
+                                    <table class="table table-sm table-hover align-middle">
+                                        <thead>
+                                            <tr>
+                                            <th style="width: 90px;">Servir</th>
+                                            <th>Nome completo</th>
+                                            <th>Número e lugar do EJC que fez</th>
+                                            <th>Idade</th>
+                                            <th>Sexo</th>
+                                            <th>Estado civil</th>
+                                            <th>Músico</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="j in jovensMeuEjcParaServirFiltrados" :key="'servir-meu-'+j.id">
+                                            <td>
+                                                <input type="checkbox" class="form-check-input" :checked="!!j.pode_servir" @change="toggleJovemParaServir(j, $event.target.checked)">
+                                            </td>
+                                            <td>{{ j.nome_completo }}</td>
+                                            <td>{{ formatarOrigemJovemParaServir(j) }}</td>
+                                            <td>{{ calcularIdade(j.data_nascimento) || '-' }}</td>
+                                            <td>{{ j.sexo || '-' }}</td>
+                                            <td>{{ j.estado_civil || '-' }}</td>
+                                            <td>{{ j.eh_musico ? 'Sim' : 'Não' }}</td>
+                                        </tr>
+                                        <tr v-if="!jovensMeuEjcParaServirFiltrados.length">
+                                            <td colspan="7" class="text-muted text-center py-3">Nenhum jovem da Lista Mestre encontrado nos filtros.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                            <div v-if="abaJovensServir==='outro_ejc'">
+                                <h6 class="text-primary mt-1 mb-2">Jovens (Outro EJC)</h6>
+                                <div class="table-responsive mb-4">
+                                    <table class="table table-sm table-hover align-middle">
+                                        <thead>
+                                            <tr>
+                                            <th style="width: 90px;">Servir</th>
+                                            <th>Nome completo</th>
+                                            <th>Número e lugar do EJC que fez</th>
+                                            <th>Idade</th>
+                                            <th>Sexo</th>
+                                            <th>Estado civil</th>
+                                            <th>Músico</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="j in jovensOutroEjcParaServirFiltrados" :key="'servir-outro-'+j.id">
+                                            <td>
+                                                <input type="checkbox" class="form-check-input" :checked="!!j.pode_servir" @change="toggleJovemParaServir(j, $event.target.checked)">
+                                            </td>
+                                            <td>{{ j.nome_completo }}</td>
+                                            <td>{{ formatarOrigemJovemParaServir(j) }}</td>
+                                            <td>{{ calcularIdade(j.data_nascimento) || '-' }}</td>
+                                            <td>{{ j.sexo || '-' }}</td>
+                                            <td>{{ j.estado_civil || '-' }}</td>
+                                            <td>{{ j.eh_musico ? 'Sim' : 'Não' }}</td>
+                                        </tr>
+                                        <tr v-if="!jovensOutroEjcParaServirFiltrados.length">
+                                            <td colspan="7" class="text-muted text-center py-3">Nenhum jovem de outro EJC encontrado nos filtros.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                            <div v-if="abaJovensServir==='tios'">
+                                <h6 class="text-primary mt-1 mb-2">Tios</h6>
+                                <div class="table-responsive">
+                                <table class="table table-sm table-hover align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 90px;">Servir</th>
+                                            <th>Casal</th>
+                                            <th>Telefones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="t in tiosParaServirFiltrados" :key="'servir-tio-'+t.id">
+                                            <td>
+                                                <input type="checkbox" class="form-check-input" :checked="!!t.pode_servir" @change="toggleTioParaServir(t, $event.target.checked)">
+                                            </td>
+                                            <td>
+                                                <div class="fw-semibold">{{ t.nome_tio || '-' }}</div>
+                                                <div class="text-muted">{{ t.nome_tia || '-' }}</div>
+                                            </td>
+                                            <td>
+                                                <div>{{ t.telefone_tio || '-' }}</div>
+                                                <div class="text-muted">{{ t.telefone_tia || '-' }}</div>
+                                            </td>
+                                        </tr>
+                                        <tr v-if="!tiosParaServirFiltrados.length">
+                                            <td colspan="3" class="text-muted text-center py-3">Nenhum tio encontrado nos filtros.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                         </div>
                     </div>
                 </div>
@@ -319,6 +407,35 @@
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                         <button type="button" class="btn btn-primary" @click="salvarNovaMontagem">Salvar e
                             Iniciar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="modalEditarMontagem" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header bg-light">
+                        <h5 class="modal-title">Editar Informações da Montagem</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label text-muted">Número do EJC</label>
+                            <input type="number" v-model="formEditarMontagem.numero_ejc" class="form-control" placeholder="Ex: 11">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-muted">Data de Início</label>
+                            <input type="date" v-model="formEditarMontagem.data_inicio" class="form-control">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-muted">Data de Fim</label>
+                            <input type="date" v-model="formEditarMontagem.data_fim" class="form-control">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-primary" @click="salvarEdicaoMontagem">Salvar alterações</button>
                     </div>
                 </div>
             </div>
@@ -495,7 +612,9 @@
                     abaMontagem: 'equipes',
 
                     formMontagem: { numero_ejc: '', data_inicio: '', data_fim: '' },
+                    formEditarMontagem: { numero_ejc: '', data_inicio: '', data_fim: '' },
                     modalMontagemInstance: null,
+                    modalEditarMontagemInstance: null,
                     modalEquipeInstance: null,
                     modalBuscaInstance: null,
                     modalImportacaoExternaInstance: null,
@@ -515,27 +634,58 @@
                     outroEjcSelecionadoPorEquipe: {},
 
                     jovensParaServir: [],
+                    tiosParaServir: [],
                     carregandoJovensParaServir: false,
-                    filtroJovensServir: { nome: '', origem: '', pode_servir: '' },
+                    filtroJovensServir: { nome: '', pode_servir: '' },
+                    abaJovensServir: 'lista_mestre',
 
                     arquivoImportacaoExterna: null,
                     importarParaSubstituicao: false
                 };
             },
             computed: {
-                jovensParaServirFiltrados() {
+                jovensMeuEjcParaServir() {
+                    return (this.jovensParaServir || []).filter((j) => String(j.origem_ejc_tipo || 'INCONFIDENTES').toUpperCase() !== 'OUTRO_EJC');
+                },
+                jovensOutroEjcParaServir() {
+                    return (this.jovensParaServir || []).filter((j) => String(j.origem_ejc_tipo || 'INCONFIDENTES').toUpperCase() === 'OUTRO_EJC');
+                },
+                jovensMeuEjcParaServirFiltrados() {
                     const nome = String(this.filtroJovensServir.nome || '').trim().toLowerCase();
-                    const origem = String(this.filtroJovensServir.origem || '').trim().toUpperCase();
                     const pode = String(this.filtroJovensServir.pode_servir || '').trim();
-                    return (this.jovensParaServir || []).filter((j) => {
+                    return (this.jovensMeuEjcParaServir || []).filter((j) => {
                         const okNome = !nome || String(j.nome_completo || '').toLowerCase().includes(nome);
-                        const okOrigem = !origem || String(j.origem_ejc_tipo || 'INCONFIDENTES').toUpperCase() === origem;
                         const okPode = (pode === '') || String(j.pode_servir ? 1 : 0) === pode;
-                        return okNome && okOrigem && okPode;
+                        return okNome && okPode;
                     });
                 },
-                totalJovensSelecionados() {
-                    return (this.jovensParaServir || []).filter(j => j && j.pode_servir).length;
+                jovensOutroEjcParaServirFiltrados() {
+                    const nome = String(this.filtroJovensServir.nome || '').trim().toLowerCase();
+                    const pode = String(this.filtroJovensServir.pode_servir || '').trim();
+                    return (this.jovensOutroEjcParaServir || []).filter((j) => {
+                        const okNome = !nome || String(j.nome_completo || '').toLowerCase().includes(nome);
+                        const okPode = (pode === '') || String(j.pode_servir ? 1 : 0) === pode;
+                        return okNome && okPode;
+                    });
+                },
+                tiosParaServirFiltrados() {
+                    const nome = String(this.filtroJovensServir.nome || '').trim().toLowerCase();
+                    const pode = String(this.filtroJovensServir.pode_servir || '').trim();
+                    return (this.tiosParaServir || []).filter((t) => {
+                        const casal = `${t.nome_tio || ''} ${t.nome_tia || ''}`.toLowerCase();
+                        const okNome = !nome || casal.includes(nome);
+                        const okPode = (pode === '') || String(t.pode_servir ? 1 : 0) === pode;
+                        return okNome && okPode;
+                    });
+                },
+                totalJovensMeuEjcSelecionados() {
+                    return (this.jovensMeuEjcParaServir || []).filter(j => j && j.pode_servir).length;
+                },
+                totalJovensOutroEjcSelecionados() {
+                    return (this.jovensOutroEjcParaServir || []).filter(j => j && j.pode_servir).length;
+                },
+                totalTiosSelecionados() {
+                    return (this.tiosParaServir || []).filter(t => t && t.pode_servir).length;
                 }
             },
             methods: {
@@ -607,6 +757,56 @@
                     }
                 },
 
+                abrirModalEditarMontagem() {
+                    if (!this.montagemAtiva) return;
+                    this.formEditarMontagem = {
+                        numero_ejc: this.montagemAtiva.numero_ejc || '',
+                        data_inicio: this.montagemAtiva.data_inicio || this.montagemAtiva.data_encontro || '',
+                        data_fim: this.montagemAtiva.data_fim || this.montagemAtiva.data_encontro || ''
+                    };
+                    if (!this.modalEditarMontagemInstance) {
+                        this.modalEditarMontagemInstance = new bootstrap.Modal(document.getElementById('modalEditarMontagem'));
+                    }
+                    this.modalEditarMontagemInstance.show();
+                },
+
+                async salvarEdicaoMontagem() {
+                    if (!this.montagemAtiva || !this.montagemAtiva.id) return;
+                    if (!this.formEditarMontagem.numero_ejc || !this.formEditarMontagem.data_inicio || !this.formEditarMontagem.data_fim) {
+                        await this.uiAlert('Preencha todos os campos da montagem.');
+                        return;
+                    }
+                    if (this.formEditarMontagem.data_inicio > this.formEditarMontagem.data_fim) {
+                        await this.uiAlert('A data fim não pode ser menor que a data início.');
+                        return;
+                    }
+                    try {
+                        const res = await fetch(`/api/montar-encontro/${this.montagemAtiva.id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.formEditarMontagem)
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                            await this.uiAlert(data.error || 'Erro ao atualizar montagem.');
+                            return;
+                        }
+                        if (this.modalEditarMontagemInstance) this.modalEditarMontagemInstance.hide();
+                        this.montagemAtiva = {
+                            ...this.montagemAtiva,
+                            numero_ejc: this.formEditarMontagem.numero_ejc,
+                            data_inicio: this.formEditarMontagem.data_inicio,
+                            data_fim: this.formEditarMontagem.data_fim,
+                            data_encontro: this.formEditarMontagem.data_inicio
+                        };
+                        await this.carregarMontagens();
+                        await this.uiAlert('Montagem atualizada com sucesso.', 'Sucesso');
+                    } catch (err) {
+                        console.error(err);
+                        await this.uiAlert('Erro ao atualizar montagem.');
+                    }
+                },
+
                 async deletarMontagem(id) {
                     if (!await this.uiConfirm('Atenção! Isso apagará TODO o registro de montagem do encontro. Tem certeza?')) return;
                     try {
@@ -641,6 +841,7 @@
 
                 async abrirAbaJovensParaServir() {
                     this.abaMontagem = 'jovens_servir';
+                    this.abaJovensServir = 'lista_mestre';
                     await this.carregarJovensParaServir();
                 },
 
@@ -679,11 +880,16 @@
                     if (!this.montagemAtiva || !this.montagemAtiva.id) return;
                     this.carregandoJovensParaServir = true;
                     try {
-                        const res = await fetch(`/api/montar-encontro/${this.montagemAtiva.id}/jovens-para-servir`);
-                        this.jovensParaServir = res.ok ? await res.json() : [];
+                        const [resJovens, resTios] = await Promise.all([
+                            fetch(`/api/montar-encontro/${this.montagemAtiva.id}/jovens-para-servir`),
+                            fetch(`/api/montar-encontro/${this.montagemAtiva.id}/tios-para-servir`)
+                        ]);
+                        this.jovensParaServir = resJovens.ok ? await resJovens.json() : [];
+                        this.tiosParaServir = resTios.ok ? await resTios.json() : [];
                     } catch (err) {
                         console.error(err);
                         this.jovensParaServir = [];
+                        this.tiosParaServir = [];
                     } finally {
                         this.carregandoJovensParaServir = false;
                     }
@@ -712,10 +918,55 @@
                 },
 
                 async marcarTodosFiltrados(valor) {
-                    const alvos = this.jovensParaServirFiltrados.slice();
+                    const alvos = this.jovensMeuEjcParaServirFiltrados.concat(this.jovensOutroEjcParaServirFiltrados);
                     for (const j of alvos) {
                         if (!!j.pode_servir === !!valor) continue;
                         await this.toggleJovemParaServir(j, !!valor);
+                    }
+                },
+                async marcarTodosFiltradosJovens(valor) {
+                    await this.marcarTodosFiltrados(valor);
+                },
+                async marcarTodosFiltradosMeuEjc(valor) {
+                    const alvos = this.jovensMeuEjcParaServirFiltrados.slice();
+                    for (const j of alvos) {
+                        if (!!j.pode_servir === !!valor) continue;
+                        await this.toggleJovemParaServir(j, !!valor);
+                    }
+                },
+                async marcarTodosFiltradosOutroEjc(valor) {
+                    const alvos = this.jovensOutroEjcParaServirFiltrados.slice();
+                    for (const j of alvos) {
+                        if (!!j.pode_servir === !!valor) continue;
+                        await this.toggleJovemParaServir(j, !!valor);
+                    }
+                },
+                async toggleTioParaServir(casal, checked) {
+                    if (!this.montagemAtiva || !this.montagemAtiva.id || !casal || !casal.id) return;
+                    const valorAntigo = !!casal.pode_servir;
+                    casal.pode_servir = !!checked;
+                    try {
+                        const res = await fetch(`/api/montar-encontro/${this.montagemAtiva.id}/tios-para-servir/${casal.id}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ pode_servir: !!checked })
+                        });
+                        if (!res.ok) {
+                            const err = await res.json().catch(() => ({}));
+                            casal.pode_servir = valorAntigo;
+                            await this.uiAlert(err.error || 'Erro ao atualizar tio para servir.');
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        casal.pode_servir = valorAntigo;
+                        await this.uiAlert('Erro ao atualizar tio para servir.');
+                    }
+                },
+                async marcarTodosFiltradosTios(valor) {
+                    const alvos = this.tiosParaServirFiltrados.slice();
+                    for (const t of alvos) {
+                        if (!!t.pode_servir === !!valor) continue;
+                        await this.toggleTioParaServir(t, !!valor);
                     }
                 },
 

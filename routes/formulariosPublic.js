@@ -27,6 +27,18 @@ async function hasColumn(tableName, columnName) {
     return !!(rows && rows[0] && rows[0].cnt > 0);
 }
 
+async function getColumnType(tableName, columnName) {
+    const [rows] = await pool.query(`
+        SELECT DATA_TYPE AS data_type
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = ?
+          AND COLUMN_NAME = ?
+        LIMIT 1
+    `, [tableName, columnName]);
+    return rows && rows[0] ? String(rows[0].data_type || '').toLowerCase() : null;
+}
+
 async function runAlterIgnoreDuplicate(sql) {
     try {
         await pool.query(sql);
@@ -47,6 +59,7 @@ async function garantirEstrutura() {
         await pool.query(`
         CREATE TABLE IF NOT EXISTS formularios_pastas (
             id INT AUTO_INCREMENT PRIMARY KEY,
+            tenant_id INT NOT NULL,
             nome VARCHAR(160) NOT NULL,
             parent_id INT NULL,
             criado_por INT NULL,
@@ -58,6 +71,7 @@ async function garantirEstrutura() {
         await pool.query(`
         CREATE TABLE IF NOT EXISTS formularios_itens (
             id INT AUTO_INCREMENT PRIMARY KEY,
+            tenant_id INT NOT NULL,
             titulo VARCHAR(180) NOT NULL,
             tema VARCHAR(200) NULL,
             tipo VARCHAR(40) NOT NULL DEFAULT 'LISTA_PRESENCA',
@@ -70,6 +84,7 @@ async function garantirEstrutura() {
             coletar_dados_avulsos TINYINT(1) NOT NULL DEFAULT 0,
             permitir_ja_fez_ejc TINYINT(1) NOT NULL DEFAULT 1,
             permitir_nao_fez_ejc TINYINT(1) NOT NULL DEFAULT 1,
+            pergunta_texto_obrigatoria VARCHAR(220) NULL,
             criado_por INT NULL,
             ativo TINYINT(1) NOT NULL DEFAULT 1,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -80,6 +95,7 @@ async function garantirEstrutura() {
         await pool.query(`
         CREATE TABLE IF NOT EXISTS formularios_presencas (
             id INT AUTO_INCREMENT PRIMARY KEY,
+            tenant_id INT NOT NULL,
             formulario_id INT NOT NULL,
             jovem_id INT NULL,
             nome_completo VARCHAR(180) NULL,
@@ -88,10 +104,25 @@ async function garantirEstrutura() {
             status_ejc VARCHAR(20) NULL,
             origem_ja_fez VARCHAR(20) NULL,
             outro_ejc_id INT NULL,
+            resposta_texto_obrigatoria VARCHAR(255) NULL,
             registrado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             ip VARCHAR(64) NULL,
             user_agent VARCHAR(255) NULL,
             UNIQUE KEY uniq_formulario_jovem (formulario_id, jovem_id)
+        )
+        `);
+
+        await pool.query(`
+        CREATE TABLE IF NOT EXISTS formularios_respostas (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            tenant_id INT NOT NULL,
+            formulario_id INT NOT NULL,
+            nome_referencia VARCHAR(180) NULL,
+            telefone_referencia VARCHAR(30) NULL,
+            resposta_json LONGTEXT NOT NULL,
+            registrado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            ip VARCHAR(64) NULL,
+            user_agent VARCHAR(255) NULL
         )
         `);
 
@@ -106,6 +137,14 @@ async function garantirEstrutura() {
         const comTema = await hasColumn('formularios_itens', 'tema');
         if (!comTema) {
             await runAlterIgnoreDuplicate('ALTER TABLE formularios_itens ADD COLUMN tema VARCHAR(200) NULL AFTER titulo');
+        }
+        const comDescricao = await hasColumn('formularios_itens', 'descricao');
+        if (!comDescricao) {
+            await runAlterIgnoreDuplicate('ALTER TABLE formularios_itens ADD COLUMN descricao TEXT NULL AFTER tema');
+        }
+        const comCamposConfig = await hasColumn('formularios_itens', 'campos_config_json');
+        if (!comCamposConfig) {
+            await runAlterIgnoreDuplicate('ALTER TABLE formularios_itens ADD COLUMN campos_config_json LONGTEXT NULL AFTER pergunta_texto_obrigatoria');
         }
         const comCriarLista = await hasColumn('formularios_itens', 'criar_lista_presenca');
         if (!comCriarLista) {
@@ -126,6 +165,44 @@ async function garantirEstrutura() {
         const comPermitirNaoFez = await hasColumn('formularios_itens', 'permitir_nao_fez_ejc');
         if (!comPermitirNaoFez) {
             await runAlterIgnoreDuplicate('ALTER TABLE formularios_itens ADD COLUMN permitir_nao_fez_ejc TINYINT(1) NOT NULL DEFAULT 1 AFTER permitir_ja_fez_ejc');
+        }
+        const comPerguntaTextoObrigatoria = await hasColumn('formularios_itens', 'pergunta_texto_obrigatoria');
+        if (!comPerguntaTextoObrigatoria) {
+            await runAlterIgnoreDuplicate('ALTER TABLE formularios_itens ADD COLUMN pergunta_texto_obrigatoria VARCHAR(220) NULL AFTER permitir_nao_fez_ejc');
+        }
+        const comLinkInicio = await hasColumn('formularios_itens', 'link_inicio_hora');
+        if (!comLinkInicio) {
+            await runAlterIgnoreDuplicate('ALTER TABLE formularios_itens ADD COLUMN link_inicio_hora TIME NULL AFTER permitir_nao_fez_ejc');
+        } else {
+            const tipoLinkInicio = await getColumnType('formularios_itens', 'link_inicio_hora');
+            if (tipoLinkInicio && tipoLinkInicio !== 'time') {
+                await pool.query('ALTER TABLE formularios_itens MODIFY COLUMN link_inicio_hora TIME NULL');
+            }
+        }
+        const comLinkFim = await hasColumn('formularios_itens', 'link_fim_hora');
+        if (!comLinkFim) {
+            await runAlterIgnoreDuplicate('ALTER TABLE formularios_itens ADD COLUMN link_fim_hora TIME NULL AFTER link_inicio_hora');
+        } else {
+            const tipoLinkFim = await getColumnType('formularios_itens', 'link_fim_hora');
+            if (tipoLinkFim && tipoLinkFim !== 'time') {
+                await pool.query('ALTER TABLE formularios_itens MODIFY COLUMN link_fim_hora TIME NULL');
+            }
+        }
+        const comTenantPastas = await hasColumn('formularios_pastas', 'tenant_id');
+        if (!comTenantPastas) {
+            await runAlterIgnoreDuplicate('ALTER TABLE formularios_pastas ADD COLUMN tenant_id INT NULL AFTER id');
+        }
+        const comTenantItens = await hasColumn('formularios_itens', 'tenant_id');
+        if (!comTenantItens) {
+            await runAlterIgnoreDuplicate('ALTER TABLE formularios_itens ADD COLUMN tenant_id INT NULL AFTER id');
+        }
+        const comTenantPresencas = await hasColumn('formularios_presencas', 'tenant_id');
+        if (!comTenantPresencas) {
+            await runAlterIgnoreDuplicate('ALTER TABLE formularios_presencas ADD COLUMN tenant_id INT NULL AFTER id');
+        }
+        const comTenantRespostas = await hasColumn('formularios_respostas', 'tenant_id');
+        if (!comTenantRespostas) {
+            await runAlterIgnoreDuplicate('ALTER TABLE formularios_respostas ADD COLUMN tenant_id INT NULL AFTER id');
         }
 
         const comNomeCompleto = await hasColumn('formularios_presencas', 'nome_completo');
@@ -151,6 +228,10 @@ async function garantirEstrutura() {
         const comOutroEjcId = await hasColumn('formularios_presencas', 'outro_ejc_id');
         if (!comOutroEjcId) {
             await runAlterIgnoreDuplicate('ALTER TABLE formularios_presencas ADD COLUMN outro_ejc_id INT NULL AFTER origem_ja_fez');
+        }
+        const comRespostaTextoObrigatoria = await hasColumn('formularios_presencas', 'resposta_texto_obrigatoria');
+        if (!comRespostaTextoObrigatoria) {
+            await runAlterIgnoreDuplicate('ALTER TABLE formularios_presencas ADD COLUMN resposta_texto_obrigatoria VARCHAR(255) NULL AFTER outro_ejc_id');
         }
         const [jovemCol] = await pool.query(`
         SELECT IS_NULLABLE AS is_nullable
@@ -180,6 +261,93 @@ function toPositiveInt(value) {
     return Number.isInteger(n) && n > 0 ? n : null;
 }
 
+function parseJsonSafe(value, fallback) {
+    if (value === null || value === undefined || value === '') return fallback;
+    if (typeof value === 'object') return value;
+    try {
+        return JSON.parse(String(value));
+    } catch (_) {
+        return fallback;
+    }
+}
+
+function sanitizeCampoTipo(value) {
+    const tipo = String(value || '').trim().toLowerCase();
+    const allowed = new Set(['texto', 'textarea', 'telefone', 'email', 'data', 'numero', 'select', 'radio', 'checkbox']);
+    return allowed.has(tipo) ? tipo : 'texto';
+}
+
+function sanitizeCamposConfig(value) {
+    const raw = Array.isArray(value) ? value : parseJsonSafe(value, []);
+    if (!Array.isArray(raw)) return [];
+    const out = [];
+    const ids = new Set();
+
+    for (const item of raw) {
+        if (!item || typeof item !== 'object') continue;
+        const label = String(item.label || item.titulo || '').trim().slice(0, 180);
+        if (!label) continue;
+        const baseId = String(item.id || label)
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, '_')
+            .replace(/^_+|_+$/g, '')
+            .slice(0, 60) || `campo_${out.length + 1}`;
+        let finalId = baseId;
+        let seq = 2;
+        while (ids.has(finalId)) {
+            finalId = `${baseId}_${seq}`;
+            seq += 1;
+        }
+        ids.add(finalId);
+        const tipo = sanitizeCampoTipo(item.tipo);
+        let opcoes = Array.isArray(item.opcoes) ? item.opcoes : parseJsonSafe(item.opcoes, []);
+        if (!Array.isArray(opcoes)) opcoes = [];
+        opcoes = opcoes
+            .map((op) => String(op || '').trim().slice(0, 120))
+            .filter(Boolean)
+            .slice(0, 30);
+
+        out.push({
+            id: finalId,
+            label,
+            tipo,
+            obrigatorio: !!item.obrigatorio,
+            placeholder: String(item.placeholder || '').trim().slice(0, 140) || null,
+            opcoes: ['select', 'radio', 'checkbox'].includes(tipo) ? opcoes : []
+        });
+    }
+    return out;
+}
+
+function parseDbTimeToSeconds(value) {
+    if (!value) return null;
+    let txt = String(value).trim();
+    if (!txt) return null;
+    if (txt.includes(' ')) txt = txt.split(' ')[1] || '';
+    if (txt.includes('T')) txt = txt.split('T')[1] || '';
+    if (!txt) return null;
+    const parts = txt.split(':');
+    if (parts.length < 2) return null;
+    const h = Number(parts[0]);
+    const m = Number(parts[1]);
+    const s = Number(parts[2] || 0);
+    if (!Number.isInteger(h) || !Number.isInteger(m) || !Number.isInteger(s)) return null;
+    if (h < 0 || h > 23 || m < 0 || m > 59 || s < 0 || s > 59) return null;
+    return (h * 3600) + (m * 60) + s;
+}
+
+function isLinkDisponivel(form) {
+    const now = new Date();
+    const agoraSegundos = (now.getHours() * 3600) + (now.getMinutes() * 60) + now.getSeconds();
+    const inicio = parseDbTimeToSeconds(form && form.link_inicio_hora);
+    const fim = parseDbTimeToSeconds(form && form.link_fim_hora);
+    if (inicio !== null && agoraSegundos < inicio) return false;
+    if (fim !== null && agoraSegundos > fim) return false;
+    return true;
+}
+
 // GET /api/formularios/public/:token/outro-ejc-jovens
 router.get('/:token/outro-ejc-jovens', async (req, res) => {
     try {
@@ -189,17 +357,22 @@ router.get('/:token/outro-ejc-jovens', async (req, res) => {
         if (!token) return res.status(400).json({ error: 'Token inválido.' });
 
         const [forms] = await pool.query(
-            `SELECT id, ativo, permitir_ja_fez_ejc
+            `SELECT id, ativo, permitir_ja_fez_ejc, tenant_id, link_inicio_hora, link_fim_hora
              FROM formularios_itens
              WHERE token = ?
              LIMIT 1`,
             [token]
         );
         if (!forms.length || !forms[0].ativo) return res.status(404).json({ error: 'Formulário não encontrado.' });
+        const tenantId = Number(forms[0].tenant_id || 0);
+        if (!tenantId) return res.status(400).json({ error: 'Tenant inválido no formulário.' });
+        if (!isLinkDisponivel(forms[0])) {
+            return res.status(403).json({ error: 'Este link está fora do período de disponibilidade.' });
+        }
         if (Number(forms[0].permitir_ja_fez_ejc) !== 1) return res.json([]);
 
         const hasOutrosEjcs = await hasTable('outros_ejcs');
-        const params = [];
+        const params = [tenantId];
         let whereOutroEjc = '';
         if (outroEjcId) {
             whereOutroEjc = 'AND fp.outro_ejc_id = ?';
@@ -215,8 +388,9 @@ router.get('/:token/outro-ejc-jovens', async (req, res) => {
                 MAX(fp.registrado_em) AS ultimo_registro
                 ${hasOutrosEjcs ? ', oe.nome AS outro_ejc_nome, oe.paroquia AS outro_ejc_paroquia' : ", NULL AS outro_ejc_nome, NULL AS outro_ejc_paroquia"}
             FROM formularios_presencas fp
-            ${hasOutrosEjcs ? 'LEFT JOIN outros_ejcs oe ON oe.id = fp.outro_ejc_id' : ''}
-            WHERE fp.status_ejc = 'JA_FIZ'
+            ${hasOutrosEjcs ? 'LEFT JOIN outros_ejcs oe ON oe.id = fp.outro_ejc_id AND oe.tenant_id = fp.tenant_id' : ''}
+            WHERE fp.tenant_id = ?
+              AND fp.status_ejc = 'JA_FIZ'
               AND fp.origem_ja_fez = 'OUTRO_EJC'
               AND COALESCE(TRIM(fp.nome_completo), '') <> ''
               AND COALESCE(TRIM(fp.telefone), '') <> ''
@@ -235,13 +409,14 @@ router.get('/:token/outro-ejc-jovens', async (req, res) => {
                 NULL AS ultimo_registro
                 ${hasOutrosEjcs ? ', oe.nome AS outro_ejc_nome, oe.paroquia AS outro_ejc_paroquia' : ", NULL AS outro_ejc_nome, NULL AS outro_ejc_paroquia"}
             FROM jovens j
-            ${hasOutrosEjcs ? 'LEFT JOIN outros_ejcs oe ON oe.id = j.outro_ejc_id' : ''}
-            WHERE COALESCE(j.origem_ejc_tipo, 'INCONFIDENTES') = 'OUTRO_EJC'
+            ${hasOutrosEjcs ? 'LEFT JOIN outros_ejcs oe ON oe.id = j.outro_ejc_id AND oe.tenant_id = j.tenant_id' : ''}
+            WHERE j.tenant_id = ?
+              AND COALESCE(j.origem_ejc_tipo, 'INCONFIDENTES') = 'OUTRO_EJC'
               AND COALESCE(TRIM(j.nome_completo), '') <> ''
               AND COALESCE(TRIM(j.telefone), '') <> ''
               ${outroEjcId ? 'AND j.outro_ejc_id = ?' : ''}
             ORDER BY j.nome_completo ASC
-        `, outroEjcId ? [outroEjcId] : []);
+        `, outroEjcId ? [tenantId, outroEjcId] : [tenantId]);
 
         const mapa = new Map();
         const normalizarChave = (nome, telefone, outroId) => `${String(nome || '').trim().toLowerCase()}|${String(telefone || '').replace(/\D/g, '')}|${Number(outroId || 0)}`;
@@ -293,9 +468,9 @@ router.get('/:token', async (req, res) => {
         if (!token) return res.status(400).json({ error: 'Token inválido.' });
 
         const [forms] = await pool.query(
-            `SELECT id, titulo, tema, tipo, token, ativo, evento_data, evento_hora, criar_lista_presenca,
-                    usar_lista_jovens, coletar_dados_avulsos,
-                    permitir_ja_fez_ejc, permitir_nao_fez_ejc
+            `SELECT id, titulo, tema, descricao, tipo, token, ativo, evento_data, evento_hora, criar_lista_presenca,
+                    usar_lista_jovens, coletar_dados_avulsos, tenant_id, pergunta_texto_obrigatoria, link_inicio_hora, link_fim_hora,
+                    permitir_ja_fez_ejc, permitir_nao_fez_ejc, campos_config_json
              FROM formularios_itens
              WHERE token = ?
              LIMIT 1`,
@@ -303,32 +478,153 @@ router.get('/:token', async (req, res) => {
         );
         if (!forms.length || !forms[0].ativo) return res.status(404).json({ error: 'Formulário não encontrado.' });
         const form = forms[0];
-        if (Number(form.criar_lista_presenca) !== 1) {
+        if (!isLinkDisponivel(form)) {
+            return res.status(403).json({ error: 'Este link está fora do período de disponibilidade.' });
+        }
+        if (String(form.tipo || '').toUpperCase() !== 'INSCRICAO' && Number(form.criar_lista_presenca) !== 1) {
             return res.status(400).json({ error: 'Este evento não possui lista de presença ativa.' });
         }
 
+        const camposConfig = sanitizeCamposConfig(form.campos_config_json);
+
         let jovens = [];
-        if (Number(form.permitir_ja_fez_ejc) === 1 && Number(form.usar_lista_jovens) === 1) {
-            const [rows] = await pool.query('SELECT id, nome_completo FROM jovens ORDER BY nome_completo ASC');
+        if (String(form.tipo || '').toUpperCase() !== 'INSCRICAO' && Number(form.permitir_ja_fez_ejc) === 1 && Number(form.usar_lista_jovens) === 1) {
+            const [rows] = await pool.query(
+                'SELECT id, nome_completo FROM jovens WHERE tenant_id = ? ORDER BY nome_completo ASC',
+                [form.tenant_id]
+            );
             jovens = rows;
         }
         let outrosEjcs = [];
-        if (Number(form.permitir_ja_fez_ejc) === 1) {
+        if (String(form.tipo || '').toUpperCase() !== 'INSCRICAO' && Number(form.permitir_ja_fez_ejc) === 1) {
             const hasOutrosEjcs = await hasTable('outros_ejcs');
             if (hasOutrosEjcs) {
-                const [rows] = await pool.query('SELECT id, nome, paroquia, bairro FROM outros_ejcs ORDER BY nome ASC');
+                const [rows] = await pool.query(
+                    'SELECT id, nome, paroquia, bairro FROM outros_ejcs WHERE tenant_id = ? ORDER BY nome ASC',
+                    [form.tenant_id]
+                );
                 outrosEjcs = rows;
             }
         }
 
         return res.json({
-            formulario: form,
+            formulario: {
+                ...form,
+                campos_config: camposConfig
+            },
             jovens,
             outros_ejcs: outrosEjcs
         });
     } catch (err) {
         console.error('Erro ao carregar formulário público:', err);
         return res.status(500).json({ error: 'Erro ao carregar formulário.' });
+    }
+});
+
+router.post('/:token/respostas', async (req, res) => {
+    try {
+        await garantirEstrutura();
+        const token = String(req.params.token || '').trim();
+        if (!token) return res.status(400).json({ error: 'Token inválido.' });
+
+        const [forms] = await pool.query(
+            `SELECT id, ativo, tipo, tenant_id, link_inicio_hora, link_fim_hora, campos_config_json
+             FROM formularios_itens
+             WHERE token = ?
+             LIMIT 1`,
+            [token]
+        );
+        if (!forms.length || !forms[0].ativo) return res.status(404).json({ error: 'Formulário não encontrado.' });
+        const form = forms[0];
+        if (String(form.tipo || '').toUpperCase() !== 'INSCRICAO') {
+            return res.status(400).json({ error: 'Este link não é de um formulário de inscrição.' });
+        }
+        if (!isLinkDisponivel(form)) {
+            return res.status(403).json({ error: 'Este link está fora do período de disponibilidade.' });
+        }
+        const tenantId = Number(form.tenant_id || 0);
+        if (!tenantId) return res.status(400).json({ error: 'Tenant inválido no formulário.' });
+
+        const camposConfig = sanitizeCamposConfig(form.campos_config_json);
+        if (!camposConfig.length) {
+            return res.status(400).json({ error: 'Formulário sem campos configurados.' });
+        }
+        const respostas = parseJsonSafe(req.body.respostas, {});
+        if (!respostas || typeof respostas !== 'object') {
+            return res.status(400).json({ error: 'Respostas inválidas.' });
+        }
+
+        const respostaFinal = {};
+        for (const campo of camposConfig) {
+            const valorBruto = respostas[campo.id];
+            let valor = valorBruto;
+
+            if (campo.tipo === 'checkbox') {
+                const arr = Array.isArray(valorBruto) ? valorBruto : (valorBruto ? [valorBruto] : []);
+                valor = arr.map((v) => String(v || '').trim()).filter(Boolean);
+                if (campo.opcoes.length) {
+                    valor = valor.filter((v) => campo.opcoes.includes(v));
+                }
+                if (campo.obrigatorio && !valor.length) {
+                    return res.status(400).json({ error: `Preencha o campo obrigatório: ${campo.label}.` });
+                }
+            } else {
+                valor = String(valorBruto || '').trim();
+                if (campo.obrigatorio && !valor) {
+                    return res.status(400).json({ error: `Preencha o campo obrigatório: ${campo.label}.` });
+                }
+                if (valor && (campo.tipo === 'select' || campo.tipo === 'radio') && campo.opcoes.length && !campo.opcoes.includes(valor)) {
+                    return res.status(400).json({ error: `Valor inválido no campo: ${campo.label}.` });
+                }
+            }
+            respostaFinal[campo.id] = valor;
+        }
+
+        let nomeReferencia = null;
+        let telefoneReferencia = null;
+        for (const campo of camposConfig) {
+            const valor = respostaFinal[campo.id];
+            const label = String(campo.label || '').toLowerCase();
+            if (!nomeReferencia && typeof valor === 'string' && valor && (label.includes('nome') || campo.id.includes('nome'))) {
+                nomeReferencia = valor.slice(0, 180);
+            }
+            if (!telefoneReferencia && typeof valor === 'string' && valor && (label.includes('telefone') || campo.id.includes('telefone') || campo.tipo === 'telefone')) {
+                telefoneReferencia = valor.slice(0, 30);
+            }
+        }
+
+        const payload = {
+            campos: camposConfig.map((campo) => ({
+                id: campo.id,
+                label: campo.label,
+                tipo: campo.tipo,
+                valor: respostaFinal[campo.id]
+            }))
+        };
+
+        const ipRaw = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+        const ip = String(Array.isArray(ipRaw) ? ipRaw[0] : ipRaw).slice(0, 64) || null;
+        const userAgent = String(req.headers['user-agent'] || '').slice(0, 255) || null;
+
+        await pool.query(
+            `INSERT INTO formularios_respostas
+                (tenant_id, formulario_id, nome_referencia, telefone_referencia, resposta_json, ip, user_agent)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [
+                tenantId,
+                form.id,
+                nomeReferencia,
+                telefoneReferencia,
+                JSON.stringify(payload),
+                ip,
+                userAgent
+            ]
+        );
+
+        return res.json({ message: 'Inscrição enviada com sucesso.' });
+    } catch (err) {
+        console.error('Erro ao registrar inscrição:', err);
+        return res.status(500).json({ error: 'Erro ao enviar inscrição.' });
     }
 });
 
@@ -346,10 +642,11 @@ router.post('/:token/presencas', async (req, res) => {
         const modoOutroEjc = String(req.body.primeira_vez_outro_ejc || '').trim().toUpperCase();
         const participanteHistoricoId = toPositiveInt(req.body.participante_historico_id);
         const participanteReferencia = String(req.body.participante_referencia || '').trim();
+        const respostaTextoObrigatoria = String(req.body.resposta_texto_obrigatoria || '').trim();
         if (!token) return res.status(400).json({ error: 'Dados inválidos.' });
 
         const [forms] = await pool.query(
-            `SELECT id, ativo, criar_lista_presenca, usar_lista_jovens, coletar_dados_avulsos, permitir_ja_fez_ejc, permitir_nao_fez_ejc
+            `SELECT id, ativo, tipo, criar_lista_presenca, usar_lista_jovens, coletar_dados_avulsos, permitir_ja_fez_ejc, permitir_nao_fez_ejc, tenant_id, pergunta_texto_obrigatoria, link_inicio_hora, link_fim_hora
              FROM formularios_itens
              WHERE token = ?
              LIMIT 1`,
@@ -357,8 +654,19 @@ router.post('/:token/presencas', async (req, res) => {
         );
         if (!forms.length || !forms[0].ativo) return res.status(404).json({ error: 'Formulário não encontrado.' });
         const form = forms[0];
+        if (String(form.tipo || '').toUpperCase() === 'INSCRICAO') {
+            return res.status(400).json({ error: 'Este link usa formulário de inscrição personalizada.' });
+        }
+        const tenantId = Number(form.tenant_id || 0);
+        if (!tenantId) return res.status(400).json({ error: 'Tenant inválido no formulário.' });
+        if (!isLinkDisponivel(form)) {
+            return res.status(403).json({ error: 'Este link está fora do período de disponibilidade.' });
+        }
         if (Number(form.criar_lista_presenca) !== 1) {
             return res.status(400).json({ error: 'Este evento não possui lista de presença ativa.' });
+        }
+        if (String(form.pergunta_texto_obrigatoria || '').trim() && !respostaTextoObrigatoria) {
+            return res.status(400).json({ error: 'Responda a pergunta obrigatória do formulário.' });
         }
 
         const permiteJaFez = Number(form.permitir_ja_fez_ejc) === 1;
@@ -397,7 +705,10 @@ router.post('/:token/presencas', async (req, res) => {
                     return res.status(400).json({ error: 'Este formulário não aceita seleção da lista de jovens.' });
                 }
                 if (!jovemId) return res.status(400).json({ error: 'Selecione seu nome na lista de jovens.' });
-                const [jovemExists] = await pool.query('SELECT id, nome_completo, telefone FROM jovens WHERE id = ? LIMIT 1', [jovemId]);
+                const [jovemExists] = await pool.query(
+                    'SELECT id, nome_completo, telefone FROM jovens WHERE id = ? AND tenant_id = ? LIMIT 1',
+                    [jovemId, tenantId]
+                );
                 if (!jovemExists.length) return res.status(400).json({ error: 'Jovem inválido.' });
                 jovemIdFinal = jovemId;
                 nomeFinal = jovemExists[0].nome_completo || null;
@@ -415,7 +726,10 @@ router.post('/:token/presencas', async (req, res) => {
                     if (!hasOutrosEjcs) {
                         return res.status(400).json({ error: 'Cadastro de outros EJCs não está disponível no momento.' });
                     }
-                    const [outroEjcExists] = await pool.query('SELECT id, nome, paroquia FROM outros_ejcs WHERE id = ? LIMIT 1', [outroEjcId]);
+                    const [outroEjcExists] = await pool.query(
+                        'SELECT id, nome, paroquia FROM outros_ejcs WHERE id = ? AND tenant_id = ? LIMIT 1',
+                        [outroEjcId, tenantId]
+                    );
                     if (!outroEjcExists.length) return res.status(400).json({ error: 'Outro EJC inválido.' });
                     nomeFinal = nomeCompleto;
                     telefoneFinal = telefone;
@@ -433,9 +747,10 @@ router.post('/:token/presencas', async (req, res) => {
                             SELECT id, nome_completo, telefone, outro_ejc_id
                             FROM jovens
                             WHERE id = ?
+                              AND tenant_id = ?
                               AND COALESCE(origem_ejc_tipo, 'INCONFIDENTES') = 'OUTRO_EJC'
                             LIMIT 1
-                        `, [idRef]);
+                        `, [idRef, tenantId]);
                         if (!jovensRows.length) {
                             return res.status(400).json({ error: 'Cadastro do jovem de outro EJC não encontrado.' });
                         }
@@ -447,7 +762,10 @@ router.post('/:token/presencas', async (req, res) => {
                         if (!hasOutrosEjcs) {
                             return res.status(400).json({ error: 'Cadastro de outros EJCs não está disponível no momento.' });
                         }
-                        const [outroEjcExists] = await pool.query('SELECT id, nome, paroquia FROM outros_ejcs WHERE id = ? LIMIT 1', [jovem.outro_ejc_id]);
+                        const [outroEjcExists] = await pool.query(
+                            'SELECT id, nome, paroquia FROM outros_ejcs WHERE id = ? AND tenant_id = ? LIMIT 1',
+                            [jovem.outro_ejc_id, tenantId]
+                        );
                         if (!outroEjcExists.length) return res.status(400).json({ error: 'Outro EJC vinculado não encontrado.' });
 
                         nomeFinal = String(jovem.nome_completo || '').trim() || null;
@@ -460,10 +778,11 @@ router.post('/:token/presencas', async (req, res) => {
                             SELECT id, nome_completo, telefone, outro_ejc_id
                             FROM formularios_presencas
                             WHERE id = ?
+                              AND tenant_id = ?
                               AND status_ejc = 'JA_FIZ'
                               AND origem_ja_fez = 'OUTRO_EJC'
                             LIMIT 1
-                        `, [idBuscaHistorico]);
+                        `, [idBuscaHistorico, tenantId]);
                         if (!historicoRows.length) {
                             return res.status(400).json({ error: 'Registro do jovem não encontrado.' });
                         }
@@ -475,7 +794,10 @@ router.post('/:token/presencas', async (req, res) => {
                         if (!hasOutrosEjcs) {
                             return res.status(400).json({ error: 'Cadastro de outros EJCs não está disponível no momento.' });
                         }
-                        const [outroEjcExists] = await pool.query('SELECT id, nome, paroquia FROM outros_ejcs WHERE id = ? LIMIT 1', [historico.outro_ejc_id]);
+                        const [outroEjcExists] = await pool.query(
+                            'SELECT id, nome, paroquia FROM outros_ejcs WHERE id = ? AND tenant_id = ? LIMIT 1',
+                            [historico.outro_ejc_id, tenantId]
+                        );
                         if (!outroEjcExists.length) return res.status(400).json({ error: 'Outro EJC vinculado não encontrado.' });
 
                         nomeFinal = String(historico.nome_completo || '').trim() || null;
@@ -505,9 +827,10 @@ router.post('/:token/presencas', async (req, res) => {
         try {
             await pool.query(
                 `INSERT INTO formularios_presencas
-                    (formulario_id, jovem_id, nome_completo, telefone, ejc_origem, status_ejc, origem_ja_fez, outro_ejc_id, ip, user_agent)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    (tenant_id, formulario_id, jovem_id, nome_completo, telefone, ejc_origem, status_ejc, origem_ja_fez, outro_ejc_id, resposta_texto_obrigatoria, ip, user_agent)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
+                    tenantId,
                     form.id,
                     jovemIdFinal,
                     nomeFinal,
@@ -516,6 +839,7 @@ router.post('/:token/presencas', async (req, res) => {
                     statusEjc,
                     origemJaFezFinal,
                     outroEjcIdFinal,
+                    String(form.pergunta_texto_obrigatoria || '').trim() ? respostaTextoObrigatoria : null,
                     ip,
                     userAgent
                 ]

@@ -5,6 +5,7 @@ const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 const { getTenantId } = require('../lib/tenantIsolation');
+const { ensurePastoraisTables } = require('../lib/pastorais');
 
 const uploadDirAbs = path.join(__dirname, '..', 'public', 'uploads', 'fotos_jovens');
 
@@ -1467,6 +1468,79 @@ router.delete('/observacoes/:id', async (req, res) => {
     } catch (err) {
         console.error('Erro ao remover observação:', err);
         return res.status(500).json({ error: 'Erro ao remover observação.' });
+    }
+});
+
+// --- PASTORAIS (VÍNCULO COM JOVENS) ---
+
+router.get('/:id/pastorais', async (req, res) => {
+    try {
+        await ensurePastoraisTables();
+        const tenantId = getTenantId(req);
+        const jovemId = Number(req.params.id);
+        if (!jovemId) return res.status(400).json({ error: 'Jovem inválido.' });
+
+        const [rows] = await pool.query(
+            `SELECT p.id, p.nome
+             FROM pastorais_jovens pj
+             JOIN pastorais p ON p.id = pj.pastoral_id AND p.tenant_id = pj.tenant_id
+             WHERE pj.tenant_id = ? AND pj.jovem_id = ?
+             ORDER BY p.nome ASC`,
+            [tenantId, jovemId]
+        );
+        return res.json(rows);
+    } catch (err) {
+        console.error('Erro ao listar pastorais do jovem:', err);
+        return res.status(500).json({ error: 'Erro ao listar pastorais.' });
+    }
+});
+
+router.put('/:id/pastorais', async (req, res) => {
+    try {
+        await ensurePastoraisTables();
+        const tenantId = getTenantId(req);
+        const jovemId = Number(req.params.id);
+        if (!jovemId) return res.status(400).json({ error: 'Jovem inválido.' });
+
+        const pastorais = Array.isArray(req.body.pastorais) ? req.body.pastorais : [];
+        const ids = pastorais
+            .map((v) => Number(v))
+            .filter((v) => Number.isFinite(v) && v > 0);
+
+        // valida se jovem existe
+        const [[jovem]] = await pool.query(
+            'SELECT id FROM jovens WHERE id = ? AND tenant_id = ? LIMIT 1',
+            [jovemId, tenantId]
+        );
+        if (!jovem) return res.status(404).json({ error: 'Jovem não encontrado.' });
+
+        if (ids.length) {
+            const [valid] = await pool.query(
+                `SELECT id FROM pastorais WHERE tenant_id = ? AND id IN (${ids.map(() => '?').join(',')})`,
+                [tenantId, ...ids]
+            );
+            const validSet = new Set((valid || []).map((v) => Number(v.id)));
+            const invalid = ids.filter((v) => !validSet.has(v));
+            if (invalid.length) return res.status(400).json({ error: 'Pastoral inválida.' });
+        }
+
+        await pool.query(
+            'DELETE FROM pastorais_jovens WHERE tenant_id = ? AND jovem_id = ?',
+            [tenantId, jovemId]
+        );
+
+        if (ids.length) {
+            const values = ids.map((id) => [tenantId, id, jovemId]);
+            await pool.query(
+                'INSERT INTO pastorais_jovens (tenant_id, pastoral_id, jovem_id) VALUES ?',
+                [values]
+            );
+        }
+
+        return res.json({ message: 'Pastorais atualizadas com sucesso.' });
+    } catch (err) {
+        console.error('Erro ao atualizar pastorais do jovem:', err);
+        return res.status(500).json({ error: 'Erro ao atualizar pastorais.' });
     }
 });
 

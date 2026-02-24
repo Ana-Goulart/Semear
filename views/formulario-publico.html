@@ -4,123 +4,96 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Formulário de Presença</title>
+    <title>Formulario Publico</title>
+    <link rel="icon" type="image/png" href="/assets/logo-oficial.png">
+    <link rel="apple-touch-icon" href="/assets/logo-oficial.png">
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/js/menu.js"></script>
+    <style>
+        body {
+            min-height: 100vh;
+            background: linear-gradient(150deg, #f8fafc 0%, #e2e8f0 40%, #dbeafe 100%);
+        }
+
+        .shell {
+            max-width: 820px;
+            margin: 0 auto;
+        }
+
+        .card-form {
+            border-radius: 16px;
+            border: 0;
+            box-shadow: 0 24px 42px rgba(15, 23, 42, 0.16);
+        }
+
+        .header {
+            background: linear-gradient(120deg, #0f172a 0%, #0ea5e9 100%);
+            color: #fff;
+            border-radius: 12px;
+            padding: 18px;
+        }
+    </style>
 </head>
 
-<body class="bg-light">
-    <div id="app" class="container py-4">
-        <div class="row justify-content-center">
-            <div class="col-12 col-md-8 col-lg-6">
-                <div class="card shadow-sm border-0">
-                    <div class="card-body p-4">
-                        <h4 class="mb-1">{{ tituloEvento || 'Lista de Presença' }}</h4>
-                        <p v-if="temaEvento" class="text-muted mb-1">Tema: {{ temaEvento }}</p>
-                        <p class="text-muted mb-1">{{ subtituloFormulario }}</p>
-                        <p v-if="perguntasSelecionadasLabel" class="text-muted mb-1">{{ perguntasSelecionadasLabel }}</p>
-                        <p v-if="dataHoraEventoLabel" class="text-muted mb-4">{{ dataHoraEventoLabel }}</p>
-                        <p v-else class="mb-4"></p>
+<body>
+    <div id="app" class="container py-4 py-md-5">
+        <div class="shell">
+            <div class="card card-form">
+                <div class="card-body p-4 p-md-5">
+                    <div class="header mb-4">
+                        <h4 class="mb-1">{{ form.titulo || 'Inscricao' }}</h4>
+                        <p class="mb-0 opacity-75">{{ form.descricao || form.tema || 'Preencha os dados para concluir sua inscricao.' }}</p>
+                    </div>
 
-                        <div v-if="loading" class="text-muted">Carregando formulário...</div>
+                    <div v-if="loading" class="text-muted">Carregando formulario...</div>
+                    <div v-else>
+                        <div v-if="tipo==='INSCRICAO'">
+                            <div class="mb-3" v-for="campo in campos" :key="campo.id">
+                                <label class="form-label">{{ campo.label }} <span v-if="campo.obrigatorio" class="text-danger">*</span></label>
+
+                                <input v-if="['texto','telefone','email','data','numero'].includes(campo.tipo)"
+                                    class="form-control"
+                                    :type="inputType(campo.tipo)"
+                                    :placeholder="campo.placeholder || ''"
+                                    v-model="respostas[campo.id]">
+
+                                <textarea v-else-if="campo.tipo==='textarea'" class="form-control" rows="3" :placeholder="campo.placeholder || ''" v-model="respostas[campo.id]"></textarea>
+
+                                <select v-else-if="campo.tipo==='select'" class="form-select" v-model="respostas[campo.id]">
+                                    <option value="">Selecione...</option>
+                                    <option v-for="op in campo.opcoes" :key="op" :value="op">{{ op }}</option>
+                                </select>
+
+                                <div v-else-if="campo.tipo==='radio'">
+                                    <div class="form-check" v-for="op in campo.opcoes" :key="`${campo.id}-${op}`">
+                                        <input class="form-check-input" type="radio" :name="campo.id" :id="`${campo.id}-${op}`" :value="op" v-model="respostas[campo.id]">
+                                        <label class="form-check-label" :for="`${campo.id}-${op}`">{{ op }}</label>
+                                    </div>
+                                </div>
+
+                                <div v-else-if="campo.tipo==='checkbox'">
+                                    <div class="form-check" v-for="op in campo.opcoes" :key="`${campo.id}-${op}`">
+                                        <input class="form-check-input" type="checkbox" :id="`${campo.id}-${op}`" :value="op" v-model="respostas[campo.id]">
+                                        <label class="form-check-label" :for="`${campo.id}-${op}`">{{ op }}</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button class="btn btn-primary w-100" @click="enviarInscricao" :disabled="saving">{{ saving ? 'Enviando...' : 'Enviar inscricao' }}</button>
+                        </div>
+
                         <div v-else>
+                            <p class="text-muted">Formulario de presenca padrao</p>
                             <div class="mb-3">
-                                <label class="form-label d-block">Você já fez EJC?</label>
-                                <div class="form-check" v-if="permitirJaFezEJC">
-                                    <input class="form-check-input" type="radio" id="statusJaFiz" value="JA_FIZ" v-model="statusEJC">
-                                    <label class="form-check-label" for="statusJaFiz">Já fiz EJC</label>
-                                </div>
-                                <div class="form-check" v-if="permitirNaoFezEJC">
-                                    <input class="form-check-input" type="radio" id="statusNaoFiz" value="NAO_FIZ" v-model="statusEJC">
-                                    <label class="form-check-label" for="statusNaoFiz">Não fiz EJC</label>
-                                </div>
+                                <label class="form-label">Nome completo</label>
+                                <input class="form-control" v-model="legacy.nome">
                             </div>
-
-                            <div v-if="statusEJC === 'JA_FIZ'" class="border rounded p-3 bg-light mb-3">
-                                <label class="form-label d-block">Qual EJC você fez?</label>
-                                <div class="form-check mb-2">
-                                    <input class="form-check-input" type="radio" id="origemInconfidentes" value="INCONFIDENTES" v-model="origemJaFez" @change="onOrigemJaFezChanged">
-                                    <label class="form-check-label" for="origemInconfidentes">Fiz EJC Inconfidentes</label>
-                                </div>
-                                <div class="form-check mb-3">
-                                    <input class="form-check-input" type="radio" id="origemOutro" value="OUTRO_EJC" v-model="origemJaFez" @change="onOrigemJaFezChanged">
-                                    <label class="form-check-label" for="origemOutro">Fiz outro EJC</label>
-                                </div>
-
-                                <div v-if="origemJaFez === 'INCONFIDENTES'" class="mb-2">
-                                    <label class="form-label">Seu nome (Lista Mestre)</label>
-                                    <select class="form-select" v-model="jovemId">
-                                        <option :value="null">Selecione seu nome...</option>
-                                        <option v-for="j in jovens" :key="j.id" :value="j.id">{{ j.nome_completo }}</option>
-                                    </select>
-                                </div>
-
-                                <div v-if="origemJaFez === 'OUTRO_EJC'">
-                                    <label class="form-label d-block">Participação</label>
-                                    <div class="form-check mb-2">
-                                        <input class="form-check-input" type="radio" id="modoPrimeiraVez" value="PRIMEIRA_VEZ" v-model="modoOutroEjc" @change="onModoOutroEjcChanged">
-                                        <label class="form-check-label" for="modoPrimeiraVez">Primeiro evento que participo</label>
-                                    </div>
-                                    <div class="form-check mb-3">
-                                        <input class="form-check-input" type="radio" id="modoJaParticipei" value="JA_PARTICIPOU" v-model="modoOutroEjc" @change="onModoOutroEjcChanged">
-                                        <label class="form-check-label" for="modoJaParticipei">Já participei de outros eventos</label>
-                                    </div>
-
-                                    <div class="mb-3">
-                                        <label class="form-label">Qual EJC você fez?</label>
-                                        <select class="form-select" v-model="outroEjcId" @change="onOutroEjcChanged">
-                                            <option :value="null">Selecione...</option>
-                                            <option v-for="oe in outrosEjcs" :key="oe.id" :value="oe.id">
-                                                {{ oe.nome }}{{ oe.paroquia ? (' - ' + oe.paroquia) : '' }}
-                                            </option>
-                                        </select>
-                                    </div>
-
-                                    <div v-if="modoOutroEjc === 'PRIMEIRA_VEZ'">
-                                        <div class="mb-3">
-                                            <label class="form-label">Nome completo</label>
-                                            <input type="text" class="form-control" v-model.trim="nomeCompleto" maxlength="180" placeholder="Seu nome completo">
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Telefone</label>
-                                            <input type="tel" class="form-control" v-model.trim="telefone" maxlength="30" placeholder="(00) 00000-0000">
-                                        </div>
-                                    </div>
-
-                                    <div v-if="modoOutroEjc === 'JA_PARTICIPOU'">
-                                        <div v-if="carregandoParticipantesOutroEjc" class="text-muted mb-2">Carregando jovens...</div>
-                                        <div class="mb-2">
-                                            <label class="form-label">Seu nome na lista de jovens de outro EJC</label>
-                                            <select class="form-select" v-model="participanteHistoricoId" :disabled="carregandoParticipantesOutroEjc || !outroEjcId">
-                                                <option :value="null">Selecione seu nome...</option>
-                                                <option v-for="p in participantesOutroEjc" :key="p.id" :value="p.id">
-                                                    {{ p.nome_completo }} - {{ p.telefone || '-' }}
-                                                </option>
-                                            </select>
-                                        </div>
-                                        <div v-if="!carregandoParticipantesOutroEjc && outroEjcId && participantesOutroEjc.length === 0" class="small text-muted">
-                                            Não encontramos pessoas desse EJC em eventos anteriores. Use a opção "Primeiro evento que participo".
-                                        </div>
-                                    </div>
-                                </div>
+                            <div class="mb-3">
+                                <label class="form-label">Telefone</label>
+                                <input class="form-control" v-model="legacy.telefone">
                             </div>
-
-                            <div v-if="statusEJC === 'NAO_FIZ'" class="border rounded p-3 bg-light mb-3">
-                                <div class="mb-3">
-                                    <label class="form-label">Nome completo</label>
-                                    <input type="text" class="form-control" v-model.trim="nomeCompleto" maxlength="180" placeholder="Seu nome completo">
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Telefone</label>
-                                    <input type="tel" class="form-control" v-model.trim="telefone" maxlength="30" placeholder="(00) 00000-0000">
-                                </div>
-                            </div>
-
-                            <button class="btn btn-primary w-100" @click="registrarPresenca" :disabled="saving">
-                                {{ saving ? 'Registrando...' : 'Registrar presença' }}
-                            </button>
+                            <button class="btn btn-primary w-100" @click="enviarPresenca" :disabled="saving">{{ saving ? 'Enviando...' : 'Registrar presenca' }}</button>
                         </div>
                     </div>
                 </div>
@@ -137,58 +110,27 @@
                     loading: false,
                     saving: false,
                     token: '',
-                    tituloEvento: '',
-                    temaEvento: '',
-                    eventoData: '',
-                    eventoHora: '',
-                    permitirJaFezEJC: true,
-                    permitirNaoFezEJC: true,
-                    jovens: [],
-                    outrosEjcs: [],
-                    statusEJC: '',
-                    origemJaFez: '',
-                    modoOutroEjc: 'PRIMEIRA_VEZ',
-                    carregandoParticipantesOutroEjc: false,
-                    participantesOutroEjc: [],
-                    participanteHistoricoId: null,
-                    jovemId: null,
-                    nomeCompleto: '',
-                    telefone: '',
-                    outroEjcId: null
+                    form: {},
+                    tipo: 'INSCRICAO',
+                    campos: [],
+                    respostas: {},
+                    legacy: {
+                        nome: '',
+                        telefone: ''
+                    }
                 };
             },
-            computed: {
-                subtituloFormulario() {
-                    return 'Escolha a opção correspondente e preencha os dados para registrar presença.';
-                },
-                perguntasSelecionadasLabel() {
-                    const opcoes = [];
-                    if (this.permitirJaFezEJC) opcoes.push('Já fez EJC');
-                    if (this.permitirNaoFezEJC) opcoes.push('Não fez EJC');
-                    return opcoes.length ? `Opções deste formulário: ${opcoes.join(' / ')}` : '';
-                },
-                dataHoraEventoLabel() {
-                    const partes = [];
-                    if (this.eventoData) {
-                        const dt = new Date(`${this.eventoData}T00:00:00`);
-                        if (!Number.isNaN(dt.getTime())) {
-                            partes.push(dt.toLocaleDateString('pt-BR'));
-                        }
-                    }
-                    if (this.eventoHora) {
-                        partes.push(this.eventoHora.slice(0, 5));
-                    }
-                    return partes.length ? `Evento: ${partes.join(' às ')}` : '';
-                }
-            },
             methods: {
-                async uiAlert(msg, title) {
-                    if (window.showFloatingAlert) return window.showFloatingAlert(msg, title || 'Aviso');
-                    alert(msg);
-                },
                 getTokenFromPath() {
                     const parts = window.location.pathname.split('/').filter(Boolean);
                     return parts[parts.length - 1] || '';
+                },
+                inputType(tipo) {
+                    if (tipo === 'telefone') return 'tel';
+                    if (tipo === 'email') return 'email';
+                    if (tipo === 'data') return 'date';
+                    if (tipo === 'numero') return 'number';
+                    return 'text';
                 },
                 async carregarFormulario() {
                     this.loading = true;
@@ -196,168 +138,103 @@
                         const res = await fetch(`/api/formularios/public/${encodeURIComponent(this.token)}`);
                         const data = await res.json().catch(() => ({}));
                         if (!res.ok) {
-                            await this.uiAlert(data.error || 'Formulário inválido.');
+                            alert(data.error || 'Formulario invalido.');
                             return;
                         }
-                        this.tituloEvento = data.formulario && data.formulario.titulo ? data.formulario.titulo : '';
-                        this.temaEvento = data.formulario && data.formulario.tema ? data.formulario.tema : '';
-                        this.eventoData = data.formulario && data.formulario.evento_data ? data.formulario.evento_data : '';
-                        this.eventoHora = data.formulario && data.formulario.evento_hora ? String(data.formulario.evento_hora) : '';
-                        this.permitirJaFezEJC = !(data.formulario && Number(data.formulario.permitir_ja_fez_ejc) === 0);
-                        this.permitirNaoFezEJC = !(data.formulario && Number(data.formulario.permitir_nao_fez_ejc) === 0);
-                        this.jovens = Array.isArray(data.jovens) ? data.jovens : [];
-                        this.outrosEjcs = Array.isArray(data.outros_ejcs) ? data.outros_ejcs : [];
-                        this.statusEJC = this.permitirJaFezEJC ? 'JA_FIZ' : (this.permitirNaoFezEJC ? 'NAO_FIZ' : '');
-                        this.origemJaFez = 'INCONFIDENTES';
-                        this.modoOutroEjc = 'PRIMEIRA_VEZ';
+                        this.form = data.formulario || {};
+                        this.tipo = String(this.form.tipo || '').toUpperCase();
+                        this.campos = Array.isArray(this.form.campos_config) ? this.form.campos_config : [];
+                        this.respostas = {};
+                        this.campos.forEach((c) => {
+                            this.respostas[c.id] = c.tipo === 'checkbox' ? [] : '';
+                        });
                     } catch (err) {
                         console.error(err);
-                        await this.uiAlert('Erro ao carregar formulário.');
+                        alert('Erro ao carregar formulario.');
                     } finally {
                         this.loading = false;
                     }
                 },
-                async registrarPresenca() {
-                    const nomeCompleto = String(this.nomeCompleto || '').trim();
-                    const telefone = String(this.telefone || '').trim();
-                    if (!this.statusEJC) {
-                        await this.uiAlert('Selecione se já fez EJC ou não fez EJC.');
+                validarInscricao() {
+                    for (const campo of this.campos) {
+                        const valor = this.respostas[campo.id];
+                        if (!campo.obrigatorio) continue;
+                        if (campo.tipo === 'checkbox') {
+                            if (!Array.isArray(valor) || !valor.length) return `Preencha: ${campo.label}`;
+                        } else if (!String(valor || '').trim()) {
+                            return `Preencha: ${campo.label}`;
+                        }
+                    }
+                    return '';
+                },
+                async enviarInscricao() {
+                    const erro = this.validarInscricao();
+                    if (erro) {
+                        alert(erro);
                         return;
                     }
-
-                    if (this.statusEJC === 'JA_FIZ') {
-                        if (!this.origemJaFez) {
-                            await this.uiAlert('Selecione se foi EJC Inconfidentes ou outro EJC.');
+                    this.saving = true;
+                    try {
+                        const res = await fetch(`/api/formularios/public/${encodeURIComponent(this.token)}/respostas`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ respostas: this.respostas })
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                            alert(data.error || 'Erro ao enviar inscricao.');
                             return;
                         }
-                        if (this.origemJaFez === 'INCONFIDENTES' && !this.jovemId) {
-                            await this.uiAlert('Selecione seu nome na lista.');
-                            return;
-                        }
-                        if (this.origemJaFez === 'OUTRO_EJC') {
-                            if (!this.outroEjcId) {
-                                await this.uiAlert('Selecione qual EJC você fez.');
-                                return;
-                            }
-                            if (this.modoOutroEjc === 'PRIMEIRA_VEZ') {
-                                if (!nomeCompleto || !telefone) {
-                                    await this.uiAlert('Preencha nome completo e telefone.');
-                                    return;
-                                }
-                            } else if (this.modoOutroEjc === 'JA_PARTICIPOU') {
-                                if (!this.participanteHistoricoId) {
-                                    await this.uiAlert('Selecione seu nome na lista de jovens de outro EJC.');
-                                    return;
-                                }
-                            } else {
-                                await this.uiAlert('Selecione se é o primeiro evento ou se já participou de outros eventos.');
-                                return;
-                            }
-                        }
+                        alert('Inscricao enviada com sucesso.');
+                        this.campos.forEach((c) => {
+                            this.respostas[c.id] = c.tipo === 'checkbox' ? [] : '';
+                        });
+                    } catch (err) {
+                        console.error(err);
+                        alert('Erro ao enviar inscricao.');
+                    } finally {
+                        this.saving = false;
                     }
-
-                    if (this.statusEJC === 'NAO_FIZ' && (!nomeCompleto || !telefone)) {
-                        await this.uiAlert('Preencha nome completo e telefone.');
+                },
+                async enviarPresenca() {
+                    if (!this.legacy.nome || !this.legacy.telefone) {
+                        alert('Preencha nome e telefone.');
                         return;
                     }
-
                     this.saving = true;
                     try {
                         const res = await fetch(`/api/formularios/public/${encodeURIComponent(this.token)}/presencas`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
-                                status_ejc: this.statusEJC,
-                                origem_ja_fez: this.statusEJC === 'JA_FIZ' ? this.origemJaFez : null,
-                                jovem_id: this.statusEJC === 'JA_FIZ' && this.origemJaFez === 'INCONFIDENTES' ? this.jovemId : null,
-                                primeira_vez_outro_ejc: this.statusEJC === 'JA_FIZ' && this.origemJaFez === 'OUTRO_EJC' ? this.modoOutroEjc : null,
-                                participante_historico_id: this.statusEJC === 'JA_FIZ' && this.origemJaFez === 'OUTRO_EJC' && this.modoOutroEjc === 'JA_PARTICIPOU' ? this.participanteHistoricoId : null,
-                                participante_referencia: this.statusEJC === 'JA_FIZ' && this.origemJaFez === 'OUTRO_EJC' && this.modoOutroEjc === 'JA_PARTICIPOU' ? this.participanteHistoricoId : null,
-                                nome_completo: (
-                                    this.statusEJC === 'NAO_FIZ'
-                                    || (this.statusEJC === 'JA_FIZ' && this.origemJaFez === 'OUTRO_EJC' && this.modoOutroEjc === 'PRIMEIRA_VEZ')
-                                ) ? nomeCompleto : null,
-                                telefone: (
-                                    this.statusEJC === 'NAO_FIZ'
-                                    || (this.statusEJC === 'JA_FIZ' && this.origemJaFez === 'OUTRO_EJC' && this.modoOutroEjc === 'PRIMEIRA_VEZ')
-                                ) ? telefone : null,
-                                outro_ejc_id: this.statusEJC === 'JA_FIZ' && this.origemJaFez === 'OUTRO_EJC' ? this.outroEjcId : null
+                                status_ejc: 'NAO_FIZ',
+                                nome_completo: this.legacy.nome,
+                                telefone: this.legacy.telefone
                             })
                         });
                         const data = await res.json().catch(() => ({}));
                         if (!res.ok) {
-                            await this.uiAlert(data.error || 'Erro ao registrar presença.');
+                            alert(data.error || 'Erro ao registrar presenca.');
                             return;
                         }
-                        if (window.showFloatingToast) window.showFloatingToast('Presença registrada com sucesso.', 'success');
-                        else await this.uiAlert('Presença registrada com sucesso.');
-                        this.jovemId = null;
-                        this.nomeCompleto = '';
-                        this.telefone = '';
-                        this.outroEjcId = null;
-                        this.origemJaFez = 'INCONFIDENTES';
-                        this.modoOutroEjc = 'PRIMEIRA_VEZ';
-                        this.participantesOutroEjc = [];
-                        this.participanteHistoricoId = null;
+                        alert('Presenca registrada com sucesso.');
+                        this.legacy.nome = '';
+                        this.legacy.telefone = '';
                     } catch (err) {
                         console.error(err);
-                        await this.uiAlert('Erro ao registrar presença.');
+                        alert('Erro ao registrar presenca.');
                     } finally {
                         this.saving = false;
                     }
-                },
-                async carregarParticipantesOutroEjc() {
-                    if (!this.token || !this.outroEjcId) {
-                        this.participantesOutroEjc = [];
-                        this.participanteHistoricoId = null;
-                        return;
-                    }
-                    this.carregandoParticipantesOutroEjc = true;
-                    this.participantesOutroEjc = [];
-                    this.participanteHistoricoId = null;
-                    try {
-                        const res = await fetch(`/api/formularios/public/${encodeURIComponent(this.token)}/outro-ejc-jovens?outro_ejc_id=${encodeURIComponent(this.outroEjcId)}`);
-                        const data = await res.json().catch(() => ([]));
-                        if (!res.ok) {
-                            await this.uiAlert(data.error || 'Não foi possível carregar a lista de jovens.');
-                            return;
-                        }
-                        this.participantesOutroEjc = Array.isArray(data) ? data : [];
-                    } catch (err) {
-                        console.error(err);
-                        await this.uiAlert('Erro ao carregar lista de jovens de outro EJC.');
-                    } finally {
-                        this.carregandoParticipantesOutroEjc = false;
-                    }
-                },
-                onOutroEjcChanged() {
-                    if (this.modoOutroEjc === 'JA_PARTICIPOU') {
-                        this.carregarParticipantesOutroEjc();
-                    }
-                },
-                onOrigemJaFezChanged() {
-                    this.jovemId = null;
-                    this.nomeCompleto = '';
-                    this.telefone = '';
-                    this.outroEjcId = null;
-                    this.modoOutroEjc = 'PRIMEIRA_VEZ';
-                    this.participantesOutroEjc = [];
-                    this.participanteHistoricoId = null;
-                },
-                onModoOutroEjcChanged() {
-                    this.participanteHistoricoId = null;
-                    if (this.modoOutroEjc === 'JA_PARTICIPOU') {
-                        this.carregarParticipantesOutroEjc();
-                    }
                 }
             },
-            async mounted() {
+            mounted() {
                 this.token = this.getTokenFromPath();
                 if (!this.token) {
-                    await this.uiAlert('Link inválido.');
+                    alert('Link invalido.');
                     return;
                 }
-                await this.carregarFormulario();
+                this.carregarFormulario();
             }
         }).mount('#app');
     </script>

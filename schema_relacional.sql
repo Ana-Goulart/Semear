@@ -73,6 +73,28 @@ ADD COLUMN IF NOT EXISTS papel_base VARCHAR(50) DEFAULT 'Membro';
 ALTER TABLE equipes_funcoes
 MODIFY COLUMN papel_base VARCHAR(50) DEFAULT 'Membro';
 
+-- ===== TABELAS PASTORAIS =====
+CREATE TABLE IF NOT EXISTS pastorais (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id INT NOT NULL,
+    nome VARCHAR(180) NOT NULL,
+    descricao VARCHAR(255) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS pastorais_jovens (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id INT NOT NULL,
+    pastoral_id INT NOT NULL,
+    jovem_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_pastoral_jovem (tenant_id, pastoral_id, jovem_id)
+);
+
+ALTER TABLE contatos_telefonicos
+ADD COLUMN IF NOT EXISTS pastoral_id INT NULL;
+
 -- Papéis configuráveis (base para funções: ex. Membro, Tio, Coordenador e outros)
 CREATE TABLE IF NOT EXISTS equipes_papeis (
     id INT AUTO_INCREMENT PRIMARY KEY,
