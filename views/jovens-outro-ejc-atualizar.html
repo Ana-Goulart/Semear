@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Atualizar Jovens de Outro EJC - SemeaJovens</title>
+    <link rel="icon" type="image/png" href="/assets/logo-oficial.png">
+    <link rel="apple-touch-icon" href="/assets/logo-oficial.png">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/velzon-theme.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="/js/date-br.js" defer></script>
+</head>
+<body style="min-height:100vh;background:linear-gradient(155deg,#fbf5e9 0%,#f3e6cc 46%,#efe5d8 100%);">
+    <div id="app" class="container py-4 py-md-5">
+        <div class="row justify-content-center">
+            <div class="col-12 col-lg-9">
+                <div class="card border-0 shadow">
+                    <div class="card-body p-4">
+                        <div class="text-center mb-3">
+                            <img src="/assets/logo-oficial.png" alt="Semear Paroquial" style="width:120px;height:120px;object-fit:contain;">
+                            <h4 class="mt-2 mb-1">Atualização - Jovens de Outro EJC</h4>
+                            <p class="text-muted mb-0">Confirme os dados e atualize o cadastro.</p>
+                        </div>
+
+                        <div class="alert alert-warning py-2 small">
+                            Informe nome completo, telefone e o EJC que fez para localizar o cadastro.
+                        </div>
+
+                        <div class="row g-3" v-if="estado === 'VALIDACAO'">
+                            <div class="col-12"><h6 class="text-muted mb-0">Validação</h6></div>
+                            <div class="col-md-6">
+                                <label class="form-label">Nome completo *</label>
+                                <input class="form-control" v-model.trim="validacao.nome_completo" maxlength="180">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Telefone *</label>
+                                <input class="form-control" v-model.trim="validacao.telefone" maxlength="30">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Qual EJC fez *</label>
+                                <select class="form-select" v-model.number="validacao.outro_ejc_id">
+                                    <option :value="0">Selecione...</option>
+                                    <option v-for="oe in outrosEjcs" :key="`oe-${oe.id}`" :value="oe.id">
+                                        {{ [oe.paroquia, oe.nome].filter(Boolean).join(' - ') || ('EJC #' + oe.id) }}
+                                    </option>
+                                </select>
+                            </div>
+
+                            <div class="col-12 d-grid d-md-flex gap-2 pt-2">
+                                <button class="btn btn-outline-primary" :disabled="validando" @click="validarCadastro">
+                                    {{ validando ? 'Confirmando...' : 'Confirmar cadastro' }}
+                                </button>
+                                <button class="btn btn-outline-secondary" @click="abrirCadastro">Não encontrei meu cadastro</button>
+                            </div>
+                        </div>
+
+                        <div class="row g-3" v-else-if="estado === 'ATUALIZACAO'">
+                            <div class="col-12"><h6 class="text-muted mb-0">Dados para atualizar</h6></div>
+                            <div class="col-md-6">
+                                <label class="form-label">Telefone</label>
+                                <input class="form-control" v-model.trim="atualizacao.telefone" maxlength="30">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Círculo</label>
+                                <select class="form-select" v-model="atualizacao.circulo">
+                                    <option value="">Selecione</option>
+                                    <option v-for="c in circulos" :key="`c-${c.id}`" :value="c.nome">{{ c.nome }}</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Instagram</label>
+                                <input class="form-control" v-model.trim="atualizacao.instagram" maxlength="120" placeholder="@usuario">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Possui deficiência?</label>
+                                <select class="form-select" v-model="atualizacao.deficiencia">
+                                    <option :value="false">Não</option>
+                                    <option :value="true">Sim</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3" v-if="atualizacao.deficiencia">
+                                <label class="form-label">Qual?</label>
+                                <input class="form-control" v-model.trim="atualizacao.qual_deficiencia" maxlength="200">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Restrição alimentar?</label>
+                                <select class="form-select" v-model="atualizacao.restricao_alimentar">
+                                    <option :value="false">Não</option>
+                                    <option :value="true">Sim</option>
+                                </select>
+                            </div>
+                            <div class="col-md-8" v-if="atualizacao.restricao_alimentar">
+                                <label class="form-label">Qual restrição</label>
+                                <select class="form-select" v-model="atualizacao.detalhes_restricao">
+                                    <option disabled value="">Selecione uma restrição...</option>
+                                    <option v-for="r in restricoesDisponiveis" :key="`r-${r}`" :value="r">{{ r }}</option>
+                                    <option value="Outras">Outras (Especifique abaixo)</option>
+                                </select>
+                                <input v-if="atualizacao.detalhes_restricao === 'Outras'" class="form-control mt-2" v-model.trim="atualizacao.outra_restricao" maxlength="220" placeholder="Descreva a restrição">
+                            </div>
+                            <div class="col-12 d-flex gap-2">
+                                <button class="btn btn-primary" :disabled="enviando" @click="enviarAtualizacao">Atualizar dados</button>
+                                <button class="btn btn-outline-secondary" @click="voltarValidacao">Voltar</button>
+                            </div>
+                        </div>
+
+                        <div class="row g-3" v-else>
+                            <div class="col-12"><h6 class="text-muted mb-0">Cadastro não encontrado</h6></div>
+                            <div class="col-md-6">
+                                <label class="form-label">Nome completo *</label>
+                                <input class="form-control" v-model.trim="novo.nome_completo" maxlength="180">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Telefone *</label>
+                                <input class="form-control" v-model.trim="novo.telefone" maxlength="30">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Data de nascimento *</label>
+                                <input type="text" class="form-control date-br" v-model.trim="novo.data_nascimento" placeholder="dd/mm/aaaa" inputmode="numeric">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Sexo *</label>
+                                <select class="form-select" v-model="novo.sexo">
+                                    <option value="">Selecione</option>
+                                    <option value="Feminino">Feminino</option>
+                                    <option value="Masculino">Masculino</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Estado civil *</label>
+                                <select class="form-select" v-model="novo.estado_civil">
+                                    <option value="Solteiro">Solteiro</option>
+                                    <option value="Casado">Casado</option>
+                                    <option value="Amasiado">Amasiado</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Número do EJC que fez *</label>
+                                <input class="form-control" v-model.trim="novo.outro_ejc_numero" maxlength="30" placeholder="Ex: 11">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Qual EJC fez *</label>
+                                <select class="form-select" v-model.number="novo.outro_ejc_id" @change="carregarCirculosNovo">
+                                    <option :value="0">Selecione...</option>
+                                    <option v-for="oe in outrosEjcs" :key="`oe2-${oe.id}`" :value="oe.id">
+                                        {{ [oe.paroquia, oe.nome].filter(Boolean).join(' - ') || ('EJC #' + oe.id) }}
+                                    </option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Círculo</label>
+                                <select class="form-select" v-model="novo.circulo">
+                                    <option value="">Selecione</option>
+                                    <option v-for="c in circulosNovo" :key="`cn-${c.id}`" :value="c.nome">{{ c.nome }}</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Instagram</label>
+                                <input class="form-control" v-model.trim="novo.instagram" maxlength="120" placeholder="@usuario">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Possui deficiência?</label>
+                                <select class="form-select" v-model="novo.deficiencia">
+                                    <option :value="false">Não</option>
+                                    <option :value="true">Sim</option>
+                                </select>
+                            </div>
+                            <div class="col-md-8" v-if="novo.deficiencia">
+                                <label class="form-label">Qual deficiência</label>
+                                <input class="form-control" v-model.trim="novo.qual_deficiencia" maxlength="200">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Restrição alimentar?</label>
+                                <select class="form-select" v-model="novo.restricao_alimentar">
+                                    <option :value="false">Não</option>
+                                    <option :value="true">Sim</option>
+                                </select>
+                            </div>
+                            <div class="col-md-8" v-if="novo.restricao_alimentar">
+                                <label class="form-label">Qual restrição</label>
+                                <select class="form-select" v-model="novo.detalhes_restricao">
+                                    <option disabled value="">Selecione uma restrição...</option>
+                                    <option v-for="r in restricoesDisponiveis" :key="`r2-${r}`" :value="r">{{ r }}</option>
+                                    <option value="Outras">Outras (Especifique abaixo)</option>
+                                </select>
+                                <input v-if="novo.detalhes_restricao === 'Outras'" class="form-control mt-2" v-model.trim="novo.outra_restricao" maxlength="220" placeholder="Descreva a restrição">
+                            </div>
+                            <div class="col-12 d-flex gap-2">
+                                <button class="btn btn-primary" :disabled="enviando" @click="criarCadastro">Criar cadastro</button>
+                                <button class="btn btn-outline-secondary" @click="voltarValidacao">Voltar</button>
+                            </div>
+                        </div>
+
+                        <div class="mt-3" v-if="mensagem">
+                            <div class="alert alert-success py-2 small mb-0">{{ mensagem }}</div>
+                        </div>
+                        <div class="mt-3" v-if="erro">
+                            <div class="alert alert-danger py-2 small mb-0">{{ erro }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+        createApp({
+            data() {
+                return {
+                    estado: 'VALIDACAO',
+                    validando: false,
+                    enviando: false,
+                    token: '',
+                    mensagem: '',
+                    erro: '',
+                    outrosEjcs: [],
+                    circulos: [],
+                    circulosNovo: [],
+                    restricoesDisponiveis: [
+                        'Alergia a amendoim',
+                        'Alergia a castanhas',
+                        'Alergia a frutos do mar',
+                        'APLV (Alergia à proteína do leite de vaca)',
+                        'Intolerante à lactose',
+                        'Intolerante a glúten (Celíaco)',
+                        'Não come carne vermelha',
+                        'Não come carne de porco',
+                        'Vegetariano',
+                        'Vegano'
+                    ],
+                    validacao: {
+                        nome_completo: '',
+                        telefone: '',
+                        outro_ejc_id: 0
+                    },
+                    atualizacao: {
+                        telefone: '',
+                        circulo: '',
+                        instagram: '',
+                        deficiencia: false,
+                        qual_deficiencia: '',
+                        restricao_alimentar: false,
+                        detalhes_restricao: '',
+                        outra_restricao: ''
+                    },
+                    novo: {
+                        nome_completo: '',
+                        telefone: '',
+                        data_nascimento: '',
+                        sexo: '',
+                        estado_civil: 'Solteiro',
+                        outro_ejc_numero: '',
+                        outro_ejc_id: 0,
+                        circulo: '',
+                        instagram: '',
+                        deficiencia: false,
+                        qual_deficiencia: '',
+                        restricao_alimentar: false,
+                        detalhes_restricao: '',
+                        outra_restricao: ''
+                    }
+                };
+            },
+            methods: {
+                async carregarOutrosEjcs() {
+                    try {
+                        const res = await fetch('/api/jovens-outro-ejc-public/outros-ejcs');
+                        this.outrosEjcs = res.ok ? await res.json() : [];
+                    } catch (_) {
+                        this.outrosEjcs = [];
+                    }
+                },
+                async carregarCirculos(token) {
+                    try {
+                        const res = await fetch(`/api/jovens-outro-ejc-public/circulos?token=${encodeURIComponent(token)}`);
+                        this.circulos = res.ok ? await res.json() : [];
+                    } catch (_) {
+                        this.circulos = [];
+                    }
+                },
+                async carregarCirculosNovo() {
+                    const id = Number(this.novo.outro_ejc_id || 0);
+                    if (!id) { this.circulosNovo = []; return; }
+                    try {
+                        const res = await fetch(`/api/jovens-outro-ejc-public/circulos?outro_ejc_id=${id}`);
+                        this.circulosNovo = res.ok ? await res.json() : [];
+                    } catch (_) {
+                        this.circulosNovo = [];
+                    }
+                },
+                detalhesRestricaoFinal(base) {
+                    if (!base.restricao_alimentar) return null;
+                    if (base.detalhes_restricao === 'Outras') return base.outra_restricao || 'Outras';
+                    return base.detalhes_restricao || null;
+                },
+                async validarCadastro() {
+                    this.erro = '';
+                    this.mensagem = '';
+                    this.validando = true;
+                    try {
+                        const res = await fetch('/api/jovens-outro-ejc-public/validar', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.validacao)
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                            if (res.status === 404) {
+                                this.estado = 'NOVO';
+                                return;
+                            }
+                            throw new Error(data.error || 'Erro ao validar cadastro.');
+                        }
+                        this.token = data.token || '';
+                        await this.carregarCirculos(this.token);
+                        this.estado = 'ATUALIZACAO';
+                        this.mensagem = data.message || 'Cadastro confirmado.';
+                    } catch (e) {
+                        this.erro = e.message || 'Erro ao validar cadastro.';
+                    } finally {
+                        this.validando = false;
+                    }
+                },
+                abrirCadastro() {
+                    this.estado = 'NOVO';
+                },
+                voltarValidacao() {
+                    this.estado = 'VALIDACAO';
+                    this.erro = '';
+                    this.mensagem = '';
+                },
+                async enviarAtualizacao() {
+                    this.erro = '';
+                    this.mensagem = '';
+                    this.enviando = true;
+                    try {
+                        const payload = {
+                            token: this.token,
+                            telefone: this.atualizacao.telefone,
+                            circulo: this.atualizacao.circulo || null,
+                            instagram: this.atualizacao.instagram || null,
+                            deficiencia: this.atualizacao.deficiencia ? 1 : 0,
+                            qual_deficiencia: this.atualizacao.qual_deficiencia || null,
+                            restricao_alimentar: this.atualizacao.restricao_alimentar ? 1 : 0,
+                            detalhes_restricao: this.detalhesRestricaoFinal(this.atualizacao)
+                        };
+                        const res = await fetch('/api/jovens-outro-ejc-public/atualizar', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) throw new Error(data.error || 'Erro ao atualizar cadastro.');
+                        this.mensagem = data.message || 'Cadastro atualizado com sucesso.';
+                    } catch (e) {
+                        this.erro = e.message || 'Erro ao atualizar cadastro.';
+                    } finally {
+                        this.enviando = false;
+                    }
+                },
+                async criarCadastro() {
+                    this.erro = '';
+                    this.mensagem = '';
+                    this.enviando = true;
+                    try {
+                        const payload = {
+                            nome_completo: this.novo.nome_completo,
+                            telefone: this.novo.telefone,
+                            data_nascimento: this.novo.data_nascimento,
+                            sexo: this.novo.sexo,
+                            estado_civil: this.novo.estado_civil,
+                            outro_ejc_numero: this.novo.outro_ejc_numero || null,
+                            outro_ejc_id: this.novo.outro_ejc_id || null,
+                            circulo: this.novo.circulo || null,
+                            instagram: this.novo.instagram || null,
+                            deficiencia: this.novo.deficiencia ? 1 : 0,
+                            qual_deficiencia: this.novo.qual_deficiencia || null,
+                            restricao_alimentar: this.novo.restricao_alimentar ? 1 : 0,
+                            detalhes_restricao: this.detalhesRestricaoFinal(this.novo)
+                        };
+                        const res = await fetch('/api/jovens-outro-ejc-public/criar', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) throw new Error(data.error || 'Erro ao criar cadastro.');
+                        this.mensagem = data.message || 'Cadastro criado com sucesso.';
+                    } catch (e) {
+                        this.erro = e.message || 'Erro ao criar cadastro.';
+                    } finally {
+                        this.enviando = false;
+                    }
+                }
+            },
+            mounted() {
+                this.carregarOutrosEjcs();
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

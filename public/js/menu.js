@@ -40,6 +40,9 @@ const menuTemplate = `
                     <a href="/gestaodoencontro/montarencontro" class="nav-link" title="Montar Encontro">
                         <span class="fs-5">🧩</span> <span class="link-text">Montagem do Encontro</span>
                     </a>
+                    <a href="/gestaodoencontro/formularios-atualizacao" class="nav-link" title="Formulários">
+                        <span class="fs-5">🧾</span> <span class="link-text">Formulários</span>
+                    </a>
                     <a href="/gestaodoencontro/votacao" class="nav-link" title="Votação">
                         <span class="fs-5">🗳️</span> <span class="link-text">Votação</span>
                     </a>
@@ -79,7 +82,7 @@ const menuTemplate = `
                     <a href="/planejamento/calendario" class="nav-link" title="Calendário">
                         <span class="fs-5">📅</span> <span class="link-text">Calendário</span>
                     </a>
-                    <a href="/planejamento/inscricoes" class="nav-link" title="Inscricoes">
+                    <a href="javascript:void(0)" class="nav-link disabled" title="Eventos e Presença" aria-disabled="true" tabindex="-1">
                         <span class="fs-5">🎉</span> <span class="link-text">Eventos e Presença</span>
                     </a>
                     <a href="/planejamento/atasdereuniao" class="nav-link" title="Atas de Reunião">
@@ -160,10 +163,25 @@ const menuTemplate = `
 </div>
 `;
 
+if (!window.__dateBrLoaded) {
+    window.__dateBrLoaded = true;
+    const script = document.createElement('script');
+    script.src = '/js/date-br.js';
+    document.head.appendChild(script);
+}
+
 let nomeMeuEJCAtual = 'Inconfidentes';
 
 function escapeRegex(txt) {
     return String(txt).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function normalizarNomeMeuEJC(novoNome) {
+    let nome = String(novoNome || '').trim();
+    if (!nome) return 'Inconfidentes';
+    nome = nome.replace(/^(?:\s*(?:EJC|ECJ)\s+)+/i, '').trim();
+    nome = nome.replace(/\s{2,}/g, ' ');
+    return nome || 'Inconfidentes';
 }
 
 function ajustarCapitalizacao(match, novoValor) {
@@ -210,10 +228,13 @@ function substituirInconfidentesNoDom(rootNode, novoNome) {
 }
 
 function aplicarNomeMeuEJC(novoNome) {
-    const nome = String(novoNome || '').trim() || 'Inconfidentes';
+    const nome = normalizarNomeMeuEJC(novoNome);
     nomeMeuEJCAtual = nome;
     window.__NOME_EJC_ATUAL = nome;
     substituirInconfidentesNoDom(document.body, nome);
+    try {
+        window.dispatchEvent(new CustomEvent('meu-ejc-atualizado', { detail: { nome } }));
+    } catch (_) { }
 }
 
 async function carregarNomeMeuEJC() {
@@ -635,6 +656,7 @@ function ativarMenu(identifier) {
         '/visitantes': '/gestaodoencontro/visitantes',
         '/tios': '/gestaodoencontro/tios',
         '/montar-encontro': '/gestaodoencontro/montarencontro',
+        '/gestaodoencontro/formularios-atualizacao': '/gestaodoencontro/formularios-atualizacao',
         '/moita': '/gestaodoencontro/moita',
         '/garcons': '/gestaodoencontro/garcons',
         '/votacao': '/gestaodoencontro/votacao',

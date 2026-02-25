@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
+const { getTenantId } = require('../lib/tenantIsolation');
 
 let estruturaGarantida = false;
 
@@ -443,6 +444,7 @@ router.post('/:id/membros', async (req, res) => {
 
     const connection = await pool.getConnection();
     try {
+        const tenantId = getTenantId(req);
         await garantirEstrutura();
         await connection.beginTransaction();
 
@@ -466,9 +468,9 @@ router.post('/:id/membros', async (req, res) => {
 
         const [comissaoResult] = await connection.query(
             `INSERT INTO jovens_comissoes 
-             (jovem_id, tipo, semestre, coordenacao_nome, observacao)
-             VALUES (?, 'COORDENACAO', ?, ?, ?)`,
-            [jovemId, coord.periodo || null, coord.nome, null]
+             (tenant_id, jovem_id, tipo, semestre, coordenacao_nome, observacao)
+             VALUES (?, ?, 'COORDENACAO', ?, ?, ?)`,
+            [tenantId, jovemId, coord.periodo || null, coord.nome, null]
         );
 
         await connection.query(
@@ -481,7 +483,8 @@ router.post('/:id/membros', async (req, res) => {
     } catch (err) {
         await connection.rollback();
         console.error('Erro ao adicionar jovem na coordenação:', err);
-        res.status(500).json({ error: 'Erro ao adicionar jovem na coordenação' });
+        const msg = err && (err.sqlMessage || err.message) ? (err.sqlMessage || err.message) : 'Erro ao adicionar jovem na coordenação';
+        res.status(500).json({ error: msg });
     } finally {
         connection.release();
     }

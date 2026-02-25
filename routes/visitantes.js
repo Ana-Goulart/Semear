@@ -94,4 +94,39 @@ router.get('/', async (req, res) => {
     }
 });
 
+router.delete('/', async (req, res) => {
+    try {
+        const tenantId = getTenantId(req);
+        const nome = String(req.body && req.body.nome_completo || '').trim();
+        const telefone = String(req.body && req.body.telefone || '').trim();
+        if (!nome || !telefone) return res.status(400).json({ error: 'Nome e telefone são obrigatórios.' });
+
+        const hasPresencas = await hasTable('formularios_presencas');
+        const hasItens = await hasTable('formularios_itens');
+        if (!hasPresencas || !hasItens) return res.status(404).json({ error: 'Registros de presença não encontrados.' });
+
+        const [result] = await db.pool.query(`
+            DELETE fp
+            FROM formularios_presencas fp
+            JOIN formularios_itens fi
+              ON fi.id = fp.formulario_id
+             AND fi.tenant_id = fp.tenant_id
+            WHERE fp.tenant_id = ?
+              AND fp.status_ejc = 'NAO_FIZ'
+              AND LOWER(TRIM(fp.nome_completo)) = LOWER(TRIM(?))
+              AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(fp.telefone), ' ', ''), '(', ''), ')', ''), '-', ''), '+', '') =
+                  REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(?), ' ', ''), '(', ''), ')', ''), '-', ''), '+', '')
+        `, [tenantId, nome, telefone]);
+
+        if (!result.affectedRows) {
+            return res.status(404).json({ error: 'Visitante não encontrado.' });
+        }
+
+        return res.json({ message: 'Visitante removido.', removidos: result.affectedRows });
+    } catch (error) {
+        console.error('Erro ao remover visitante:', error);
+        return res.status(500).json({ error: 'Erro ao remover visitante.' });
+    }
+});
+
 module.exports = router;

@@ -138,7 +138,7 @@
                                         <label class="form-label">Paróquia *</label>
                                         <select v-model="formulario.paroquia" class="form-select" required>
                                             <option value="">Selecione a paróquia</option>
-                                            <option value="Inconfidentes">Inconfidentes</option>
+                                            <option :value="nomeMeuEJC">{{ nomeMeuEJC }}</option>
                                         </select>
                                     </div>
                                     <div class="col-md-6">
@@ -146,12 +146,32 @@
                                         <input type="number" v-model.number="formulario.ano" class="form-control">
                                     </div>
                                     <div class="col-md-6">
+                                        <label class="form-label">Música Tema</label>
+                                        <input type="text" v-model="formulario.musica_tema" class="form-control" placeholder="Ex: Nome da música">
+                                    </div>
+                                    <div class="col-md-6">
                                         <label class="form-label">Data Início</label>
-                                        <input type="date" v-model="formulario.data_inicio" class="form-control">
+                                        <input type="text" v-model="formulario.data_inicio" class="form-control date-br" placeholder="dd/mm/aaaa">
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">Data Fim</label>
-                                        <input type="date" v-model="formulario.data_fim" class="form-control">
+                                        <input type="text" v-model="formulario.data_fim" class="form-control date-br" placeholder="dd/mm/aaaa">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Data do Encontro</label>
+                                        <input type="text" v-model="formulario.data_encontro" class="form-control date-br" placeholder="dd/mm/aaaa">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Data da Tarde de Revelação</label>
+                                        <input type="text" v-model="formulario.data_tarde_revelacao" class="form-control date-br" placeholder="dd/mm/aaaa">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Início das Reuniões</label>
+                                        <input type="text" v-model="formulario.data_inicio_reunioes" class="form-control date-br" placeholder="dd/mm/aaaa">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Fim das Reuniões</label>
+                                        <input type="text" v-model="formulario.data_fim_reunioes" class="form-control date-br" placeholder="dd/mm/aaaa">
                                     </div>
                                     <div class="col-md-12">
                                         <label class="form-label">Descrição</label>
@@ -187,13 +207,19 @@
                     return {
                         ejcs: [],
                         editando: false,
+                        nomeMeuEJC: (window.__NOME_EJC_ATUAL && String(window.__NOME_EJC_ATUAL).trim()) || 'Inconfidentes',
                         formulario: {
                             id: null,
                             numero: null,
                             paroquia: '',
                             ano: new Date().getFullYear(),
+                            musica_tema: '',
                             data_inicio: '',
                             data_fim: '',
+                            data_encontro: '',
+                            data_tarde_revelacao: '',
+                            data_inicio_reunioes: '',
+                            data_fim_reunioes: '',
                             descricao: ''
                         },
                         encontristas: [],
@@ -241,10 +267,15 @@
                         this.formulario = {
                             id: null,
                             numero: null,
-                            paroquia: 'Inconfidentes',
+                            paroquia: this.nomeMeuEJC,
                             ano: new Date().getFullYear(),
+                            musica_tema: '',
                             data_inicio: '',
                             data_fim: '',
+                            data_encontro: '',
+                            data_tarde_revelacao: '',
+                            data_inicio_reunioes: '',
+                            data_fim_reunioes: '',
                             descricao: ''
                         };
                         new bootstrap.Modal(document.getElementById('modalEJC')).show();
@@ -351,9 +382,25 @@
                         }
                         return result;
                     }
+                    ,
+                    async carregarNomeMeuEJC() {
+                        try {
+                            const res = await fetch('/api/meu-ejc');
+                            if (!res.ok) return;
+                            const data = await res.json().catch(() => ({}));
+                            const nome = data && data.nome ? String(data.nome).trim() : '';
+                            if (nome) {
+                                this.nomeMeuEJC = nome;
+                                if (!this.formulario.paroquia || this.formulario.paroquia === 'Inconfidentes') {
+                                    this.formulario.paroquia = nome;
+                                }
+                            }
+                        } catch (_) { }
+                    }
                 },
                 mounted() {
                     this.buscarEJCs();
+                    this.carregarNomeMeuEJC();
                 }
             }).mount('#app');
         </script>

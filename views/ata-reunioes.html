@@ -328,7 +328,7 @@
                                                     </div>
                                                     <div class="col-md-2">
                                                         <label class="form-label">Data Limite</label>
-                                                        <input type="date" class="form-control" v-model="tarefa.prazo">
+                                                        <input type="text" class="form-control date-br" v-model="tarefa.prazo" placeholder="dd/mm/aaaa">
                                                     </div>
                                                     <div class="col-md-2">
                                                         <label class="form-label">Status</label>
@@ -631,13 +631,26 @@
                         const res = await fetch(`/api/ata-reunioes/pastas/${pasta.id}`, { method: 'DELETE' });
                         const data = await res.json().catch(() => ({}));
                         if (!res.ok) {
-                            alert(data.error || 'Erro ao remover pasta.');
+                            const msg = data.error
+                                || (res.status === 409
+                                    ? 'Esta pasta possui documentos. Exclua as atas/subpastas primeiro.'
+                                    : 'Erro ao remover pasta.');
+                            if (window.showFloatingAlert) {
+                                window.showFloatingAlert(msg, 'Aviso');
+                            } else {
+                                alert(msg);
+                            }
                             return;
                         }
                         await this.carregarConteudo();
                     } catch (err) {
                         console.error(err);
-                        alert('Erro ao remover pasta.');
+                        const msg = 'Erro ao remover pasta.';
+                        if (window.showFloatingAlert) {
+                            window.showFloatingAlert(msg, 'Aviso');
+                        } else {
+                            alert(msg);
+                        }
                     }
                 },
                 resetFormAta() {

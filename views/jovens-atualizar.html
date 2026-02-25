@@ -10,6 +10,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/css/velzon-theme.css">
     <link rel="stylesheet" href="/css/style.css">
+    <script src="/js/date-br.js" defer></script>
 </head>
 <body style="min-height:100vh;background:linear-gradient(155deg,#fbf5e9 0%,#f3e6cc 46%,#efe5d8 100%);">
     <div id="app" class="container py-4 py-md-5">
@@ -27,7 +28,7 @@
                             Preencha corretamente os dados de validação: nome completo, telefone, data de nascimento e última equipe em que você serviu.
                         </div>
 
-                        <div class="row g-3">
+                        <div class="row g-3" v-if="!naoEncontrado">
                             <div class="col-12"><h6 class="text-muted mb-0">Validação</h6></div>
                             <div class="col-md-6">
                                 <label class="form-label">Nome completo</label>
@@ -38,8 +39,8 @@
                                 <input class="form-control" v-model.trim="form.telefone" maxlength="30">
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label">Data de nascimento</label>
-                                <input type="text" class="form-control" v-model.trim="form.data_nascimento_br" placeholder="dd/mm/aaaa" inputmode="numeric">
+                                <label class="form-label">Data de nascimento (apenas validação)</label>
+                                <input type="text" class="form-control date-br" v-model.trim="form.data_nascimento_br" placeholder="dd/mm/aaaa" inputmode="numeric">
                             </div>
                             <div class="col-12">
                                 <label class="form-label">Qual foi a última equipe que você serviu?</label>
@@ -56,6 +57,13 @@
                                 <span class="small align-self-center text-success" v-if="cadastroValidado">Cadastro confirmado. Agora você pode atualizar.</span>
                             </div>
 
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="naoEncontrado" v-model="naoEncontrado">
+                                    <label class="form-check-label" for="naoEncontrado">Não foi encontrado meu registro</label>
+                                </div>
+                            </div>
+
                             <div class="col-12 pt-2"><h6 class="text-muted mb-0">Dados para atualizar</h6></div>
                             <div class="col-md-6">
                                 <label class="form-label">Nome completo</label>
@@ -66,8 +74,8 @@
                                 <input class="form-control" v-model.trim="form.telefone_novo" maxlength="30" :disabled="!cadastroValidado">
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">Data de nascimento</label>
-                                <input type="text" class="form-control" v-model.trim="form.data_nascimento_novo_br" placeholder="dd/mm/aaaa" inputmode="numeric" :disabled="!cadastroValidado">
+                                <label class="form-label">E-mail</label>
+                                <input class="form-control" v-model.trim="form.email" maxlength="180" placeholder="email@exemplo.com" :disabled="!cadastroValidado">
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Instagram</label>
@@ -102,6 +110,10 @@
                                     <option :value="true">Sim</option>
                                 </select>
                             </div>
+                            <div class="col-md-8" v-if="form.deficiencia && cadastroValidado">
+                                <label class="form-label">Qual deficiência</label>
+                                <input class="form-control" v-model.trim="form.qual_deficiencia" maxlength="200">
+                            </div>
 
                             <div class="col-md-4">
                                 <label class="form-label">Possui restrição alimentar?</label>
@@ -109,6 +121,15 @@
                                     <option :value="false">Não</option>
                                     <option :value="true">Sim</option>
                                 </select>
+                            </div>
+                            <div class="col-md-8" v-if="form.restricao_alimentar && cadastroValidado">
+                                <label class="form-label">Qual restrição</label>
+                                <select class="form-select" v-model="form.detalhes_restricao">
+                                    <option disabled value="">Selecione uma restrição...</option>
+                                    <option v-for="r in restricoesDisponiveis" :key="`rest-${r}`" :value="r">{{ r }}</option>
+                                    <option value="Outras">Outras (Especifique abaixo)</option>
+                                </select>
+                                <input v-if="form.detalhes_restricao === 'Outras'" class="form-control mt-2" v-model.trim="form.outra_restricao" maxlength="220" placeholder="Descreva a restrição">
                             </div>
 
                             <div class="col-md-4">
@@ -118,9 +139,52 @@
                                     <option :value="true">Sim</option>
                                 </select>
                             </div>
+                            <div class="col-md-8" v-if="form.eh_musico && cadastroValidado">
+                                <label class="form-label">Instrumentos</label>
+                                <div class="d-flex flex-wrap gap-2 border rounded p-2 bg-light">
+                                    <div class="form-check" v-for="ins in instrumentosDisponiveis" :key="`ins-${ins}`">
+                                        <input class="form-check-input" type="checkbox" :id="`ins-upd-${ins}`" :value="ins" v-model="form.instrumentos_musicais">
+                                        <label class="form-check-label small" :for="`ins-upd-${ins}`">{{ ins }}</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label">Comentário adicional</label>
+                                <textarea class="form-control" rows="3" v-model.trim="form.comentario_adicional" maxlength="1000" :disabled="!cadastroValidado"></textarea>
+                            </div>
                         </div>
 
-                        <div class="d-grid mt-4">
+                        <div class="row g-3" v-else>
+                            <div class="col-12"><h6 class="text-muted mb-0">Não encontrei meu registro</h6></div>
+                            <div class="col-md-6">
+                                <label class="form-label">Nome completo</label>
+                                <input class="form-control" v-model.trim="naoEncontradoForm.nome_completo" maxlength="180">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Telefone</label>
+                                <input class="form-control" v-model.trim="naoEncontradoForm.telefone" maxlength="30">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">EJC que fez</label>
+                                <input class="form-control" v-model.trim="naoEncontradoForm.ejc_que_fez" maxlength="180" placeholder="Ex: 15º EJC">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Selecione seu EJC</label>
+                                <select class="form-select" v-model.number="naoEncontradoForm.outro_ejc_id" @change="onSelecionarOutroEjc">
+                                    <option :value="0">Selecione...</option>
+                                    <option v-for="oe in outrosEjcs" :key="`oe-${oe.id}`" :value="oe.id">
+                                        {{ [oe.paroquia, oe.nome].filter(Boolean).join(' - ') || ('EJC #' + oe.id) }}
+                                    </option>
+                                </select>
+                            </div>
+                            <div class="col-12 d-flex gap-2">
+                                <button class="btn btn-primary" @click="enviarNaoEncontrado">Enviar dados</button>
+                                <button class="btn btn-outline-secondary" @click="naoEncontrado = false">Voltar</button>
+                            </div>
+                        </div>
+
+                        <div class="d-grid mt-4" v-if="!naoEncontrado">
                             <button class="btn btn-primary" :disabled="enviando || !cadastroValidado" @click="enviar">
                                 {{ enviando ? 'Enviando...' : 'Atualizar meus dados' }}
                             </button>
@@ -141,6 +205,34 @@
                     cadastroValidado: false,
                     validacaoToken: '',
                     equipes: [],
+                    outrosEjcs: [],
+                    naoEncontrado: false,
+                    restricoesDisponiveis: [
+                        'Alergia a amendoim',
+                        'Alergia a castanhas',
+                        'Alergia a frutos do mar',
+                        'APLV (Alergia à proteína do leite de vaca)',
+                        'Intolerante à lactose',
+                        'Intolerante a glúten (Celíaco)',
+                        'Não come carne vermelha',
+                        'Não come carne de porco',
+                        'Vegetariano',
+                        'Vegano'
+                    ],
+                    instrumentosDisponiveis: [
+                        'Voz',
+                        'Violao',
+                        'Guitarra',
+                        'Baixo',
+                        'Teclado',
+                        'Bateria',
+                        'Percussao',
+                        'Flauta',
+                        'Saxofone',
+                        'Violino',
+                        'Cajon',
+                        'Ukulele'
+                    ],
                     pastoraisDisponiveis: [],
                     form: {
                         nome_completo: '',
@@ -149,13 +241,25 @@
                         ultima_equipe: '',
                         nome_completo_novo: '',
                         telefone_novo: '',
-                        data_nascimento_novo_br: '',
+                        email: '',
                         instagram: '',
                         estado_civil: '',
                         deficiencia: false,
                         restricao_alimentar: false,
                         eh_musico: false,
+                        qual_deficiencia: '',
+                        detalhes_restricao: '',
+                        outra_restricao: '',
+                        instrumentos_musicais: [],
+                        comentario_adicional: '',
                         pastorais: []
+                    },
+                    naoEncontradoForm: {
+                        nome_completo: '',
+                        telefone: '',
+                        ejc_que_fez: '',
+                        tenant_id: '',
+                        outro_ejc_id: 0
                     }
                 };
             },
@@ -192,6 +296,16 @@
                     } catch (err) {
                         console.error(err);
                         this.pastoraisDisponiveis = [];
+                    }
+                },
+                async carregarOutrosEjcs() {
+                    try {
+                        const res = await fetch('/api/jovens-public/ejcs-outros');
+                        const data = await res.json().catch(() => ([]));
+                        this.outrosEjcs = res.ok && Array.isArray(data) ? data : [];
+                    } catch (err) {
+                        console.error(err);
+                        this.outrosEjcs = [];
                     }
                 },
                 async validarCadastro() {
@@ -241,19 +355,17 @@
                         alert('Confirme seu cadastro antes de atualizar.');
                         return;
                     }
-                    const dataNascimentoNovo = this.parseDateBrToIso(this.form.data_nascimento_novo_br);
-                    if (this.form.data_nascimento_novo_br && !dataNascimentoNovo) {
-                        alert('Informe a data de nascimento no formato dd/mm/aaaa.');
-                        return;
-                    }
                     this.enviando = true;
                     try {
+                        const detalhesRestricaoFinal = this.form.restricao_alimentar
+                            ? (this.form.detalhes_restricao === 'Outras' ? (this.form.outra_restricao || 'Outras') : this.form.detalhes_restricao)
+                            : '';
                         const res = await fetch('/api/jovens-public/atualizar', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 ...this.form,
-                                data_nascimento_novo: dataNascimentoNovo,
+                                detalhes_restricao: detalhesRestricaoFinal,
                                 validacao_token: this.validacaoToken
                             })
                         });
@@ -269,10 +381,46 @@
                     } finally {
                         this.enviando = false;
                     }
+                },
+                async enviarNaoEncontrado() {
+                    if (!this.naoEncontradoForm.nome_completo || !this.naoEncontradoForm.telefone || !this.naoEncontradoForm.ejc_que_fez) {
+                        alert('Preencha nome, telefone e EJC que fez.');
+                        return;
+                    }
+                    if (!this.naoEncontradoForm.tenant_id) {
+                        alert('Selecione seu EJC.');
+                        return;
+                    }
+                    try {
+                        const res = await fetch('/api/jovens-public/nao-encontrado', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                ...this.naoEncontradoForm
+                            })
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                            alert(data.error || 'Erro ao enviar dados.');
+                            return;
+                        }
+                        alert(data.message || 'Dados enviados com sucesso.');
+                        this.naoEncontrado = false;
+                        this.naoEncontradoForm = { nome_completo: '', telefone: '', ejc_que_fez: '', tenant_id: '', outro_ejc_id: 0 };
+                    } catch (err) {
+                        console.error(err);
+                        alert('Erro ao enviar dados.');
+                    }
+                },
+                onSelecionarOutroEjc() {
+                    const id = Number(this.naoEncontradoForm.outro_ejc_id || 0);
+                    const found = (this.outrosEjcs || []).find(o => Number(o.id) === id);
+                    this.naoEncontradoForm.tenant_id = found ? found.tenant_id : '';
                 }
             },
             mounted() {
                 this.carregarEquipes();
+                this.carregarOutrosEjcs();
             }
         }).mount('#app');
     </script>

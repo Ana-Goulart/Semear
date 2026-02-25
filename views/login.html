@@ -130,11 +130,7 @@
                 };
             },
             async mounted() {
-                try {
-                    const res = await fetch('/api/auth/me');
-                    const data = res.ok ? await res.json() : {};
-                    if (data.logged) window.location.href = '/';
-                } catch (_) { }
+                // Mantém na tela de login até o usuário entrar.
             },
             methods: {
                 abrirPopup(titulo, mensagem, motivo) {
@@ -156,7 +152,7 @@
                             this.abrirPopup('Não foi possível entrar', data.error || 'Não foi possível entrar.', data.motivo || '');
                             return;
                         }
-                        window.location.href = '/';
+                        window.location.href = '/dashboard';
                     } catch (_) {
                         this.abrirPopup('Erro de conexão', 'Erro ao conectar com o servidor.');
                     } finally {

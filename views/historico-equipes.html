@@ -40,7 +40,7 @@
                                 :aria-expanded="index === 0">
                                 <strong>{{ numeroParaRomano(ejc.numero) }}º EJC</strong>
                                 <span v-if="ejc.isMontagem" class="badge bg-warning text-dark ms-2">🧩 Montagem</span>
-                                <span v-else>&nbsp;—&nbsp;{{ ejc.paroquia }}&nbsp;<span class="text-muted">({{ ejc.ano
+                                <span v-else>&nbsp;—&nbsp;{{ nomeMeuEJC || ejc.paroquia }}&nbsp;<span class="text-muted">({{ ejc.ano
                                         || 'Ano não informado' }})</span></span>
                             </button>
                         </h2>
@@ -95,7 +95,7 @@
                                         </div>
                                     </div>
                                     <div class="row text-sm">
-                                        <div class="col-md-3"><small><strong>Paróquia:</strong> {{ ejc.paroquia
+                                        <div class="col-md-3"><small><strong>Paróquia:</strong> {{ nomeMeuEJC || ejc.paroquia
                                                 }}</small></div>
                                         <div class="col-md-3"><small><strong>Ano:</strong> {{ ejc.ano || '-' }}</small>
                                         </div>
@@ -193,7 +193,7 @@
                                         <label class="form-label">Paróquia *</label>
                                         <select v-model="formulario.paroquia" class="form-select" required>
                                             <option value="">Selecione a paróquia</option>
-                                            <option value="Inconfidentes">Inconfidentes</option>
+                                            <option :value="nomeMeuEJC">{{ nomeMeuEJC }}</option>
                                         </select>
                                     </div>
                                     <div class="col-md-6">
@@ -201,12 +201,16 @@
                                         <input type="number" v-model.number="formulario.ano" class="form-control">
                                     </div>
                                     <div class="col-md-6">
+                                        <label class="form-label">Música Tema</label>
+                                        <input type="text" v-model="formulario.musica_tema" class="form-control" placeholder="Ex: Nome da música">
+                                    </div>
+                                    <div class="col-md-6">
                                         <label class="form-label">Data Início</label>
-                                        <input type="date" v-model="formulario.data_inicio" class="form-control">
+                                        <input type="text" v-model="formulario.data_inicio" class="form-control date-br" placeholder="dd/mm/aaaa">
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">Data Fim</label>
-                                        <input type="date" v-model="formulario.data_fim" class="form-control">
+                                        <input type="text" v-model="formulario.data_fim" class="form-control date-br" placeholder="dd/mm/aaaa">
                                     </div>
                                     <div class="col-md-12">
                                         <label class="form-label">Descrição</label>
@@ -282,11 +286,13 @@
                     return {
                         ejcs: [],
                         editando: false,
+                        nomeMeuEJC: (window.__NOME_EJC_ATUAL && String(window.__NOME_EJC_ATUAL).trim()) || 'Inconfidentes',
                         formulario: {
                             id: null,
                             numero: null,
                             paroquia: '',
                             ano: new Date().getFullYear(),
+                            musica_tema: '',
                             data_inicio: '',
                             data_fim: '',
                             descricao: ''
@@ -338,8 +344,9 @@
                         this.formulario = {
                             id: null,
                             numero: null,
-                            paroquia: 'Inconfidentes',
+                            paroquia: this.nomeMeuEJC,
                             ano: new Date().getFullYear(),
+                            musica_tema: '',
                             data_inicio: '',
                             data_fim: '',
                             descricao: ''
@@ -594,12 +601,27 @@
                             }
                         }
                         return result;
+                    },
+                    async carregarNomeMeuEJC() {
+                        try {
+                            const res = await fetch('/api/meu-ejc');
+                            if (!res.ok) return;
+                            const data = await res.json().catch(() => ({}));
+                            const nome = data && data.nome ? String(data.nome).trim() : '';
+                            if (nome) {
+                                this.nomeMeuEJC = nome;
+                                if (!this.formulario.paroquia || this.formulario.paroquia === 'Inconfidentes') {
+                                    this.formulario.paroquia = nome;
+                                }
+                            }
+                        } catch (_) { }
                     }
                 },
                 mounted() {
                     this.equipesPorEJC = {};
                     this.buscarEJCs();
                     this.buscarTodasEquipes();
+                    this.carregarNomeMeuEJC();
                 }
             }).mount('#app');
         </script>

@@ -33,10 +33,6 @@
                         @click="abrirModalImportacao">
                         <span>📥</span> Importar
                     </button>
-                    <a class="btn btn-soft-warning d-flex align-items-center gap-1 text-nowrap"
-                        href="/jovens/atualizar-cadastro" target="_blank" rel="noopener">
-                        <span>🔗</span> Formulário atualização cadastral
-                    </a>
                     <div class="vr mx-1"></div>
 
                     <div class="btn-group">
@@ -326,10 +322,22 @@
                                             class="form-control">
                                     </div>
                                     <div class="col-md-4">
+                                        <label class="text-muted small mb-0">Apelido</label>
+                                        <div v-if="!isEditing" class="py-1 px-2 bg-light border rounded">{{
+                                            jovemEditando.apelido || 'Não informado' }}</div>
+                                        <input v-else type="text" v-model="jovemEditando.apelido" class="form-control">
+                                    </div>
+                                    <div class="col-md-4">
                                         <label class="text-muted small mb-0">Telefone</label>
                                         <div v-if="!isEditing" class="py-1 px-2 bg-light border rounded">{{
                                             jovemEditando.telefone }}</div>
                                         <input v-else type="text" v-model="jovemEditando.telefone" class="form-control">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="text-muted small mb-0">E-mail</label>
+                                        <div v-if="!isEditing" class="py-1 px-2 bg-light border rounded">{{
+                                            jovemEditando.email || 'Não informado' }}</div>
+                                        <input v-else type="email" v-model="jovemEditando.email" class="form-control">
                                     </div>
                                     <div class="col-md-12">
                                         <label class="text-muted small mb-0">Pastorais</label>
@@ -379,8 +387,8 @@
                                         <label class="text-muted small mb-0">Data de Nascimento</label>
                                         <div v-if="!isEditing" class="py-1 px-2 bg-light border rounded">{{
                                             formatarData(jovemEditando.data_nascimento) }}</div>
-                                        <input v-else type="date" v-model="jovemEditando.data_nascimento"
-                                            class="form-control">
+                                        <input v-else type="text" v-model="jovemEditando.data_nascimento"
+                                            class="form-control date-br" placeholder="dd/mm/aaaa">
                                     </div>
 
                                     <div class="col-md-6">
@@ -399,8 +407,8 @@
                                         <label class="text-muted small mb-0">Data do Casamento</label>
                                         <div v-if="!isEditing" class="py-1 px-2 bg-light border rounded">{{
                                             formatarData(jovemEditando.data_casamento) }}</div>
-                                        <input v-else type="date" v-model="jovemEditando.data_casamento"
-                                            class="form-control">
+                                        <input v-else type="text" v-model="jovemEditando.data_casamento"
+                                            class="form-control date-br" placeholder="dd/mm/aaaa">
                                     </div>
 
                                     <!-- INFO CÔNJUGE -->
@@ -870,13 +878,23 @@
                                     placeholder="Nome" required>
                             </div>
                             <div class="col-md-6">
+                                <label class="text-muted small">Apelido</label>
+                                <input type="text" v-model="novoJovem.apelido" class="form-control"
+                                    placeholder="Apelido">
+                            </div>
+                            <div class="col-md-6">
                                 <label class="text-muted small">Telefone *</label>
                                 <input type="tel" v-model="novoJovem.telefone" @input="onNovoTelefoneInput" class="form-control"
                                     placeholder="Telefone" required>
                             </div>
+                            <div class="col-md-6">
+                                <label class="text-muted small">E-mail</label>
+                                <input type="email" v-model="novoJovem.email" class="form-control"
+                                    placeholder="email@exemplo.com">
+                            </div>
                             <div class="col-md-4">
                                 <label class="text-muted small">Data de Nascimento</label>
-                                <input type="date" v-model="novoJovem.data_nascimento" class="form-control">
+                                <input type="text" v-model="novoJovem.data_nascimento" class="form-control date-br" placeholder="dd/mm/aaaa">
                             </div>
                             <div class="col-md-4" v-if="novoJovem.origem_ejc_tipo === 'INCONFIDENTES'">
                                 <label class="text-muted small">Nº EJC que fez</label>
@@ -1233,7 +1251,9 @@ Campo estado_civil fora do padrão: "Solteira". Padrão normal: Solteiro, Casado
                     novoJovem: {
                         origem_ejc_tipo: 'INCONFIDENTES',
                         nome_completo: '',
+                        apelido: '',
                         telefone: '',
+                        email: '',
                         data_nascimento: '',
                         numero_ejc_fez: '',
                         outro_ejc_id: '',
@@ -2056,6 +2076,7 @@ Campo estado_civil fora do padrão: "Solteira". Padrão normal: Solteiro, Casado
                         origem_ejc_tipo: 'INCONFIDENTES',
                         nome_completo: '',
                         telefone: '',
+                        email: '',
                         data_nascimento: '',
                         numero_ejc_fez: '',
                         outro_ejc_id: '',
@@ -2098,7 +2119,9 @@ Campo estado_civil fora do padrão: "Solteira". Padrão normal: Solteiro, Casado
                         const payload = {
                             origem_ejc_tipo: this.novoJovem.origem_ejc_tipo === 'OUTRO_EJC' ? 'OUTRO_EJC' : 'INCONFIDENTES',
                             nome_completo: this.novoJovem.nome_completo,
+                            apelido: this.novoJovem.apelido || null,
                             telefone: this.novoJovem.telefone,
+                            email: this.novoJovem.email || null,
                             data_nascimento: this.novoJovem.data_nascimento || null,
                             numero_ejc_fez: this.novoJovem.origem_ejc_tipo === 'INCONFIDENTES' ? (this.novoJovem.numero_ejc_fez || null) : null,
                             outro_ejc_id: this.novoJovem.origem_ejc_tipo === 'OUTRO_EJC' ? (this.novoJovem.outro_ejc_id || null) : null,
@@ -2158,7 +2181,9 @@ Campo estado_civil fora do padrão: "Solteira". Padrão normal: Solteiro, Casado
 
                         const payload = {
                             nome_completo: this.jovemEditando.nome_completo,
+                            apelido: this.jovemEditando.apelido || null,
                             telefone: this.jovemEditando.telefone,
+                            email: this.jovemEditando.email || null,
                             sexo: this.jovemEditando.sexo || null,
                             data_nascimento: this.jovemEditando.data_nascimento || null,
                             numero_ejc_fez: this.jovemEditando.numero_ejc_fez || null,

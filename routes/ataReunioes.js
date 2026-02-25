@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
+const { getTenantId } = require('../lib/tenantIsolation');
 
 let estruturaGarantida = false;
 
@@ -232,11 +233,13 @@ router.post('/pastas', async (req, res) => {
 router.get('/usuarios', async (req, res) => {
     try {
         await garantirEstrutura();
+        const tenantId = getTenantId(req);
         const [rows] = await pool.query(`
             SELECT id, nome_completo, username, grupo, data_saida
             FROM usuarios
+            WHERE tenant_id = ?
             ORDER BY nome_completo ASC
-        `);
+        `, [tenantId]);
         res.json(rows);
     } catch (err) {
         console.error('Erro ao listar usuários para ata:', err);

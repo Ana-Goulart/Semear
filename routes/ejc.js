@@ -14,6 +14,26 @@ async function hasColumn(tableName, columnName) {
     return !!(rows && rows[0] && rows[0].cnt > 0);
 }
 
+async function runAlterIgnoreDuplicate(sql) {
+    try {
+        await pool.query(sql);
+    } catch (err) {
+        if (err && (err.code === 'ER_DUP_FIELDNAME' || err.code === 'ER_DUP_KEYNAME')) return;
+        throw err;
+    }
+}
+
+async function garantirEstruturaEjcDatasMontagem() {
+    await runAlterIgnoreDuplicate("ALTER TABLE ejc ADD COLUMN data_encontro DATE NULL AFTER data_fim");
+    await runAlterIgnoreDuplicate("ALTER TABLE ejc ADD COLUMN data_tarde_revelacao DATE NULL AFTER data_encontro");
+    await runAlterIgnoreDuplicate("ALTER TABLE ejc ADD COLUMN data_inicio_reunioes DATE NULL AFTER data_tarde_revelacao");
+    await runAlterIgnoreDuplicate("ALTER TABLE ejc ADD COLUMN data_fim_reunioes DATE NULL AFTER data_inicio_reunioes");
+}
+
+async function garantirEstruturaEjcMusicaTema() {
+    await runAlterIgnoreDuplicate("ALTER TABLE ejc ADD COLUMN musica_tema VARCHAR(180) NULL AFTER descricao");
+}
+
 // GET - Listar todos os EJCs
 router.get('/', async (req, res) => {
     try {
@@ -93,7 +113,7 @@ router.get('/:id/encontristas', async (req, res) => {
 
 // POST - Criar novo EJC
 router.post('/', async (req, res) => {
-    const { numero, paroquia, ano, data_inicio, data_fim, descricao } = req.body;
+    const { numero, paroquia, ano, data_inicio, data_fim, data_encontro, data_tarde_revelacao, data_inicio_reunioes, data_fim_reunioes, descricao, musica_tema } = req.body;
 
     // Validação
     if (!numero || !paroquia) {
@@ -102,9 +122,25 @@ router.post('/', async (req, res) => {
 
     try {
         const tenantId = getTenantId(req);
+        await garantirEstruturaEjcDatasMontagem();
+        await garantirEstruturaEjcMusicaTema();
         const [result] = await pool.query(
-            'INSERT INTO ejc (tenant_id, numero, paroquia, ano, data_inicio, data_fim, descricao) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [tenantId, numero, paroquia, ano || new Date().getFullYear(), data_inicio || null, data_fim || null, descricao || null]
+            `INSERT INTO ejc (tenant_id, numero, paroquia, ano, data_inicio, data_fim, data_encontro, data_tarde_revelacao, data_inicio_reunioes, data_fim_reunioes, descricao, musica_tema)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                tenantId,
+                numero,
+                paroquia,
+                ano || new Date().getFullYear(),
+                data_inicio || null,
+                data_fim || null,
+                data_encontro || null,
+                data_tarde_revelacao || null,
+                data_inicio_reunioes || null,
+                data_fim_reunioes || null,
+                descricao || null,
+                musica_tema || null
+            ]
         );
 
         // Ao criar um novo EJC, vincula automaticamente todas as equipes já cadastradas.
@@ -131,7 +167,7 @@ router.post('/', async (req, res) => {
 
 // PUT - Editar EJC
 router.put('/:id', async (req, res) => {
-    const { numero, paroquia, ano, data_inicio, data_fim, descricao } = req.body;
+    const { numero, paroquia, ano, data_inicio, data_fim, data_encontro, data_tarde_revelacao, data_inicio_reunioes, data_fim_reunioes, descricao, musica_tema } = req.body;
 
     if (!numero || !paroquia) {
         return res.status(400).json({ error: "Número e Paróquia são obrigatórios" });
@@ -139,9 +175,37 @@ router.put('/:id', async (req, res) => {
 
     try {
         const tenantId = getTenantId(req);
+        await garantirEstruturaEjcDatasMontagem();
+        await garantirEstruturaEjcMusicaTema();
         const [result] = await pool.query(
-            'UPDATE ejc SET numero=?, paroquia=?, ano=?, data_inicio=?, data_fim=?, descricao=? WHERE id=? AND tenant_id = ?',
-            [numero, paroquia, ano, data_inicio || null, data_fim || null, descricao || null, req.params.id, tenantId]
+            `UPDATE ejc
+             SET numero=?,
+                 paroquia=?,
+                 ano=?,
+                 data_inicio=?,
+                 data_fim=?,
+                 data_encontro=?,
+                 data_tarde_revelacao=?,
+                 data_inicio_reunioes=?,
+                 data_fim_reunioes=?,
+                 descricao=?,
+                 musica_tema=?
+             WHERE id=? AND tenant_id = ?`,
+            [
+                numero,
+                paroquia,
+                ano,
+                data_inicio || null,
+                data_fim || null,
+                data_encontro || null,
+                data_tarde_revelacao || null,
+                data_inicio_reunioes || null,
+                data_fim_reunioes || null,
+                descricao || null,
+                musica_tema || null,
+                req.params.id,
+                tenantId
+            ]
         );
 
         if (result.affectedRows === 0) {

@@ -136,12 +136,12 @@
                             <div class="col-12"><h6 class="text-muted mb-0">Dados do Tio</h6></div>
                             <div class="col-md-6"><label class="form-label">Nome do tio</label><input class="form-control" v-model.trim="formCasal.nome_tio" maxlength="180"></div>
                             <div class="col-md-3"><label class="form-label">Telefone</label><input class="form-control" v-model.trim="formCasal.telefone_tio" maxlength="30"></div>
-                            <div class="col-md-3"><label class="form-label">Nascimento</label><input type="date" class="form-control" v-model="formCasal.data_nascimento_tio"></div>
+                            <div class="col-md-3"><label class="form-label">Nascimento</label><input type="text" class="form-control date-br" v-model="formCasal.data_nascimento_tio" placeholder="dd/mm/aaaa"></div>
 
                             <div class="col-12 pt-2"><h6 class="text-muted mb-0">Dados da Tia</h6></div>
                             <div class="col-md-6"><label class="form-label">Nome da tia</label><input class="form-control" v-model.trim="formCasal.nome_tia" maxlength="180"></div>
                             <div class="col-md-3"><label class="form-label">Telefone</label><input class="form-control" v-model.trim="formCasal.telefone_tia" maxlength="30"></div>
-                            <div class="col-md-3"><label class="form-label">Nascimento</label><input type="date" class="form-control" v-model="formCasal.data_nascimento_tia"></div>
+                            <div class="col-md-3"><label class="form-label">Nascimento</label><input type="text" class="form-control date-br" v-model="formCasal.data_nascimento_tia" placeholder="dd/mm/aaaa"></div>
 
                             <div class="col-md-6">
                                 <label class="form-label">Número do ECC</label>

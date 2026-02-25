@@ -107,7 +107,7 @@
                         <div class="row g-3">
                             <div class="col-md-6"><label class="form-label text-muted small">Nome completo *</label><input v-model="novo.nome_completo" class="form-control"></div>
                             <div class="col-md-6"><label class="form-label text-muted small">Telefone *</label><input v-model="novo.telefone" @input="onNovoTelefoneInput" class="form-control" placeholder="(31)99999-9999"></div>
-                            <div class="col-md-4"><label class="form-label text-muted small">Data de nascimento</label><input type="date" v-model="novo.data_nascimento" class="form-control"></div>
+                            <div class="col-md-4"><label class="form-label text-muted small">Data de nascimento</label><input type="text" v-model="novo.data_nascimento" class="form-control date-br" placeholder="dd/mm/aaaa"></div>
                             <div class="col-md-4"><label class="form-label text-muted small">Sexo</label><select v-model="novo.sexo" class="form-select"><option value="">(Não informado)</option><option value="Feminino">Feminino</option><option value="Masculino">Masculino</option></select></div>
                             <div class="col-md-4"><label class="form-label text-muted small">Estado civil</label><select v-model="novo.estado_civil" class="form-select"><option value="Solteiro">Solteiro</option><option value="Casado">Casado</option><option value="Amasiado">Amasiado</option></select></div>
                             <div class="col-md-4"><label class="form-label text-muted small">Número do EJC que fez</label><input v-model="novo.outro_ejc_numero" @blur="normalizarNumeroEjcNovo" class="form-control" placeholder="Ex: 11"></div>
@@ -143,7 +143,7 @@
                         <div class="row g-3">
                             <div class="col-md-6"><label class="form-label text-muted small">Nome completo *</label><input v-model="edit.nome_completo" class="form-control"></div>
                             <div class="col-md-6"><label class="form-label text-muted small">Telefone *</label><input v-model="edit.telefone" @input="onEditTelefoneInput" class="form-control" placeholder="(31)99999-9999"></div>
-                            <div class="col-md-4"><label class="form-label text-muted small">Data de nascimento</label><input type="date" v-model="edit.data_nascimento" class="form-control"></div>
+                            <div class="col-md-4"><label class="form-label text-muted small">Data de nascimento</label><input type="text" v-model="edit.data_nascimento" class="form-control date-br" placeholder="dd/mm/aaaa"></div>
                             <div class="col-md-4"><label class="form-label text-muted small">Sexo</label><select v-model="edit.sexo" class="form-select"><option value="">(Não informado)</option><option value="Feminino">Feminino</option><option value="Masculino">Masculino</option></select></div>
                             <div class="col-md-4"><label class="form-label text-muted small">Estado civil</label><select v-model="edit.estado_civil" class="form-select"><option value="Solteiro">Solteiro</option><option value="Casado">Casado</option><option value="Amasiado">Amasiado</option></select></div>
                             <div class="col-md-4"><label class="form-label text-muted small">Número do EJC que fez</label><input v-model="edit.outro_ejc_numero" @blur="normalizarNumeroEjcEdit" class="form-control" placeholder="Ex: 11"></div>

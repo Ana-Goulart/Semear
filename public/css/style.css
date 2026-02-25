@@ -65,6 +65,44 @@
     font-weight: 600;
 }
 
+/* ===== INPUT DATA (BR) ===== */
+.date-br-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: stretch;
+    width: 100%;
+}
+
+.date-br-wrap .date-br {
+    padding-right: 2.6rem;
+}
+
+.date-br-btn {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    border-radius: 8px;
+    padding: 0.2rem 0.45rem;
+    font-size: 0.95rem;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+}
+
+.date-br-btn:hover {
+    background: #f8fafc;
+}
+
+.date-br-hidden {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
 /* ===== RESPONSIVIDADE ESPECIFICA (Filtros) ===== */
 @media (max-width: 576px) {
     .filtro-panel {

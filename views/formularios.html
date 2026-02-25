@@ -241,6 +241,7 @@
                     </div>
                     <div class="modal-body text-center">
                         <img v-if="qrDataUrl" :src="qrDataUrl" class="img-fluid border rounded p-2 bg-white">
+                        <div v-else class="text-muted small">QR Code indisponível. Use o link abaixo.</div>
                         <div class="mt-2 small"><a :href="qrLink" target="_blank">{{ qrLink }}</a></div>
                     </div>
                 </div>
@@ -454,7 +455,19 @@
                 async abrirQr(form) {
                     const link = this.getPublicLink(form);
                     this.qrLink = link;
-                    this.qrDataUrl = await QRCode.toDataURL(link, { width: 420, margin: 2 });
+                    const qrLib = window.QRCode;
+                    if (!qrLib || !qrLib.toDataURL) {
+                        console.warn('QRCode não carregado. Abrindo modal apenas com link.');
+                        this.qrDataUrl = '';
+                        this.qrModal.show();
+                        return;
+                    }
+                    try {
+                        this.qrDataUrl = await qrLib.toDataURL(link, { width: 420, margin: 2 });
+                    } catch (err) {
+                        console.error('Erro ao gerar QRCode:', err);
+                        this.qrDataUrl = '';
+                    }
                     this.qrModal.show();
                 },
                 async carregarConteudo() {

@@ -28,6 +28,8 @@ let hasHistoricoCreatedAtColumnCache = null;
 let hasEhMusicoColumnCache = null;
 let hasInstrumentosMusicaisColumnCache = null;
 let hasSexoColumnCache = null;
+let hasEmailColumnCache = null;
+let hasApelidoColumnCache = null;
 let ensureCadastroOrigemPromise = null;
 async function hasSubfuncaoColumn() {
     if (hasSubfuncaoColumnCache !== null) return hasSubfuncaoColumnCache;
@@ -112,6 +114,54 @@ async function hasSexoColumn() {
     return hasSexoColumnCache;
 }
 
+async function hasEmailColumn() {
+    if (hasEmailColumnCache !== null) return hasEmailColumnCache;
+    const [rows] = await pool.query(`
+        SELECT COUNT(*) as cnt
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'jovens'
+          AND COLUMN_NAME = 'email'
+    `);
+    hasEmailColumnCache = !!(rows && rows[0] && rows[0].cnt > 0);
+    return hasEmailColumnCache;
+}
+
+async function hasApelidoColumn() {
+    if (hasApelidoColumnCache !== null) return hasApelidoColumnCache;
+    const [rows] = await pool.query(`
+        SELECT COUNT(*) as cnt
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'jovens'
+          AND COLUMN_NAME = 'apelido'
+    `);
+    hasApelidoColumnCache = !!(rows && rows[0] && rows[0].cnt > 0);
+    return hasApelidoColumnCache;
+}
+
+async function ensureEmailColumn() {
+    const existe = await hasEmailColumn();
+    if (existe) return;
+    try {
+        await pool.query("ALTER TABLE jovens ADD COLUMN email VARCHAR(180) NULL AFTER telefone");
+    } catch (err) {
+        if (!err || err.code !== 'ER_DUP_FIELDNAME') throw err;
+    }
+    hasEmailColumnCache = true;
+}
+
+async function ensureApelidoColumn() {
+    const existe = await hasApelidoColumn();
+    if (existe) return;
+    try {
+        await pool.query("ALTER TABLE jovens ADD COLUMN apelido VARCHAR(120) NULL AFTER nome_completo");
+    } catch (err) {
+        if (!err || err.code !== 'ER_DUP_FIELDNAME') throw err;
+    }
+    hasApelidoColumnCache = true;
+}
+
 async function hasColumn(tableName, columnName) {
     const [rows] = await pool.query(`
         SELECT COUNT(*) as cnt
@@ -193,6 +243,8 @@ router.get('/', async (req, res) => {
     try {
         const tenantId = getTenantId(req);
         await ensureCadastroOrigemColumns();
+        await ensureEmailColumn();
+        await ensureApelidoColumn();
         const [rows] = await pool.query(`
             SELECT j.*, e.numero as numero_ejc, e.paroquia as paroquia_ejc,
                    oe.nome AS outro_ejc_nome, oe.paroquia AS outro_ejc_paroquia,
@@ -516,6 +568,8 @@ router.get('/:id', async (req, res) => {
     try {
         const tenantId = getTenantId(req);
         await ensureCadastroOrigemColumns();
+        await ensureEmailColumn();
+        await ensureApelidoColumn();
         const [rows] = await pool.query(`
             SELECT j.*, e.numero as numero_ejc, e.paroquia as paroquia_ejc,
                    oe.nome AS outro_ejc_nome, oe.paroquia AS outro_ejc_paroquia,
@@ -553,8 +607,10 @@ router.post('/', async (req, res) => {
     try {
         const tenantId = getTenantId(req);
         await ensureCadastroOrigemColumns();
+        await ensureEmailColumn();
+        await ensureApelidoColumn();
         const {
-            nome_completo, telefone, data_nascimento, numero_ejc_fez, instagram, estado_civil, data_casamento,
+            nome_completo, apelido, telefone, email, data_nascimento, numero_ejc_fez, instagram, estado_civil, data_casamento,
             circulo, deficiencia, qual_deficiencia, restricao_alimentar, detalhes_restricao, sexo,
             origem_ejc_tipo, outro_ejc_id, outro_ejc_numero, ja_foi_moita_inconfidentes, moita_ejc_id, moita_funcao
         } = req.body;
@@ -578,7 +634,9 @@ router.post('/', async (req, res) => {
         const campos = [
             'tenant_id',
             'nome_completo',
+            'apelido',
             'telefone',
+            'email',
             'data_nascimento',
             'numero_ejc_fez',
             'origem_ejc_tipo',
@@ -600,7 +658,9 @@ router.post('/', async (req, res) => {
         const valores = [
             tenantId,
             nome_completo,
+            apelido ? String(apelido).trim() : null,
             telefone,
+            email || null,
             normalizeDate(data_nascimento),
             numeroEjcInconfidentes,
             origemTipo,
@@ -642,8 +702,9 @@ router.post('/', async (req, res) => {
 
         res.json({ id: result.insertId, message: "Jovem criado com sucesso" });
     } catch (err) {
+        const msg = err && (err.sqlMessage || err.message) ? (err.sqlMessage || err.message) : "Erro ao criar jovem";
         console.error("Erro ao criar jovem:", err);
-        res.status(500).json({ error: "Erro ao criar jovem" });
+        res.status(500).json({ error: msg });
     }
 });
 
@@ -667,6 +728,8 @@ router.put('/:id', async (req, res) => {
     try {
         const tenantId = getTenantId(req);
         await ensureCadastroOrigemColumns();
+        await ensureEmailColumn();
+        await ensureApelidoColumn();
         const [rows] = await pool.query('SELECT * FROM jovens WHERE id = ? AND tenant_id = ?', [id, tenantId]);
         if (rows.length === 0) return res.status(404).json({ error: 'Jovem não encontrado' });
         const atual = rows[0];
@@ -675,7 +738,9 @@ router.put('/:id', async (req, res) => {
 
         const merged = {
             nome_completo: req.body.nome_completo !== undefined ? req.body.nome_completo : atual.nome_completo,
+            apelido: req.body.apelido !== undefined ? req.body.apelido : atual.apelido,
             telefone: req.body.telefone !== undefined ? req.body.telefone : atual.telefone,
+            email: req.body.email !== undefined ? req.body.email : (atual.email === undefined ? null : atual.email),
             sexo: req.body.sexo !== undefined ? req.body.sexo : atual.sexo,
             data_nascimento: req.body.data_nascimento !== undefined ? normalizeDate(req.body.data_nascimento) : (atual.data_nascimento ? normalizeDate(atual.data_nascimento) : null),
             numero_ejc_fez: req.body.numero_ejc_fez !== undefined ? req.body.numero_ejc_fez : atual.numero_ejc_fez,
@@ -747,9 +812,9 @@ router.put('/:id', async (req, res) => {
         const hasInstrumentosMusicais = await hasInstrumentosMusicaisColumn();
         const hasSexo = await hasSexoColumn();
 
-        let updateFields = `nome_completo=?, telefone=?, data_nascimento=?, numero_ejc_fez=?, origem_ejc_tipo=?, outro_ejc_id=?, outro_ejc_numero=?, transferencia_outro_ejc=?, instagram=?, estado_civil=?, data_casamento=?, circulo=?, deficiencia=?, qual_deficiencia=?, restricao_alimentar=?, detalhes_restricao=?, conjuge_id=?, conjuge_nome=?, conjuge_telefone=?, conjuge_ejc_id=?, conjuge_outro_ejc_id=?, observacoes_extras=?, ja_foi_moita_inconfidentes=?, moita_ejc_id=?, moita_funcao=?`;
+        let updateFields = `nome_completo=?, apelido=?, telefone=?, email=?, data_nascimento=?, numero_ejc_fez=?, origem_ejc_tipo=?, outro_ejc_id=?, outro_ejc_numero=?, transferencia_outro_ejc=?, instagram=?, estado_civil=?, data_casamento=?, circulo=?, deficiencia=?, qual_deficiencia=?, restricao_alimentar=?, detalhes_restricao=?, conjuge_id=?, conjuge_nome=?, conjuge_telefone=?, conjuge_ejc_id=?, conjuge_outro_ejc_id=?, observacoes_extras=?, ja_foi_moita_inconfidentes=?, moita_ejc_id=?, moita_funcao=?`;
         const params = [
-            merged.nome_completo, merged.telefone, merged.data_nascimento, merged.numero_ejc_fez, merged.origem_ejc_tipo, merged.outro_ejc_id || null, merged.outro_ejc_numero || null, merged.transferencia_outro_ejc ? 1 : 0,
+            merged.nome_completo, merged.apelido || null, merged.telefone, merged.email || null, merged.data_nascimento, merged.numero_ejc_fez, merged.origem_ejc_tipo, merged.outro_ejc_id || null, merged.outro_ejc_numero || null, merged.transferencia_outro_ejc ? 1 : 0,
             merged.instagram, merged.estado_civil, merged.data_casamento, merged.circulo, merged.deficiencia, merged.qual_deficiencia, merged.restricao_alimentar, merged.detalhes_restricao,
             merged.conjuge_id || null, merged.conjuge_nome || null, merged.conjuge_telefone || null, merged.conjuge_ejc_id || null, merged.conjuge_outro_ejc_id || null, merged.observacoes_extras || null,
             merged.ja_foi_moita_inconfidentes ? 1 : 0, merged.moita_ejc_id || null, merged.moita_funcao || null
@@ -1462,6 +1527,38 @@ router.delete('/observacoes/:id', async (req, res) => {
     if (!id) return res.status(400).json({ error: 'ID inválido.' });
     try {
         const tenantId = getTenantId(req);
+        const [obsRows] = await pool.query(
+            'SELECT id, jovem_id, texto FROM jovens_observacoes WHERE id = ? AND tenant_id = ? LIMIT 1',
+            [id, tenantId]
+        );
+        if (!obsRows.length) return res.status(404).json({ error: 'Observação não encontrada.' });
+        const obs = obsRows[0];
+        const texto = String(obs.texto || '').trim();
+        const match = texto.match(/^Jovem recusou servir no\s+(\d+)\s*º?\s*encontro de montagem/i);
+        if (match && obs.jovem_id) {
+            const numero = Number(match[1]);
+            if (Number.isFinite(numero)) {
+                const [montagens] = await pool.query(
+                    'SELECT id FROM montagens WHERE tenant_id = ? AND numero_ejc = ?',
+                    [tenantId, numero]
+                );
+                for (const m of montagens || []) {
+                    await pool.query(
+                        'DELETE FROM montagem_membros WHERE montagem_id = ? AND jovem_id = ? AND tenant_id = ?',
+                        [m.id, obs.jovem_id, tenantId]
+                    );
+                }
+                const likeMontagem = `${numero}%EJC (Montagem)%`;
+                await pool.query(
+                    `DELETE FROM historico_equipes
+                     WHERE jovem_id = ?
+                       AND tenant_id = ?
+                       AND (edicao_ejc LIKE ? OR edicao_ejc = ?)`,
+                    [obs.jovem_id, tenantId, likeMontagem, `${numero}º EJC (Montagem)`]
+                );
+            }
+        }
+
         const [result] = await pool.query('DELETE FROM jovens_observacoes WHERE id = ? AND tenant_id = ? LIMIT 1', [id, tenantId]);
         if (!result.affectedRows) return res.status(404).json({ error: 'Observação não encontrada.' });
         return res.json({ message: 'Observação removida com sucesso.' });

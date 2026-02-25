@@ -30,6 +30,9 @@ const rotasContatos = require('./routes/contatos');
 const rotasPastorais = require('./routes/pastorais');
 const rotasTios = require('./routes/tios');
 const rotasJovensPublic = require('./routes/jovensPublic');
+const rotasTiosPublic = require('./routes/tiosPublic');
+const rotasJovensOutroEjcPublic = require('./routes/jovensOutroEjcPublic');
+const rotasAtualizacoesCadastro = require('./routes/atualizacoesCadastro');
 const rotasAuth = require('./routes/auth');
 const rotasMeuEjc = require('./routes/meuEjc');
 const rotasCirculos = require('./routes/circulos');
@@ -81,6 +84,18 @@ async function requireLoginApi(req, res, next) {
     next();
 }
 
+// Alias direto para finalizar encontro (garante a rota mesmo com mounts antigos)
+app.post('/api/montar-encontro/:id/finalizar', requireLoginApi, (req, res, next) => {
+    if (typeof rotasMontarEncontro.finalizarEncontroHandler === 'function') {
+        return rotasMontarEncontro.finalizarEncontroHandler(req, res, next);
+    }
+    return res.status(404).json({ error: 'Rota de finalização indisponível.' });
+});
+
+app.get('/api/ping', requireLoginApi, (_req, res) => {
+    res.json({ ok: true, ts: new Date().toISOString() });
+});
+
 async function requireAdminView(req, res, next) {
     if (!req.admin || !req.admin.id) return res.redirect('/admin/login');
     try {
@@ -106,7 +121,9 @@ app.get('/formularios/public/:token', (req, res) => res.sendFile(path.join(__dir
 app.get('/eventos/public/:token', (req, res) => res.sendFile(path.join(__dirname, 'views', 'formulario-publico.html')));
 app.get('/inscricoes/public/:token', (req, res) => res.sendFile(path.join(__dirname, 'views', 'formulario-publico.html')));
 app.get('/jovens/atualizar-cadastro', (_req, res) => res.sendFile(path.join(__dirname, 'views', 'jovens-atualizar.html')));
-app.get('/', requireLoginView, (_req, res) => res.redirect('/dashboard'));
+app.get('/tios/atualizar-telefone', (_req, res) => res.sendFile(path.join(__dirname, 'views', 'tios-atualizar.html')));
+app.get('/jovens-outro-ejc/atualizar-cadastro', (_req, res) => res.sendFile(path.join(__dirname, 'views', 'jovens-outro-ejc-atualizar.html')));
+app.get('/', (_req, res) => res.redirect('/login'));
 app.get('/dashboard', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'dashboard.html')));
 app.get('/ejc', (req, res) => res.redirect('/historico-equipes'));
 app.get('/equipes', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'equipes.html')));
@@ -116,6 +133,7 @@ app.get('/usuarios', requireLoginView, (req, res) => res.sendFile(path.join(__di
 app.get('/votacao', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'votacao.html')));
 app.get('/outros-ejcs', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'outros-ejcs.html')));
 app.get('/montar-encontro', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'montar-encontro.html')));
+app.get('/gestaodoencontro/montarencontro/equipe', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'montar-encontro-equipe.html')));
 app.get('/financeiro', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'financeiro.html')));
 app.get('/coordenadores', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'coordenadores.html')));
 app.get('/garcons', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'garcons.html')));
@@ -143,6 +161,7 @@ app.get('/gestaodoencontro/montarencontro', requireLoginView, (req, res) => res.
 app.get('/gestaodoencontro/moita', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'moita.html')));
 app.get('/gestaodoencontro/garcons', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'garcons.html')));
 app.get('/gestaodoencontro/votacao', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'votacao.html')));
+app.get('/gestaodoencontro/formularios-atualizacao', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'formularios-atualizacao.html')));
 
 app.get('/planejamento/calendario', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'calendario.html')));
 app.get('/planejamento/eventos', requireLoginView, (req, res) => res.sendFile(path.join(__dirname, 'views', 'formularios.html')));
@@ -164,7 +183,10 @@ app.use('/api/auth', rotasAuth);
 app.use('/api/admin', rotasAdminSistema);
 app.use('/api/formularios/public', rotasFormulariosPublic);
 app.use('/api/jovens-public', rotasJovensPublic);
+app.use('/api/tios-public', rotasTiosPublic);
+app.use('/api/jovens-outro-ejc-public', rotasJovensOutroEjcPublic);
 app.use('/api', requireLoginApi);
+app.use('/api/atualizacoes-cadastro', rotasAtualizacoesCadastro);
 app.use('/api/ejc', rotasEJC);
 app.use('/api/lista-mestre', rotasListaMestre);
 app.use('/api/anexos', rotasAnexos);

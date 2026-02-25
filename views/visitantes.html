@@ -48,6 +48,7 @@
                                 <th>Nome completo</th>
                                 <th>Telefone</th>
                                 <th>Detalhes</th>
+                                <th class="text-end">Ações</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -64,9 +65,14 @@
                                         {{ item.eventos && item.eventos.length ? `${item.eventos.length} eventos` : 'Sem eventos' }}
                                     </span>
                                 </td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-outline-danger" @click="excluirVisitante(item)">
+                                        Excluir
+                                    </button>
+                                </td>
                             </tr>
                             <tr v-if="isEventosAbertos(item)">
-                                <td colspan="3" class="bg-light">
+                                <td colspan="4" class="bg-light">
                                     <div class="small text-muted mb-1">Eventos:</div>
                                     <ul v-if="item.eventos && item.eventos.length" class="mb-0 ps-3">
                                         <li v-for="(evento, idx) in item.eventos" :key="`${item.nome_completo}-${idx}`">{{ evento }}</li>
@@ -76,13 +82,13 @@
                             </tr>
                             </template>
                             <tr v-if="carregando">
-                                <td colspan="3" class="text-center py-4">
+                                <td colspan="4" class="text-center py-4">
                                     <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
                                     Carregando...
                                 </td>
                             </tr>
                             <tr v-else-if="!visitantesFiltrados.length">
-                                <td colspan="3" class="text-center text-muted py-4">Nenhum visitante com mais de 3 participações.</td>
+                                <td colspan="4" class="text-center text-muted py-4">Nenhum visitante com mais de 3 participações.</td>
                             </tr>
                         </tbody>
                     </table>
@@ -156,6 +162,29 @@
                         this.visitantes = [];
                     } finally {
                         this.carregando = false;
+                    }
+                }
+                ,
+                async excluirVisitante(item) {
+                    if (!item) return;
+                    const nome = String(item.nome_completo || '').trim();
+                    if (!(await window.showFloatingConfirm(`Deseja excluir o visitante "${nome}"?`))) return;
+                    try {
+                        const res = await fetch('/api/visitantes', {
+                            method: 'DELETE',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ nome_completo: item.nome_completo, telefone: item.telefone })
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                            alert(data.error || 'Erro ao excluir visitante.');
+                            return;
+                        }
+                        this.visitantes = (this.visitantes || []).filter(v => this.keyOf(v) !== this.keyOf(item));
+                        if (this.eventosAbertosKey === this.keyOf(item)) this.eventosAbertosKey = '';
+                    } catch (err) {
+                        console.error(err);
+                        alert('Erro ao excluir visitante.');
                     }
                 }
             },

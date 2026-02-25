@@ -148,14 +148,17 @@
                 <div v-else class="grid-cards">
                     <div v-for="m in montagens" :key="m.id" class="montagem-card" @click="entrarMontagem(m)">
                         <div class="d-flex justify-content-between">
-                            <h4 class="text-primary mb-1">{{ numeroParaRomano(m.numero_ejc) }} EJC</h4>
+                            <h4 class="text-primary mb-1">{{ numeroParaRomano(m.numero_ejc) }} EJC — {{ nomeMeuEJC }}</h4>
                             <button class="btn btn-sm btn-outline-danger border-0" @click.stop="deletarMontagem(m.id)"
                                 title="Excluir Montagem"><i class="fas fa-trash"></i></button>
                         </div>
-                        <p class="text-muted small mb-1">Início: <span class="fw-bold text-dark">{{
-                                formatarData(m.data_inicio || m.data_encontro) }}</span></p>
-                        <p class="text-muted small mb-3">Fim: <span class="fw-bold text-dark">{{
-                                formatarData(m.data_fim || m.data_encontro) }}</span></p>
+                        <p class="text-muted small mb-1">Data do encontro: <span class="fw-bold text-dark">{{
+                                formatarData(m.data_encontro) }}</span></p>
+                        <p class="text-muted small mb-1">Tarde de revelação: <span class="fw-bold text-dark">{{
+                                formatarData(m.data_tarde_revelacao) }}</span></p>
+                        <p class="text-muted small mb-3">Reuniões: <span class="fw-bold text-dark">{{
+                                formatarData(m.data_inicio_reunioes || m.data_inicio) }}</span> até <span class="fw-bold text-dark">{{
+                                formatarData(m.data_fim_reunioes || m.data_fim) }}</span></p>
                         <div class="text-end">
                             <span class="btn btn-sm btn-soft-primary w-100">Abrir Montagem <i
                                     class="fas fa-arrow-right ms-1"></i></span>
@@ -171,8 +174,9 @@
                         <button class="btn btn-sm btn-soft-secondary mb-2" @click="estado = 'LISTA'">← Voltar para
                             listagem</button>
                         <h3 class="mb-0">⚙️ Montando <span class="text-primary">{{
-                                numeroParaRomano(montagemAtiva.numero_ejc) }} EJC</span></h3>
-                        <p class="text-muted small mb-0">Período: {{ formatarData(montagemAtiva.data_inicio || montagemAtiva.data_encontro) }} até {{ formatarData(montagemAtiva.data_fim || montagemAtiva.data_encontro) }}</p>
+                                numeroParaRomano(montagemAtiva.numero_ejc) }} EJC — {{ nomeMeuEJC }}</span></h3>
+                        <p class="text-muted small mb-0">Encontro: {{ formatarData(montagemAtiva.data_encontro) }} | Tarde de revelação: {{ formatarData(montagemAtiva.data_tarde_revelacao) }}</p>
+                        <p class="text-muted small mb-0">Reuniões: {{ formatarData(montagemAtiva.data_inicio_reunioes || montagemAtiva.data_inicio) }} até {{ formatarData(montagemAtiva.data_fim_reunioes || montagemAtiva.data_fim) }}</p>
                     </div>
                     <div class="d-flex gap-2">
                         <button class="btn btn-outline-primary" @click="abrirModalEditarMontagem">
@@ -181,19 +185,11 @@
                         <button class="btn btn-soft-primary" @click="carregarEstrutura"><i class="fas fa-sync-alt"></i>
                             Atualizar Dados</button>
                         <button class="btn btn-primary" @click="baixarPowerPointAceitos"><i class="fas fa-file-powerpoint"></i> Fazer Power Point</button>
+                        <button class="btn btn-success" @click="finalizarMontagem">Finalizar encontro</button>
                     </div>
                 </div>
 
-                <ul class="nav nav-tabs mb-3">
-                    <li class="nav-item">
-                        <button class="nav-link" :class="{active: abaMontagem==='equipes'}" @click="abaMontagem='equipes'">Equipes</button>
-                    </li>
-                    <li class="nav-item">
-                        <button class="nav-link" :class="{active: abaMontagem==='jovens_servir'}" @click="abrirAbaJovensParaServir">Jovens para servir</button>
-                    </li>
-                </ul>
-
-                <div v-if="abaMontagem==='equipes'">
+                <div>
                     <div v-if="carregandoEstrutura" class="text-center py-5">
                         <div class="spinner-border text-primary" role="status"></div>
                         <p class="mt-2 text-muted">Carregando mapa de equipes...</p>
@@ -202,7 +198,7 @@
                     <div v-else class="row">
                         <div v-for="equipe in estrutura" :key="equipe.id" class="col-md-6 mb-3">
                             <div class="equipe-section">
-                                <div class="equipe-header" @click="abrirEquipeDetalhes(equipe)">
+                                <div class="equipe-header" @click="abrirEquipePagina(equipe)">
                                     <span>
                                         <i class="fas fa-users text-muted me-2"></i> {{ equipe.nome }}
                                         <span v-if="equipe.membros_outro_ejc" class="badge bg-soft-warning text-warning ms-2">Membros de outro EJC</span>
@@ -215,166 +211,10 @@
                             </div>
                         </div>
                     </div>
+                    <!-- Botão de finalizar removido: equipe agora abre em página própria -->
                 </div>
 
-                <div v-else-if="abaMontagem==='jovens_servir'" class="card border-0 shadow-sm">
-                    <div class="card-body border-bottom">
-                        <div class="row g-2 align-items-end">
-                            <div class="col-md-6">
-                                <label class="form-label small text-muted mb-1">Buscar por nome</label>
-                                <input v-model="filtroJovensServir.nome" class="form-control form-control-sm" placeholder="Digite o nome">
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label small text-muted mb-1">Pode servir?</label>
-                                <select v-model="filtroJovensServir.pode_servir" class="form-select form-select-sm">
-                                    <option value="">Todos</option>
-                                    <option value="1">Sim</option>
-                                    <option value="0">Não</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3 d-flex gap-2">
-                                <button class="btn btn-sm btn-soft-primary w-100" @click="carregarJovensParaServir">Atualizar</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <ul class="nav nav-tabs mb-3">
-                            <li class="nav-item">
-                                <button class="nav-link" :class="{active: abaJovensServir==='lista_mestre'}" @click="abaJovensServir='lista_mestre'">Jovens - Lista Mestre</button>
-                            </li>
-                            <li class="nav-item">
-                                <button class="nav-link" :class="{active: abaJovensServir==='outro_ejc'}" @click="abaJovensServir='outro_ejc'">Jovens - Outro EJC</button>
-                            </li>
-                            <li class="nav-item">
-                                <button class="nav-link" :class="{active: abaJovensServir==='tios'}" @click="abaJovensServir='tios'">Tios</button>
-                            </li>
-                        </ul>
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <div class="small text-muted">
-                                Selecionados para servir:
-                                Jovens Lista Mestre <strong>{{ totalJovensMeuEjcSelecionados }}</strong> / {{ jovensMeuEjcParaServir.length }}
-                                | Jovens Outro EJC <strong>{{ totalJovensOutroEjcSelecionados }}</strong> / {{ jovensOutroEjcParaServir.length }}
-                                | Tios <strong>{{ totalTiosSelecionados }}</strong> / {{ tiosParaServir.length }}
-                            </div>
-                            <div class="d-flex gap-2">
-                                <button v-if="abaJovensServir==='lista_mestre'" class="btn btn-sm btn-outline-success" @click="marcarTodosFiltradosMeuEjc(true)">Marcar jovens filtrados</button>
-                                <button v-if="abaJovensServir==='lista_mestre'" class="btn btn-sm btn-outline-secondary" @click="marcarTodosFiltradosMeuEjc(false)">Desmarcar jovens filtrados</button>
-                                <button v-if="abaJovensServir==='outro_ejc'" class="btn btn-sm btn-outline-success" @click="marcarTodosFiltradosOutroEjc(true)">Marcar jovens filtrados</button>
-                                <button v-if="abaJovensServir==='outro_ejc'" class="btn btn-sm btn-outline-secondary" @click="marcarTodosFiltradosOutroEjc(false)">Desmarcar jovens filtrados</button>
-                                <button v-if="abaJovensServir==='tios'" class="btn btn-sm btn-outline-success" @click="marcarTodosFiltradosTios(true)">Marcar tios filtrados</button>
-                                <button v-if="abaJovensServir==='tios'" class="btn btn-sm btn-outline-secondary" @click="marcarTodosFiltradosTios(false)">Desmarcar tios filtrados</button>
-                            </div>
-                        </div>
-                        <div v-if="carregandoJovensParaServir" class="text-center py-4">
-                            <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
-                            Carregando listas...
-                        </div>
-                        <div v-else>
-                            <div v-if="abaJovensServir==='lista_mestre'">
-                                <h6 class="text-primary mt-1 mb-2">Jovens (Lista Mestre)</h6>
-                                <div class="table-responsive mb-4">
-                                    <table class="table table-sm table-hover align-middle">
-                                        <thead>
-                                            <tr>
-                                            <th style="width: 90px;">Servir</th>
-                                            <th>Nome completo</th>
-                                            <th>Número e lugar do EJC que fez</th>
-                                            <th>Idade</th>
-                                            <th>Sexo</th>
-                                            <th>Estado civil</th>
-                                            <th>Músico</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr v-for="j in jovensMeuEjcParaServirFiltrados" :key="'servir-meu-'+j.id">
-                                            <td>
-                                                <input type="checkbox" class="form-check-input" :checked="!!j.pode_servir" @change="toggleJovemParaServir(j, $event.target.checked)">
-                                            </td>
-                                            <td>{{ j.nome_completo }}</td>
-                                            <td>{{ formatarOrigemJovemParaServir(j) }}</td>
-                                            <td>{{ calcularIdade(j.data_nascimento) || '-' }}</td>
-                                            <td>{{ j.sexo || '-' }}</td>
-                                            <td>{{ j.estado_civil || '-' }}</td>
-                                            <td>{{ j.eh_musico ? 'Sim' : 'Não' }}</td>
-                                        </tr>
-                                        <tr v-if="!jovensMeuEjcParaServirFiltrados.length">
-                                            <td colspan="7" class="text-muted text-center py-3">Nenhum jovem da Lista Mestre encontrado nos filtros.</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                            <div v-if="abaJovensServir==='outro_ejc'">
-                                <h6 class="text-primary mt-1 mb-2">Jovens (Outro EJC)</h6>
-                                <div class="table-responsive mb-4">
-                                    <table class="table table-sm table-hover align-middle">
-                                        <thead>
-                                            <tr>
-                                            <th style="width: 90px;">Servir</th>
-                                            <th>Nome completo</th>
-                                            <th>Número e lugar do EJC que fez</th>
-                                            <th>Idade</th>
-                                            <th>Sexo</th>
-                                            <th>Estado civil</th>
-                                            <th>Músico</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr v-for="j in jovensOutroEjcParaServirFiltrados" :key="'servir-outro-'+j.id">
-                                            <td>
-                                                <input type="checkbox" class="form-check-input" :checked="!!j.pode_servir" @change="toggleJovemParaServir(j, $event.target.checked)">
-                                            </td>
-                                            <td>{{ j.nome_completo }}</td>
-                                            <td>{{ formatarOrigemJovemParaServir(j) }}</td>
-                                            <td>{{ calcularIdade(j.data_nascimento) || '-' }}</td>
-                                            <td>{{ j.sexo || '-' }}</td>
-                                            <td>{{ j.estado_civil || '-' }}</td>
-                                            <td>{{ j.eh_musico ? 'Sim' : 'Não' }}</td>
-                                        </tr>
-                                        <tr v-if="!jovensOutroEjcParaServirFiltrados.length">
-                                            <td colspan="7" class="text-muted text-center py-3">Nenhum jovem de outro EJC encontrado nos filtros.</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                            <div v-if="abaJovensServir==='tios'">
-                                <h6 class="text-primary mt-1 mb-2">Tios</h6>
-                                <div class="table-responsive">
-                                <table class="table table-sm table-hover align-middle">
-                                    <thead>
-                                        <tr>
-                                            <th style="width: 90px;">Servir</th>
-                                            <th>Casal</th>
-                                            <th>Telefones</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr v-for="t in tiosParaServirFiltrados" :key="'servir-tio-'+t.id">
-                                            <td>
-                                                <input type="checkbox" class="form-check-input" :checked="!!t.pode_servir" @change="toggleTioParaServir(t, $event.target.checked)">
-                                            </td>
-                                            <td>
-                                                <div class="fw-semibold">{{ t.nome_tio || '-' }}</div>
-                                                <div class="text-muted">{{ t.nome_tia || '-' }}</div>
-                                            </td>
-                                            <td>
-                                                <div>{{ t.telefone_tio || '-' }}</div>
-                                                <div class="text-muted">{{ t.telefone_tia || '-' }}</div>
-                                            </td>
-                                        </tr>
-                                        <tr v-if="!tiosParaServirFiltrados.length">
-                                            <td colspan="3" class="text-muted text-center py-3">Nenhum tio encontrado nos filtros.</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        </div>
-                    </div>
-                </div>
+                <!-- Ligações foram movidas para a página da equipe -->
             </div>
 
         </main>
@@ -395,12 +235,20 @@
                                 placeholder="Ex: 11" required>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label text-muted">Data de Início</label>
-                            <input type="date" v-model="formMontagem.data_inicio" class="form-control" required>
+                            <label class="form-label text-muted">Data do encontro</label>
+                            <input type="date" v-model="formMontagem.data_encontro" class="form-control datepicker" required lang="pt-BR">
                         </div>
                         <div class="mb-3">
-                            <label class="form-label text-muted">Data de Fim</label>
-                            <input type="date" v-model="formMontagem.data_fim" class="form-control" required>
+                            <label class="form-label text-muted">Data da tarde de revelação</label>
+                            <input type="date" v-model="formMontagem.data_tarde_revelacao" class="form-control datepicker" required lang="pt-BR">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-muted">Data de início das reuniões</label>
+                            <input type="date" v-model="formMontagem.data_inicio_reunioes" class="form-control datepicker" required lang="pt-BR">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-muted">Data de fim das reuniões</label>
+                            <input type="date" v-model="formMontagem.data_fim_reunioes" class="form-control datepicker" required lang="pt-BR">
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -425,12 +273,20 @@
                             <input type="number" v-model="formEditarMontagem.numero_ejc" class="form-control" placeholder="Ex: 11">
                         </div>
                         <div class="mb-3">
-                            <label class="form-label text-muted">Data de Início</label>
-                            <input type="date" v-model="formEditarMontagem.data_inicio" class="form-control">
+                            <label class="form-label text-muted">Data do encontro</label>
+                            <input type="date" v-model="formEditarMontagem.data_encontro" class="form-control datepicker" lang="pt-BR">
                         </div>
                         <div class="mb-3">
-                            <label class="form-label text-muted">Data de Fim</label>
-                            <input type="date" v-model="formEditarMontagem.data_fim" class="form-control">
+                            <label class="form-label text-muted">Data da tarde de revelação</label>
+                            <input type="date" v-model="formEditarMontagem.data_tarde_revelacao" class="form-control datepicker" lang="pt-BR">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-muted">Data de início das reuniões</label>
+                            <input type="date" v-model="formEditarMontagem.data_inicio_reunioes" class="form-control datepicker" lang="pt-BR">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-muted">Data de fim das reuniões</label>
+                            <input type="date" v-model="formEditarMontagem.data_fim_reunioes" class="form-control datepicker" lang="pt-BR">
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -454,20 +310,20 @@
                     <div class="modal-body">
                         <ul class="nav nav-tabs mb-3">
                             <li class="nav-item"><button class="nav-link" :class="{active: abaEquipe==='titular'}" @click="abaEquipe='titular'">Titulares</button></li>
-                            <li class="nav-item"><button class="nav-link" :class="{active: abaEquipe==='recusas'}" @click="abaEquipe='recusas'">Recusas</button></li>
+                            <li class="nav-item"><button class="nav-link" :class="{active: abaEquipe==='reservas'}" @click="abaEquipe='reservas'">Reservas</button></li>
                         </ul>
 
                         <div v-if="abaEquipe==='titular'">
-                            <div v-if="equipeDetalhe && equipeDetalhe.membros_outro_ejc" class="mb-2" style="max-width: 380px;">
-                                <label class="form-label text-muted small mb-1">Selecionar EJC</label>
-                                <select class="form-select form-select-sm" v-model.number="outroEjcSelecionadoPorEquipe[equipeDetalhe.id]">
-                                    <option :value="0">Selecione o EJC...</option>
-                                    <option v-for="oe in outrosEjcsBusca" :key="'sel-tit-'+oe.id" :value="oe.id">
-                                        {{ [oe.paroquia, oe.nome].filter(Boolean).join(' - ') || ('EJC #' + oe.id) }}
-                                    </option>
-                                </select>
-                            </div>
                             <div class="d-flex gap-2 mb-2">
+                                <div v-if="equipeDetalhe && equipeDetalhe.membros_outro_ejc" style="max-width: 320px;">
+                                    <label class="form-label text-muted small mb-1">Selecionar EJC</label>
+                                    <select class="form-select form-select-sm" v-model.number="outroEjcSelecionadoPorEquipe[equipeDetalhe.id]" @change="onSelecionarOutroEjcEquipe">
+                                        <option :value="0">Selecione o EJC...</option>
+                                        <option v-for="oe in outrosEjcsBusca" :key="'sel-tit-'+oe.id" :value="oe.id">
+                                            {{ [oe.paroquia, oe.nome].filter(Boolean).join(' - ') || ('EJC #' + oe.id) }}
+                                        </option>
+                                    </select>
+                                </div>
                                 <select v-model="modalData.funcaoId" class="form-select form-select-sm" style="max-width: 260px;">
                                     <option :value="null">Selecione função...</option>
                                     <option v-for="f in (equipeDetalhe ? equipeDetalhe.funcoes : [])" :value="f.id">{{ f.nome }}</option>
@@ -476,44 +332,41 @@
                             </div>
                             <div class="table-responsive">
                                 <table class="table table-sm align-middle">
-                                    <thead><tr><th>Nome</th><th>Telefone</th><th>Função</th><th>Ligações</th><th>Ações</th></tr></thead>
+                                    <thead><tr><th>Nome</th><th>Telefone</th><th>Função</th><th>Ações</th></tr></thead>
                                     <tbody>
                                         <tr v-for="m in detalhesEquipe.titular" :key="'t'+m.membro_id">
                                             <td>{{ m.jovem_nome || m.nome_externo }}</td>
                                             <td>{{ m.jovem_telefone || m.telefone_externo || '-' }}</td>
                                             <td>{{ m.funcao_nome }}</td>
-                                            <td>
-                                                <select class="form-select form-select-sm" :value="m.status_ligacao || ''" @change="onMudarLigacao(m, $event.target.value)">
-                                                    <option value="">Selecionar</option>
-                                                    <option value="ACEITOU">Aceitou</option>
-                                                    <option value="RECUSOU">Recusou</option>
-                                                    <option value="LIGAR_MAIS_TARDE">Ligar mais tarde</option>
-                                                </select>
-                                            </td>
                                             <td><button class="btn btn-sm btn-outline-danger" @click="removerMembro(m.membro_id)">Retirar</button></td>
                                         </tr>
-                                        <tr v-if="!detalhesEquipe.titular.length"><td colspan="5" class="text-muted">Sem titulares.</td></tr>
+                                        <tr v-if="!detalhesEquipe.titular.length"><td colspan="4" class="text-muted">Sem titulares.</td></tr>
                                     </tbody>
                                 </table>
                             </div>
                         </div>
 
-                        <div v-if="abaEquipe==='recusas'">
+                        <div v-if="abaEquipe==='reservas'">
+                            <div class="d-flex gap-2 mb-2">
+                                <select v-model="modalData.funcaoIdSub" class="form-select form-select-sm" style="max-width: 260px;">
+                                    <option :value="null">Selecione função...</option>
+                                    <option v-for="f in (equipeDetalhe ? equipeDetalhe.funcoes : [])" :value="f.id">{{ f.nome }}</option>
+                                </select>
+                                <button class="btn btn-sm btn-outline-primary" @click="abrirBuscaJovem(equipeDetalhe.id, modalData.funcaoIdSub, 'substituicao')" :disabled="!modalData.funcaoIdSub">Adicionar reserva</button>
+                            </div>
                             <div class="table-responsive">
                                 <table class="table table-sm align-middle">
-                                    <thead><tr><th>Nome</th><th>Função</th><th>Motivo</th><th>Ações</th></tr></thead>
+                                    <thead><tr><th>Nome</th><th>Função</th><th>Ações</th></tr></thead>
                                     <tbody>
-                                        <tr v-for="m in detalhesEquipe.recusas" :key="'r'+m.membro_id">
+                                        <tr v-for="m in detalhesEquipe.substituicoes" :key="'s'+m.membro_id">
                                             <td>{{ m.jovem_nome || m.nome_externo }}</td>
                                             <td>{{ m.funcao_nome }}</td>
-                                            <td>{{ m.motivo_recusa || '-' }}</td>
                                             <td>
-                                                <button class="btn btn-sm btn-outline-warning" @click="removerRecusa(m)">
-                                                    Excluir recusa
-                                                </button>
+                                                <button class="btn btn-sm btn-outline-success me-2" @click="moverParaTitular(m)">Tornar titular</button>
+                                                <button class="btn btn-sm btn-outline-danger" @click="removerMembro(m.membro_id)">Retirar</button>
                                             </td>
                                         </tr>
-                                        <tr v-if="!detalhesEquipe.recusas.length"><td colspan="4" class="text-muted">Sem recusas.</td></tr>
+                                        <tr v-if="!detalhesEquipe.substituicoes.length"><td colspan="3" class="text-muted">Sem reservas.</td></tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -535,12 +388,25 @@
                     </div>
                     <div class="modal-body">
                         <div class="position-relative">
-                            <label class="form-label text-muted small">Buscar Jovem Pelo Nome</label>
-                            <div class="small mb-2" :class="searchFonteOutroEJC ? 'text-warning' : 'text-primary'">
-                                {{ searchFonteOutroEJC ? 'Buscar jovem da tabela Jovens de Outro EJC' : 'Buscar jovem da Lista Mestre' }}
-                            </div>
-                            <div v-if="searchFonteOutroEJC" class="mb-2 text-muted small">
-                                EJC selecionado: <strong>{{ nomeOutroEjcSelecionado() }}</strong>
+                            <label class="form-label text-muted small">Buscar pessoa pelo nome</label>
+                            <div class="row g-2 mb-2">
+                                <div class="col-12">
+                                    <label class="form-label text-muted small mb-1">Fonte</label>
+                                    <select class="form-select form-select-sm" v-model="modalData.fonte" @change="onFonteChange" :disabled="equipeDetalhe && equipeDetalhe.membros_outro_ejc">
+                                        <option value="LISTA_MESTRE">Jovens - Lista Mestre</option>
+                                        <option value="OUTRO_EJC">Jovens - Outro EJC</option>
+                                        <option value="TIOS">Tios do ECC</option>
+                                    </select>
+                                </div>
+                                <div class="col-12" v-if="modalData.fonte === 'OUTRO_EJC'">
+                                    <label class="form-label text-muted small mb-1">Selecionar EJC</label>
+                                    <select class="form-select form-select-sm" v-model.number="modalData.outro_ejc_id" @change="onOutroEjcChange">
+                                        <option :value="0">Selecione o EJC...</option>
+                                        <option v-for="oe in outrosEjcsBusca" :key="'sel-modal-'+oe.id" :value="oe.id">
+                                            {{ [oe.paroquia, oe.nome].filter(Boolean).join(' - ') || ('EJC #' + oe.id) }}
+                                        </option>
+                                    </select>
+                                </div>
                             </div>
                             <div class="input-group">
                                 <span class="input-group-text bg-white"><i class="fas fa-search"></i></span>
@@ -553,7 +419,7 @@
                                 <div v-for="jovem in searchResults" :key="jovem.id || jovem.jovem_id"
                                     class="busca-item d-flex justify-content-between" @click="alocarJovem(jovem)">
                                     <span>{{ jovem.nome_completo }}</span>
-                                    <span class="badge bg-soft-primary text-primary">Idade: {{ calcularIdade(jovem.data_nascimento) || '-' }}</span>
+                                    <span v-if="jovem.data_nascimento" class="badge bg-soft-primary text-primary">Idade: {{ calcularIdade(jovem.data_nascimento) || '-' }}</span>
                                 </div>
                             </div>
                             <div v-if="searchQuery.trim().length >= 2 && searchResults.length === 0"
@@ -610,9 +476,12 @@
                     estrutura: [],
                     carregandoEstrutura: false,
                     abaMontagem: 'equipes',
+                    equipesFinalizadas: false,
+                    // ligações agora ficam na página da equipe
+                    nomeMeuEJC: (window.__NOME_EJC_ATUAL && String(window.__NOME_EJC_ATUAL).trim()) || 'Inconfidentes',
 
-                    formMontagem: { numero_ejc: '', data_inicio: '', data_fim: '' },
-                    formEditarMontagem: { numero_ejc: '', data_inicio: '', data_fim: '' },
+                    formMontagem: { numero_ejc: '', data_encontro: '', data_tarde_revelacao: '', data_inicio_reunioes: '', data_fim_reunioes: '' },
+                    formEditarMontagem: { numero_ejc: '', data_encontro: '', data_tarde_revelacao: '', data_inicio_reunioes: '', data_fim_reunioes: '' },
                     modalMontagemInstance: null,
                     modalEditarMontagemInstance: null,
                     modalEquipeInstance: null,
@@ -623,69 +492,57 @@
                     detalhesEquipe: { titular: [], recusas: [], substituicoes: [] },
                     abaEquipe: 'titular',
 
-                    modalData: { equipeId: null, funcaoId: null, funcaoIdSub: null, destino: 'titular', funcaoNome: '' },
+                    modalData: { equipeId: null, funcaoId: null, funcaoIdSub: null, destino: 'titular', funcaoNome: '', fonte: 'LISTA_MESTRE', outro_ejc_id: 0 },
                     searchQuery: '',
                     searchResults: [],
                     searchTimer: null,
-                    searchFonteOutroEJC: false,
                     searchErroMsg: '',
-                    filtroOutroEjcBuscaId: 0,
                     outrosEjcsBusca: [],
                     outroEjcSelecionadoPorEquipe: {},
 
-                    jovensParaServir: [],
-                    tiosParaServir: [],
-                    carregandoJovensParaServir: false,
-                    filtroJovensServir: { nome: '', pode_servir: '' },
-                    abaJovensServir: 'lista_mestre',
+                    formReunioes: { dia_semana: 0, data_inicio: '', data_fim: '', periodo: '' },
+                    reunioes: [],
+                    reunioesEquipes: [],
+                    presencasMap: {},
+                    carregandoReunioes: false,
 
                     arquivoImportacaoExterna: null,
                     importarParaSubstituicao: false
                 };
             },
             computed: {
-                jovensMeuEjcParaServir() {
-                    return (this.jovensParaServir || []).filter((j) => String(j.origem_ejc_tipo || 'INCONFIDENTES').toUpperCase() !== 'OUTRO_EJC');
+                totalMembrosAlocados() {
+                    let total = 0;
+                    for (const equipe of (this.estrutura || [])) {
+                        for (const funcao of (equipe.funcoes || [])) {
+                            total += (funcao.membros || []).length;
+                        }
+                    }
+                    return total;
                 },
-                jovensOutroEjcParaServir() {
-                    return (this.jovensParaServir || []).filter((j) => String(j.origem_ejc_tipo || 'INCONFIDENTES').toUpperCase() === 'OUTRO_EJC');
+                totalEquipesComMembros() {
+                    return (this.estrutura || []).filter((equipe) => {
+                        return (equipe.funcoes || []).some((f) => (f.membros || []).length);
+                    }).length;
                 },
-                jovensMeuEjcParaServirFiltrados() {
-                    const nome = String(this.filtroJovensServir.nome || '').trim().toLowerCase();
-                    const pode = String(this.filtroJovensServir.pode_servir || '').trim();
-                    return (this.jovensMeuEjcParaServir || []).filter((j) => {
-                        const okNome = !nome || String(j.nome_completo || '').toLowerCase().includes(nome);
-                        const okPode = (pode === '') || String(j.pode_servir ? 1 : 0) === pode;
-                        return okNome && okPode;
-                    });
-                },
-                jovensOutroEjcParaServirFiltrados() {
-                    const nome = String(this.filtroJovensServir.nome || '').trim().toLowerCase();
-                    const pode = String(this.filtroJovensServir.pode_servir || '').trim();
-                    return (this.jovensOutroEjcParaServir || []).filter((j) => {
-                        const okNome = !nome || String(j.nome_completo || '').toLowerCase().includes(nome);
-                        const okPode = (pode === '') || String(j.pode_servir ? 1 : 0) === pode;
-                        return okNome && okPode;
-                    });
-                },
-                tiosParaServirFiltrados() {
-                    const nome = String(this.filtroJovensServir.nome || '').trim().toLowerCase();
-                    const pode = String(this.filtroJovensServir.pode_servir || '').trim();
-                    return (this.tiosParaServir || []).filter((t) => {
-                        const casal = `${t.nome_tio || ''} ${t.nome_tia || ''}`.toLowerCase();
-                        const okNome = !nome || casal.includes(nome);
-                        const okPode = (pode === '') || String(t.pode_servir ? 1 : 0) === pode;
-                        return okNome && okPode;
-                    });
-                },
-                totalJovensMeuEjcSelecionados() {
-                    return (this.jovensMeuEjcParaServir || []).filter(j => j && j.pode_servir).length;
-                },
-                totalJovensOutroEjcSelecionados() {
-                    return (this.jovensOutroEjcParaServir || []).filter(j => j && j.pode_servir).length;
-                },
-                totalTiosSelecionados() {
-                    return (this.tiosParaServir || []).filter(t => t && t.pode_servir).length;
+                listaLigacoes() {
+                    const items = [];
+                    for (const equipe of (this.estrutura || [])) {
+                        for (const funcao of (equipe.funcoes || [])) {
+                            for (const membro of (funcao.membros || [])) {
+                                const nome = membro.jovem_nome || membro.nome_externo || '';
+                                if (!nome) continue;
+                                items.push({
+                                    equipe: equipe.nome || '',
+                                    funcao: funcao.nome || '',
+                                    nome,
+                                    telefone: membro.telefone || membro.telefone_externo || '',
+                                    tipo: membro.eh_substituicao ? 'Reserva' : 'Titular'
+                                });
+                            }
+                        }
+                    }
+                    return items;
                 }
             },
             methods: {
@@ -700,6 +557,20 @@
                 async uiPrompt(msg, opts) {
                     if (window.showFloatingPrompt) return window.showFloatingPrompt(msg, opts || {});
                     return null;
+                },
+                parseDateBr(valor) {
+                    if (!valor) return null;
+                    const txt = String(valor).trim();
+                    if (!txt) return null;
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(txt)) return txt;
+                    const m = txt.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/);
+                    if (!m) return null;
+                    return `${m[3]}-${m[2]}-${m[1]}`;
+                },
+                formatarDataBr(valor) {
+                    const m = String(valor || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+                    if (!m) return valor || '';
+                    return `${m[3]}/${m[2]}/${m[1]}`;
                 },
                 formatarTelefonePadrao(v) {
                     const digits = String(v || '').replace(/\D/g, '').slice(0, 11);
@@ -720,9 +591,21 @@
                         this.carregando = false;
                     }
                 },
+                async carregarNomeMeuEJC() {
+                    try {
+                        const res = await fetch('/api/meu-ejc');
+                        if (!res.ok) return;
+                        const data = await res.json().catch(() => ({}));
+                        const nome = data && data.nome ? String(data.nome).trim() : '';
+                        if (nome) {
+                            this.nomeMeuEJC = nome;
+                            window.__NOME_EJC_ATUAL = nome;
+                        }
+                    } catch (_) { }
+                },
 
                 abrirModalNovaMontagem() {
-                    this.formMontagem = { numero_ejc: '', data_inicio: '', data_fim: '' };
+                    this.formMontagem = { numero_ejc: '', data_encontro: '', data_tarde_revelacao: '', data_inicio_reunioes: '', data_fim_reunioes: '' };
                     if (!this.modalMontagemInstance) {
                         this.modalMontagemInstance = new bootstrap.Modal(document.getElementById('modalNovaMontagem'));
                     }
@@ -730,19 +613,33 @@
                 },
 
                 async salvarNovaMontagem() {
-                    if (!this.formMontagem.numero_ejc || !this.formMontagem.data_inicio || !this.formMontagem.data_fim) {
+                    if (!this.formMontagem.numero_ejc || !this.formMontagem.data_encontro || !this.formMontagem.data_tarde_revelacao || !this.formMontagem.data_inicio_reunioes || !this.formMontagem.data_fim_reunioes) {
                         await this.uiAlert('Preencha todos os campos.');
                         return;
                     }
-                    if (this.formMontagem.data_inicio > this.formMontagem.data_fim) {
-                        await this.uiAlert('A data fim não pode ser menor que a data início.');
+                    const de = this.parseDateBr(this.formMontagem.data_encontro);
+                    const dt = this.parseDateBr(this.formMontagem.data_tarde_revelacao);
+                    const di = this.parseDateBr(this.formMontagem.data_inicio_reunioes);
+                    const df = this.parseDateBr(this.formMontagem.data_fim_reunioes);
+                    if (!de || !dt || !di || !df) {
+                        await this.uiAlert('Informe as datas no formato dd/mm/aaaa.');
+                        return;
+                    }
+                    if (di > df) {
+                        await this.uiAlert('A data fim das reuniões não pode ser menor que a data início.');
                         return;
                     }
                     try {
                         const res = await fetch('/api/montar-encontro', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(this.formMontagem)
+                            body: JSON.stringify({
+                                numero_ejc: this.formMontagem.numero_ejc,
+                                data_encontro: de,
+                                data_tarde_revelacao: dt,
+                                data_inicio_reunioes: di,
+                                data_fim_reunioes: df
+                            })
                         });
                         if (!res.ok) {
                             const err = await res.json().catch(() => ({}));
@@ -761,8 +658,10 @@
                     if (!this.montagemAtiva) return;
                     this.formEditarMontagem = {
                         numero_ejc: this.montagemAtiva.numero_ejc || '',
-                        data_inicio: this.montagemAtiva.data_inicio || this.montagemAtiva.data_encontro || '',
-                        data_fim: this.montagemAtiva.data_fim || this.montagemAtiva.data_encontro || ''
+                        data_encontro: this.formatarDataBr(this.montagemAtiva.data_encontro || ''),
+                        data_tarde_revelacao: this.formatarDataBr(this.montagemAtiva.data_tarde_revelacao || ''),
+                        data_inicio_reunioes: this.formatarDataBr(this.montagemAtiva.data_inicio_reunioes || this.montagemAtiva.data_inicio || ''),
+                        data_fim_reunioes: this.formatarDataBr(this.montagemAtiva.data_fim_reunioes || this.montagemAtiva.data_fim || '')
                     };
                     if (!this.modalEditarMontagemInstance) {
                         this.modalEditarMontagemInstance = new bootstrap.Modal(document.getElementById('modalEditarMontagem'));
@@ -772,32 +671,54 @@
 
                 async salvarEdicaoMontagem() {
                     if (!this.montagemAtiva || !this.montagemAtiva.id) return;
-                    if (!this.formEditarMontagem.numero_ejc || !this.formEditarMontagem.data_inicio || !this.formEditarMontagem.data_fim) {
+                    if (!this.formEditarMontagem.numero_ejc || !this.formEditarMontagem.data_encontro || !this.formEditarMontagem.data_tarde_revelacao || !this.formEditarMontagem.data_inicio_reunioes || !this.formEditarMontagem.data_fim_reunioes) {
                         await this.uiAlert('Preencha todos os campos da montagem.');
                         return;
                     }
-                    if (this.formEditarMontagem.data_inicio > this.formEditarMontagem.data_fim) {
-                        await this.uiAlert('A data fim não pode ser menor que a data início.');
+                    const de = this.parseDateBr(this.formEditarMontagem.data_encontro);
+                    const dt = this.parseDateBr(this.formEditarMontagem.data_tarde_revelacao);
+                    const di = this.parseDateBr(this.formEditarMontagem.data_inicio_reunioes);
+                    const df = this.parseDateBr(this.formEditarMontagem.data_fim_reunioes);
+                    if (!de || !dt || !di || !df) {
+                        await this.uiAlert('Informe as datas no formato dd/mm/aaaa.');
+                        return;
+                    }
+                    if (di > df) {
+                        await this.uiAlert('A data fim das reuniões não pode ser menor que a data início.');
                         return;
                     }
                     try {
                         const res = await fetch(`/api/montar-encontro/${this.montagemAtiva.id}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(this.formEditarMontagem)
+                            body: JSON.stringify({
+                                numero_ejc: this.formEditarMontagem.numero_ejc,
+                                data_encontro: de,
+                                data_tarde_revelacao: dt,
+                                data_inicio_reunioes: di,
+                                data_fim_reunioes: df
+                            })
                         });
                         const data = await res.json().catch(() => ({}));
                         if (!res.ok) {
                             await this.uiAlert(data.error || 'Erro ao atualizar montagem.');
                             return;
                         }
+                        await fetch(`/api/montar-encontro/${this.montagemAtiva.id}/reunioes/gerar-domingos`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ data_inicio: di, data_fim: df })
+                        });
                         if (this.modalEditarMontagemInstance) this.modalEditarMontagemInstance.hide();
                         this.montagemAtiva = {
                             ...this.montagemAtiva,
                             numero_ejc: this.formEditarMontagem.numero_ejc,
-                            data_inicio: this.formEditarMontagem.data_inicio,
-                            data_fim: this.formEditarMontagem.data_fim,
-                            data_encontro: this.formEditarMontagem.data_inicio
+                            data_encontro: de,
+                            data_tarde_revelacao: dt,
+                            data_inicio_reunioes: di,
+                            data_fim_reunioes: df,
+                            data_inicio: di,
+                            data_fim: df
                         };
                         await this.carregarMontagens();
                         await this.uiAlert('Montagem atualizada com sucesso.', 'Sucesso');
@@ -821,8 +742,19 @@
                     this.montagemAtiva = montagem;
                     this.estado = 'EDICAO';
                     this.abaMontagem = 'equipes';
+                    this.equipesFinalizadas = false;
+                    this.formReunioes.data_inicio = this.formatarDataBr(montagem.data_inicio_reunioes || montagem.data_inicio || '');
+                    this.formReunioes.data_fim = this.formatarDataBr(montagem.data_fim_reunioes || montagem.data_fim || '');
                     this.carregarEstrutura();
                     this.carregarOutrosEjcsBusca();
+                    // ligações movidas para a página da equipe
+                },
+                aplicarMontagemPorUrl() {
+                    const params = new URLSearchParams(window.location.search);
+                    const id = Number(params.get('montagem_id') || 0);
+                    if (!id || !Array.isArray(this.montagens) || !this.montagens.length) return;
+                    const m = this.montagens.find(item => Number(item.id) === id);
+                    if (m) this.entrarMontagem(m);
                 },
 
                 async carregarEstrutura() {
@@ -836,13 +768,45 @@
                         this.estrutura = [];
                     } finally {
                         this.carregandoEstrutura = false;
+                        // ligações movidas para a página da equipe
                     }
                 },
+                abrirEquipePagina(equipe) {
+                    if (!this.montagemAtiva || !equipe) return;
+                    const url = `/gestaodoencontro/montarencontro/equipe?montagem_id=${this.montagemAtiva.id}&equipe_id=${equipe.id}`;
+                    window.location.href = url;
+                },
+                async finalizarMontagem() {
+                    if (!this.montagemAtiva || !this.montagemAtiva.id) return;
+                    try {
+                        const res = await fetch(`/api/montar-encontro/${this.montagemAtiva.id}/ligacoes/pendentes`);
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                            await this.uiAlert(data.error || 'Erro ao verificar pendências.');
+                            return;
+                        }
+                        const pendentes = Array.isArray(data.pendentes) ? data.pendentes : [];
+                        if (pendentes.length) {
+                            const msg = pendentes.map(p => `Equipe ${p.equipe_nome} ainda possui jovens com status pendente.`).join('\n');
+                            await this.uiAlert(msg, 'Pendências');
+                            return;
+                        }
+                        const confirmar = await this.uiConfirm('Deseja finalizar este encontro? Ele será salvo nas edições do EJC e não aparecerá mais na montagem.');
+                        if (!confirmar) return;
 
-                async abrirAbaJovensParaServir() {
-                    this.abaMontagem = 'jovens_servir';
-                    this.abaJovensServir = 'lista_mestre';
-                    await this.carregarJovensParaServir();
+                        const resFinal = await fetch(`/api/montar-encontro/${this.montagemAtiva.id}/finalizar`, { method: 'POST' });
+                        const dataFinal = await resFinal.json().catch(() => ({}));
+                        if (!resFinal.ok) {
+                            await this.uiAlert(dataFinal.error || 'Erro ao finalizar encontro.');
+                            return;
+                        }
+
+                        await this.uiAlert('Encontro finalizado com sucesso.', 'Sucesso');
+                        window.location.reload();
+                    } catch (err) {
+                        console.error(err);
+                        await this.uiAlert('Erro ao finalizar encontro.');
+                    }
                 },
 
                 async carregarOutrosEjcsBusca() {
@@ -865,133 +829,22 @@
                     return idade >= 0 ? idade : '';
                 },
 
-                formatarOrigemJovemParaServir(j) {
-                    if (!j) return '-';
-                    if (String(j.origem_ejc_tipo || '').toUpperCase() === 'OUTRO_EJC') {
-                        const numero = String(j.outro_ejc_numero || '').trim();
-                        const local = [j.outro_ejc_paroquia, j.outro_ejc_nome].filter(Boolean).join(' - ');
-                        return [numero, local].filter(Boolean).join(' - ') || 'Outro EJC';
-                    }
-                    const numeroLocal = j.numero_ejc_fez ? `${j.numero_ejc_fez}` : '';
-                    return [numeroLocal, 'Inconfidentes'].filter(Boolean).join(' - ') || 'Inconfidentes';
-                },
-
-                async carregarJovensParaServir() {
-                    if (!this.montagemAtiva || !this.montagemAtiva.id) return;
-                    this.carregandoJovensParaServir = true;
-                    try {
-                        const [resJovens, resTios] = await Promise.all([
-                            fetch(`/api/montar-encontro/${this.montagemAtiva.id}/jovens-para-servir`),
-                            fetch(`/api/montar-encontro/${this.montagemAtiva.id}/tios-para-servir`)
-                        ]);
-                        this.jovensParaServir = resJovens.ok ? await resJovens.json() : [];
-                        this.tiosParaServir = resTios.ok ? await resTios.json() : [];
-                    } catch (err) {
-                        console.error(err);
-                        this.jovensParaServir = [];
-                        this.tiosParaServir = [];
-                    } finally {
-                        this.carregandoJovensParaServir = false;
-                    }
-                },
-
-                async toggleJovemParaServir(jovem, checked) {
-                    if (!this.montagemAtiva || !this.montagemAtiva.id || !jovem || !jovem.id) return;
-                    const valorAntigo = !!jovem.pode_servir;
-                    jovem.pode_servir = !!checked;
-                    try {
-                        const res = await fetch(`/api/montar-encontro/${this.montagemAtiva.id}/jovens-para-servir/${jovem.id}`, {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ pode_servir: !!checked })
-                        });
-                        if (!res.ok) {
-                            const err = await res.json().catch(() => ({}));
-                            jovem.pode_servir = valorAntigo;
-                            await this.uiAlert(err.error || 'Erro ao atualizar jovem para servir.');
-                        }
-                    } catch (err) {
-                        console.error(err);
-                        jovem.pode_servir = valorAntigo;
-                        await this.uiAlert('Erro ao atualizar jovem para servir.');
-                    }
-                },
-
-                async marcarTodosFiltrados(valor) {
-                    const alvos = this.jovensMeuEjcParaServirFiltrados.concat(this.jovensOutroEjcParaServirFiltrados);
-                    for (const j of alvos) {
-                        if (!!j.pode_servir === !!valor) continue;
-                        await this.toggleJovemParaServir(j, !!valor);
-                    }
-                },
-                async marcarTodosFiltradosJovens(valor) {
-                    await this.marcarTodosFiltrados(valor);
-                },
-                async marcarTodosFiltradosMeuEjc(valor) {
-                    const alvos = this.jovensMeuEjcParaServirFiltrados.slice();
-                    for (const j of alvos) {
-                        if (!!j.pode_servir === !!valor) continue;
-                        await this.toggleJovemParaServir(j, !!valor);
-                    }
-                },
-                async marcarTodosFiltradosOutroEjc(valor) {
-                    const alvos = this.jovensOutroEjcParaServirFiltrados.slice();
-                    for (const j of alvos) {
-                        if (!!j.pode_servir === !!valor) continue;
-                        await this.toggleJovemParaServir(j, !!valor);
-                    }
-                },
-                async toggleTioParaServir(casal, checked) {
-                    if (!this.montagemAtiva || !this.montagemAtiva.id || !casal || !casal.id) return;
-                    const valorAntigo = !!casal.pode_servir;
-                    casal.pode_servir = !!checked;
-                    try {
-                        const res = await fetch(`/api/montar-encontro/${this.montagemAtiva.id}/tios-para-servir/${casal.id}`, {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ pode_servir: !!checked })
-                        });
-                        if (!res.ok) {
-                            const err = await res.json().catch(() => ({}));
-                            casal.pode_servir = valorAntigo;
-                            await this.uiAlert(err.error || 'Erro ao atualizar tio para servir.');
-                        }
-                    } catch (err) {
-                        console.error(err);
-                        casal.pode_servir = valorAntigo;
-                        await this.uiAlert('Erro ao atualizar tio para servir.');
-                    }
-                },
-                async marcarTodosFiltradosTios(valor) {
-                    const alvos = this.tiosParaServirFiltrados.slice();
-                    for (const t of alvos) {
-                        if (!!t.pode_servir === !!valor) continue;
-                        await this.toggleTioParaServir(t, !!valor);
-                    }
-                },
-
                 async abrirEquipeDetalhes(equipe) {
                     this.equipeDetalhe = equipe;
                     this.abaEquipe = 'titular';
-                    this.modalData = { equipeId: equipe.id, funcaoId: null, funcaoIdSub: null, destino: 'titular', funcaoNome: '' };
+                    this.modalData = { equipeId: equipe.id, funcaoId: null, funcaoIdSub: null, destino: 'titular', funcaoNome: '', fonte: 'LISTA_MESTRE', outro_ejc_id: 0 };
                     this.detalhesEquipe = { titular: [], recusas: [], substituicoes: [] };
-                    if (equipe && equipe.membros_outro_ejc && !this.outroEjcSelecionadoPorEquipe[equipe.id]) {
-                        this.outroEjcSelecionadoPorEquipe[equipe.id] = 0;
+                    if (equipe && equipe.membros_outro_ejc) {
+                        const atual = Number(this.outroEjcSelecionadoPorEquipe[equipe.id] || 0);
+                        if (!atual && this.outrosEjcsBusca.length) {
+                            this.outroEjcSelecionadoPorEquipe[equipe.id] = Number(this.outrosEjcsBusca[0].id) || 0;
+                        }
                     }
                     if (!this.modalEquipeInstance) {
                         this.modalEquipeInstance = new bootstrap.Modal(document.getElementById('modalEquipeDetalhes'));
                     }
                     this.modalEquipeInstance.show();
                     await this.carregarDetalhesEquipe();
-                },
-
-                nomeOutroEjcSelecionado() {
-                    if (!this.equipeDetalhe) return '-';
-                    const id = Number(this.outroEjcSelecionadoPorEquipe[this.equipeDetalhe.id] || 0);
-                    if (!id) return '-';
-                    const oe = (this.outrosEjcsBusca || []).find(i => Number(i.id) === id);
-                    if (!oe) return '-';
-                    return [oe.paroquia, oe.nome].filter(Boolean).join(' - ') || (`EJC #${id}`);
                 },
 
                 async carregarDetalhesEquipe() {
@@ -1011,19 +864,19 @@
                         const found = this.equipeDetalhe.funcoes.find(f => Number(f.id) === Number(funcaoId));
                         nomeFuncao = found ? found.nome : '';
                     }
-                    this.modalData = { ...this.modalData, equipeId, funcaoId, destino: destino || 'titular', funcaoNome: nomeFuncao };
-                    this.searchFonteOutroEJC = !!(this.equipeDetalhe && this.equipeDetalhe.membros_outro_ejc);
-                    this.searchErroMsg = '';
-                    if (this.searchFonteOutroEJC) {
-                        const selecionado = Number(this.outroEjcSelecionadoPorEquipe[equipeId] || 0);
-                        if (!selecionado) {
+                    const precisaOutro = !!(this.equipeDetalhe && this.equipeDetalhe.membros_outro_ejc);
+                    let fonte = this.modalData.fonte || 'LISTA_MESTRE';
+                    let outroId = Number(this.modalData.outro_ejc_id || 0);
+                    if (precisaOutro) {
+                        fonte = 'OUTRO_EJC';
+                        outroId = Number(this.outroEjcSelecionadoPorEquipe[equipeId] || 0);
+                        if (!outroId) {
                             this.uiAlert('Selecione o EJC acima do botão "Adicionar jovem" para continuar.');
                             return;
                         }
-                        this.filtroOutroEjcBuscaId = selecionado;
-                    } else {
-                        this.filtroOutroEjcBuscaId = 0;
                     }
+                    this.modalData = { ...this.modalData, equipeId, funcaoId, destino: destino || 'titular', funcaoNome: nomeFuncao, fonte, outro_ejc_id: outroId };
+                    this.searchErroMsg = '';
                     this.searchQuery = '';
                     this.searchResults = [];
                     if (!this.modalBuscaInstance) {
@@ -1032,28 +885,58 @@
                     this.modalBuscaInstance.show();
                 },
 
+                onSelecionarOutroEjcEquipe() {
+                    if (!this.equipeDetalhe) return;
+                    const id = Number(this.outroEjcSelecionadoPorEquipe[this.equipeDetalhe.id] || 0);
+                    this.modalData.outro_ejc_id = id;
+                },
+
+                onFonteChange() {
+                    if (this.modalData.fonte !== 'OUTRO_EJC') {
+                        this.modalData.outro_ejc_id = 0;
+                    }
+                    this.searchQuery = '';
+                    this.searchResults = [];
+                    this.searchErroMsg = '';
+                    if (this.modalData.fonte === 'OUTRO_EJC' && this.modalData.outro_ejc_id) {
+                        this.executarBusca(true);
+                    }
+                },
+
+                onOutroEjcChange() {
+                    this.searchQuery = '';
+                    this.searchResults = [];
+                    this.searchErroMsg = '';
+                    if (this.modalData.outro_ejc_id) {
+                        this.executarBusca(true);
+                    }
+                },
+
                 onSearchInput() {
                     clearTimeout(this.searchTimer);
                     this.searchErroMsg = '';
-                    if (!this.searchQuery || this.searchQuery.trim().length < 2) {
+                    if ((!this.searchQuery || this.searchQuery.trim().length < 2) && this.modalData.fonte !== 'OUTRO_EJC') {
                         this.searchResults = [];
                         return;
                     }
                     this.searchTimer = setTimeout(() => this.executarBusca(), 250);
                 },
 
-                async executarBusca() {
+                async executarBusca(permitirVazio) {
                     try {
                         if (!this.montagemAtiva || !this.montagemAtiva.id) return;
-                        if (this.searchFonteOutroEJC && !this.filtroOutroEjcBuscaId) {
+                        if (this.modalData.fonte === 'OUTRO_EJC' && !this.modalData.outro_ejc_id) {
                             this.searchResults = [];
                             return;
                         }
                         const params = new URLSearchParams();
-                        params.set('q', this.searchQuery.trim());
-                        params.set('origem', this.searchFonteOutroEJC ? 'OUTRO_EJC' : 'INCONFIDENTES');
-                        if (this.searchFonteOutroEJC && this.filtroOutroEjcBuscaId) {
-                            params.set('outro_ejc_id', String(this.filtroOutroEjcBuscaId));
+                        const q = this.searchQuery.trim();
+                        if (q || permitirVazio) {
+                            params.set('q', q);
+                        }
+                        params.set('fonte', this.modalData.fonte || 'LISTA_MESTRE');
+                        if (this.modalData.fonte === 'OUTRO_EJC' && this.modalData.outro_ejc_id) {
+                            params.set('outro_ejc_id', String(this.modalData.outro_ejc_id));
                         }
                         const res = await fetch(`/api/montar-encontro/${this.montagemAtiva.id}/jovens-para-servir/search?${params.toString()}`);
                         this.searchResults = res.ok ? await res.json() : [];
@@ -1065,23 +948,43 @@
 
                 async alocarJovem(jovem) {
                     const jovemId = Number((jovem && (jovem.id || jovem.jovem_id)) || 0);
-                    if (!jovemId) {
-                        this.searchErroMsg = 'Não foi possível identificar o jovem selecionado.';
-                        return;
-                    }
                     try {
                         this.searchErroMsg = '';
-                        const payload = {
-                            equipe_id: this.modalData.equipeId,
-                            funcao_id: this.modalData.funcaoId,
-                            jovem_id: jovemId,
-                            eh_substituicao: this.modalData.destino === 'substituicao'
-                        };
-                        const res = await fetch(`/api/montar-encontro/${this.montagemAtiva.id}/membros`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
-                        });
+                        const ehSub = this.modalData.destino === 'substituicao';
+                        let res = null;
+                        if (jovem && jovem.tipo === 'TIOS') {
+                            const nome = String(jovem.nome_completo || '').trim();
+                            if (!nome) {
+                                this.searchErroMsg = 'Não foi possível identificar o casal selecionado.';
+                                return;
+                            }
+                            res = await fetch(`/api/montar-encontro/${this.montagemAtiva.id}/membros-externos`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    equipe_id: this.modalData.equipeId,
+                                    funcao_id: this.modalData.funcaoId,
+                                    nome_completo: nome,
+                                    telefone: jovem.telefone || '',
+                                    eh_substituicao: ehSub
+                                })
+                            });
+                        } else {
+                            if (!jovemId) {
+                                this.searchErroMsg = 'Não foi possível identificar o jovem selecionado.';
+                                return;
+                            }
+                            res = await fetch(`/api/montar-encontro/${this.montagemAtiva.id}/membros`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    equipe_id: this.modalData.equipeId,
+                                    funcao_id: this.modalData.funcaoId,
+                                    jovem_id: jovemId,
+                                    eh_substituicao: ehSub
+                                })
+                            });
+                        }
                         if (!res.ok) {
                             const err = await res.json().catch(() => ({}));
                             this.searchErroMsg = err.error || 'Erro ao adicionar jovem.';
@@ -1134,43 +1037,23 @@
                     }
                 },
 
-                async onMudarLigacao(membro, novoStatus) {
-                    if (!novoStatus) return;
-                    let motivo = '';
-                    if (novoStatus === 'RECUSOU') {
-                        motivo = await this.uiPrompt('Informe o motivo da recusa:', { title: 'Recusa' }) || '';
-                        if (!motivo.trim()) {
-                            await this.uiAlert('O motivo da recusa é obrigatório.');
-                            return;
-                        }
-                    }
+                async moverParaTitular(membro) {
+                    const membroId = membro && membro.membro_id;
+                    if (!membroId) return;
                     try {
-                        const res = await fetch(`/api/montar-encontro/membro/${membro.membro_id}/ligacao`, {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                status_ligacao: novoStatus,
-                                motivo_recusa: motivo.trim()
-                            })
-                        });
-                        if (!res.ok) {
-                            const err = await res.json().catch(() => ({}));
-                            await this.uiAlert(err.error || 'Erro ao atualizar ligação.');
-                            return;
-                        }
-                        await this.carregarDetalhesEquipe();
-                        await this.carregarEstrutura();
-                    } catch (err) {
-                        console.error(err);
-                        await this.uiAlert('Erro ao atualizar ligação.');
-                    }
-                },
-
-                async moverParaTitular(membroId) {
-                    try {
-                        const res = await fetch(`/api/montar-encontro/membro/${membroId}/mover-titular`, {
+                        let res = await fetch(`/api/montar-encontro/membro/${membroId}/mover-titular`, {
                             method: 'PATCH'
                         });
+                        if (res.status === 409) {
+                            const err = await res.json().catch(() => ({}));
+                            const ok = await this.uiConfirm(err.error || 'Esse jovem já está em outra equipe. Deseja trocar mesmo assim?');
+                            if (!ok) return;
+                            res = await fetch(`/api/montar-encontro/membro/${membroId}/mover-titular`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ forcar: true })
+                            });
+                        }
                         if (!res.ok) {
                             const err = await res.json().catch(() => ({}));
                             await this.uiAlert(err.error || 'Erro ao mover para titular.');
@@ -1181,26 +1064,6 @@
                     } catch (err) {
                         console.error(err);
                         await this.uiAlert('Erro ao mover para titular.');
-                    }
-                },
-
-                async removerRecusa(membro) {
-                    if (!membro || !membro.membro_id) return;
-                    if (!await this.uiConfirm('Deseja excluir a recusa desta jovem?')) return;
-                    try {
-                        const res = await fetch(`/api/montar-encontro/membro/${membro.membro_id}/remover-recusa`, {
-                            method: 'PATCH'
-                        });
-                        if (!res.ok) {
-                            const err = await res.json().catch(() => ({}));
-                            await this.uiAlert(err.error || 'Erro ao excluir recusa.');
-                            return;
-                        }
-                        await this.carregarDetalhesEquipe();
-                        await this.carregarEstrutura();
-                    } catch (err) {
-                        console.error(err);
-                        await this.uiAlert('Erro ao excluir recusa.');
                     }
                 },
 
@@ -1394,10 +1257,47 @@
                         Marrom: 'background-color: #d7ccc8; color: #4e342e;'
                     };
                     return mapaDeCores[circulo] || 'background-color: #f8f9fa; color: #6c757d;';
+                },
+                finalizarMontagemEquipes() {
+                    // removido
                 }
             },
             mounted() {
-                this.carregarMontagens();
+                const abrirCalendario = (el) => {
+                    if (!el || typeof el.showPicker !== 'function') return;
+                    try {
+                        el.showPicker();
+                    } catch (_) { }
+                };
+                const bindDatepickers = () => {
+                    document.querySelectorAll('input.datepicker').forEach((el) => {
+                        if (el.__pickerBound) return;
+                        el.__pickerBound = true;
+                        el.addEventListener('focus', () => abrirCalendario(el));
+                        el.addEventListener('click', () => abrirCalendario(el));
+                    });
+                };
+                bindDatepickers();
+                const obs = new MutationObserver(() => bindDatepickers());
+                obs.observe(document.body, { childList: true, subtree: true });
+                this.carregarMontagens().then(() => {
+                    this.aplicarMontagemPorUrl();
+                });
+                this.carregarNomeMeuEJC();
+                this._onMeuEJCAtualizado = (ev) => {
+                    const nome = ev && ev.detail && ev.detail.nome ? String(ev.detail.nome).trim() : '';
+                    if (nome) this.nomeMeuEJC = nome;
+                };
+                window.addEventListener('meu-ejc-atualizado', this._onMeuEJCAtualizado);
+                try {
+                    const nome = (window.__NOME_EJC_ATUAL && String(window.__NOME_EJC_ATUAL).trim()) || '';
+                    if (nome) this.nomeMeuEJC = nome;
+                } catch (_) {}
+            },
+            beforeUnmount() {
+                if (this._onMeuEJCAtualizado) {
+                    window.removeEventListener('meu-ejc-atualizado', this._onMeuEJCAtualizado);
+                }
             }
         }).mount('#app');
     </script>

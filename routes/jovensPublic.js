@@ -39,6 +39,30 @@ async function hasColumn(tableName, columnName) {
     return !!(rows && rows[0] && rows[0].cnt > 0);
 }
 
+async function ensureAtualizacaoTables() {
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS jovens_atualizacao_comentarios (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            tenant_id INT NULL,
+            jovem_id INT NULL,
+            nome_completo VARCHAR(180) NULL,
+            telefone VARCHAR(30) NULL,
+            comentario TEXT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS jovens_atualizacao_nao_encontrado (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            tenant_id INT NULL,
+            nome_completo VARCHAR(180) NOT NULL,
+            telefone VARCHAR(30) NOT NULL,
+            ejc_que_fez VARCHAR(180) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+}
+
 function serializarInstrumentos(value, ehMusico) {
     if (!ehMusico) return null;
     let lista = [];
@@ -172,6 +196,18 @@ router.get('/pastorais', async (req, res) => {
     }
 });
 
+router.get('/ejcs-outros', async (_req, res) => {
+    try {
+        const [rows] = await pool.query(
+            'SELECT id, tenant_id, nome, paroquia, bairro FROM outros_ejcs ORDER BY nome ASC'
+        );
+        return res.json(rows || []);
+    } catch (err) {
+        console.error('Erro ao listar outros EJCs (público):', err);
+        return res.status(500).json({ error: 'Erro ao listar EJCs.' });
+    }
+});
+
 router.post('/validar-cadastro', async (req, res) => {
     try {
         const nomeCompleto = String(req.body.nome_completo || '').trim();
@@ -221,35 +257,43 @@ router.post('/atualizar', async (req, res) => {
         const jovem = jovemRows[0];
         const nomeCompletoNovo = String(req.body.nome_completo_novo || '').trim() || null;
         const telefoneNovo = String(req.body.telefone_novo || '').trim() || String(jovem.telefone || '').trim();
-        const dataNascimentoNovo = normalizeDate(req.body.data_nascimento_novo) || null;
+        const email = String(req.body.email || '').trim() || null;
         const instagram = String(req.body.instagram || '').trim() || null;
         const estadoCivil = String(req.body.estado_civil || '').trim() || null;
         const deficiencia = !!req.body.deficiencia;
+        const qualDeficiencia = deficiencia ? (String(req.body.qual_deficiencia || '').trim() || null) : null;
         const restricaoAlimentar = !!req.body.restricao_alimentar;
+        const detalhesRestricao = restricaoAlimentar ? (String(req.body.detalhes_restricao || '').trim() || null) : null;
         const ehMusico = !!req.body.eh_musico;
+        const instrumentos = serializarInstrumentos(req.body.instrumentos_musicais, ehMusico);
         const pastorais = Array.isArray(req.body.pastorais) ? req.body.pastorais : [];
         const pastoraisIds = pastorais.map((v) => Number(v)).filter((v) => Number.isFinite(v) && v > 0);
+        const comentarioAdicional = String(req.body.comentario_adicional || '').trim() || null;
 
         const campos = [
             'telefone = ?',
             'estado_civil = ?',
             'deficiencia = ?',
-            'restricao_alimentar = ?'
+            'qual_deficiencia = ?',
+            'restricao_alimentar = ?',
+            'detalhes_restricao = ?'
         ];
         const params = [
             telefoneNovo,
             estadoCivil,
             deficiencia ? 1 : 0,
-            restricaoAlimentar ? 1 : 0
+            qualDeficiencia,
+            restricaoAlimentar ? 1 : 0,
+            detalhesRestricao
         ];
 
         if (nomeCompletoNovo && await hasColumn('jovens', 'nome_completo')) {
             campos.push('nome_completo = ?');
             params.push(nomeCompletoNovo);
         }
-        if (dataNascimentoNovo && await hasColumn('jovens', 'data_nascimento')) {
-            campos.push('data_nascimento = ?');
-            params.push(dataNascimentoNovo);
+        if (email !== null && await hasColumn('jovens', 'email')) {
+            campos.push('email = ?');
+            params.push(email);
         }
         if (instagram !== null && await hasColumn('jovens', 'instagram')) {
             campos.push('instagram = ?');
@@ -258,6 +302,10 @@ router.post('/atualizar', async (req, res) => {
         if (await hasColumn('jovens', 'eh_musico')) {
             campos.push('eh_musico = ?');
             params.push(ehMusico ? 1 : 0);
+        }
+        if (await hasColumn('jovens', 'instrumentos_musicais')) {
+            campos.push('instrumentos_musicais = ?');
+            params.push(instrumentos);
         }
 
         params.push(jovem.id, jovem.tenant_id);
@@ -295,10 +343,41 @@ router.post('/atualizar', async (req, res) => {
             }
         }
 
+        if (comentarioAdicional) {
+            await ensureAtualizacaoTables();
+            await pool.query(
+                `INSERT INTO jovens_atualizacao_comentarios (tenant_id, jovem_id, nome_completo, telefone, comentario)
+                 VALUES (?, ?, ?, ?, ?)`,
+                [jovem.tenant_id, jovem.id, nomeCompletoNovo || jovem.nome_completo, telefoneNovo, comentarioAdicional]
+            );
+        }
+
         return res.json({ message: 'Dados atualizados com sucesso.' });
     } catch (err) {
         console.error('Erro ao atualizar dados pelo formulário público de jovens:', err);
         return res.status(500).json({ error: 'Erro ao atualizar dados.' });
+    }
+});
+
+router.post('/nao-encontrado', async (req, res) => {
+    try {
+        await ensureAtualizacaoTables();
+        const nome = String(req.body.nome_completo || '').trim();
+        const telefone = String(req.body.telefone || '').trim();
+        const ejc = String(req.body.ejc_que_fez || '').trim();
+        const tenantId = req.body.tenant_id ? Number(req.body.tenant_id) : null;
+        if (!nome || !telefone || !ejc) {
+            return res.status(400).json({ error: 'Informe nome, telefone e EJC que fez.' });
+        }
+        await pool.query(
+            `INSERT INTO jovens_atualizacao_nao_encontrado (tenant_id, nome_completo, telefone, ejc_que_fez)
+             VALUES (?, ?, ?, ?)`,
+            [tenantId || null, nome, telefone, ejc]
+        );
+        return res.json({ message: 'Dados enviados com sucesso.' });
+    } catch (err) {
+        console.error('Erro ao salvar não encontrado:', err);
+        return res.status(500).json({ error: 'Erro ao enviar dados.' });
     }
 });
 

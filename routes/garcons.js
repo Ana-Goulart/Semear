@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
+const { getTenantId } = require('../lib/tenantIsolation');
 
 let estruturaGarantida = false;
 
@@ -148,6 +149,7 @@ router.delete('/equipes/:id', async (req, res) => {
 });
 
 router.post('/equipes/:id/membros', async (req, res) => {
+    const tenantId = getTenantId(req);
     const equipeId = Number(req.params.id);
     const jovemId = Number(req.body.jovem_id);
     const papel = String(req.body.papel || '').trim();
@@ -196,9 +198,10 @@ router.post('/equipes/:id/membros', async (req, res) => {
         if (situacao === 'TITULAR') {
             const [comissaoResult] = await connection.query(
                 `INSERT INTO jovens_comissoes 
-                 (jovem_id, tipo, ejc_numero, outro_ejc_id, data_inicio, data_fim, funcao_garcom, observacao)
-                 VALUES (?, 'GARCOM_EQUIPE', ?, ?, ?, ?, ?, ?)`,
+                 (tenant_id, jovem_id, tipo, ejc_numero, outro_ejc_id, data_inicio, data_fim, funcao_garcom, observacao)
+                 VALUES (?, ?, 'GARCOM_EQUIPE', ?, ?, ?, ?, ?, ?)`,
                 [
+                    tenantId,
                     jovemId,
                     equipe.ejc_numero || null,
                     equipe.outro_ejc_id || null,
@@ -228,6 +231,7 @@ router.post('/equipes/:id/membros', async (req, res) => {
 });
 
 router.patch('/membros/:id/situacao', async (req, res) => {
+    const tenantId = getTenantId(req);
     const id = Number(req.params.id);
     const situacaoRaw = String(req.body.situacao || '').trim().toUpperCase();
     const situacao = ['TITULAR', 'RESERVA'].includes(situacaoRaw) ? situacaoRaw : null;
@@ -266,9 +270,10 @@ router.patch('/membros/:id/situacao', async (req, res) => {
             if (!membro.comissao_id) {
                 const [comissaoResult] = await connection.query(
                     `INSERT INTO jovens_comissoes
-                     (jovem_id, tipo, ejc_numero, outro_ejc_id, data_inicio, data_fim, funcao_garcom, observacao)
-                     VALUES (?, 'GARCOM_EQUIPE', ?, ?, ?, ?, ?, ?)`,
+                     (tenant_id, jovem_id, tipo, ejc_numero, outro_ejc_id, data_inicio, data_fim, funcao_garcom, observacao)
+                     VALUES (?, ?, 'GARCOM_EQUIPE', ?, ?, ?, ?, ?, ?)`,
                     [
+                        tenantId,
                         membro.jovem_id,
                         membro.ejc_numero || null,
                         membro.outro_ejc_id || null,

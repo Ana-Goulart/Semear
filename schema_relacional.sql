@@ -32,6 +32,49 @@ ADD COLUMN IF NOT EXISTS data_inicio DATE NULL;
 ALTER TABLE montagens
 ADD COLUMN IF NOT EXISTS data_fim DATE NULL;
 
+-- ===== TABELAS MONTAGEM (REUNIÕES E PRESENÇAS) =====
+CREATE TABLE IF NOT EXISTS montagem_reunioes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    montagem_id INT NOT NULL,
+    data_reuniao DATE NOT NULL,
+    periodo VARCHAR(120) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_montagem_reuniao (montagem_id, data_reuniao)
+);
+
+CREATE TABLE IF NOT EXISTS montagem_reunioes_presencas (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    montagem_id INT NOT NULL,
+    reuniao_id INT NOT NULL,
+    jovem_id INT NOT NULL,
+    presente TINYINT(1) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_reuniao_jovem (reuniao_id, jovem_id),
+    KEY idx_montagem_jovem (montagem_id, jovem_id)
+);
+
+-- ===== ATUALIZAÇÃO CADASTRAL (FORMULÁRIO PÚBLICO) =====
+CREATE TABLE IF NOT EXISTS jovens_atualizacao_comentarios (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id INT NULL,
+    jovem_id INT NULL,
+    nome_completo VARCHAR(180) NULL,
+    telefone VARCHAR(30) NULL,
+    comentario TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS jovens_atualizacao_nao_encontrado (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id INT NULL,
+    nome_completo VARCHAR(180) NOT NULL,
+    telefone VARCHAR(30) NOT NULL,
+    ejc_que_fez VARCHAR(180) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ===== TABELA FINANCEIRO =====
 CREATE TABLE IF NOT EXISTS financeiro_movimentacoes (
     id INT AUTO_INCREMENT PRIMARY KEY,
