@@ -1,5 +1,23 @@
 (() => {
     const DATE_RE = /^\d{2}\/\d{2}\/\d{4}$/;
+    const MONTHS = [
+        'janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho',
+        'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'
+    ];
+    const MONTHS_MAP = new Map([
+        ['jan', 1], ['janeiro', 1],
+        ['fev', 2], ['fevereiro', 2],
+        ['mar', 3], ['marco', 3], ['março', 3],
+        ['abr', 4], ['abril', 4],
+        ['mai', 5], ['maio', 5],
+        ['jun', 6], ['junho', 6],
+        ['jul', 7], ['julho', 7],
+        ['ago', 8], ['agosto', 8],
+        ['set', 9], ['setembro', 9],
+        ['out', 10], ['outubro', 10],
+        ['nov', 11], ['novembro', 11],
+        ['dez', 12], ['dezembro', 12]
+    ]);
 
     function formatDateInput(value) {
         const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
@@ -19,16 +37,35 @@
         return formatted.length;
     }
 
+    function parseBrDate(value) {
+        const raw = String(value || '').trim().toLowerCase();
+        if (DATE_RE.test(raw)) {
+            const [dd, mm, yyyy] = raw.split('/');
+            return { dd, mm, yyyy };
+        }
+        const m = raw.match(/^(\d{2})\/([a-zçãéíóú]+)\/(\d{4})$/i);
+        if (m) {
+            const dd = m[1];
+            const monthKey = m[2].normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            const mmNum = MONTHS_MAP.get(monthKey);
+            if (mmNum) return { dd, mm: String(mmNum).padStart(2, '0'), yyyy: m[3] };
+        }
+        return null;
+    }
+
     function toIsoDate(value) {
-        if (!DATE_RE.test(value)) return value;
-        const [dd, mm, yyyy] = value.split('/');
+        const parsed = parseBrDate(value);
+        if (!parsed) return value;
+        const { dd, mm, yyyy } = parsed;
         return `${yyyy}-${mm}-${dd}`;
     }
 
     function toBrDate(value) {
         const m = String(value || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
         if (!m) return value;
-        return `${m[3]}/${m[2]}/${m[1]}`;
+        const monthIdx = Number(m[2]) - 1;
+        const monthName = MONTHS[monthIdx] || m[2];
+        return `${m[3]}/${monthName}/${m[1]}`;
     }
 
     function convertDates(obj) {
@@ -38,7 +75,7 @@
             for (const [k, v] of Object.entries(obj)) out[k] = convertDates(v);
             return out;
         }
-        if (typeof obj === 'string' && DATE_RE.test(obj)) return toIsoDate(obj);
+        if (typeof obj === 'string' && (DATE_RE.test(obj) || /\d{2}\/[a-zçãéíóú]+\/\d{4}/i.test(obj))) return toIsoDate(obj);
         return obj;
     }
 
@@ -46,6 +83,7 @@
         const el = e.target;
         if (!el || !el.classList || !el.classList.contains('date-br')) return;
         const value = el.value || '';
+        if (/[a-zA-Z]/.test(value)) return;
         const cursor = el.selectionStart || 0;
         const digitsBefore = value.slice(0, cursor).replace(/\D/g, '').length;
         const formatted = formatDateInput(value);
@@ -63,6 +101,15 @@
         if (!el || !el.classList || !el.classList.contains('date-br')) return;
         const br = toBrDate(el.value);
         if (br !== el.value) el.value = br;
+    });
+
+    document.addEventListener('focusout', (e) => {
+        const el = e.target;
+        if (!el || !el.classList || !el.classList.contains('date-br')) return;
+        const parsed = parseBrDate(el.value);
+        if (!parsed) return;
+        const monthName = MONTHS[Number(parsed.mm) - 1] || parsed.mm;
+        el.value = `${parsed.dd}/${monthName}/${parsed.yyyy}`;
     });
 
     function setupPicker(el) {
@@ -116,6 +163,9 @@
         document.querySelectorAll('input.date-br').forEach((el) => {
             const br = toBrDate(el.value);
             if (br !== el.value) el.value = br;
+            if (el.placeholder && /dd\/mm\/aaaa/i.test(el.placeholder)) {
+                el.placeholder = 'dd/mês/aaaa';
+            }
             setupPicker(el);
         });
     });

@@ -1,4 +1,28 @@
 /* ===== SemeaJovens Custom Utilities ===== */
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
+
+:root {
+    --brand-primary: #0f3d5e;
+    --brand-primary-600: #0b2f49;
+    --brand-accent: #d4a15a;
+    --brand-ink: #0f172a;
+    --brand-muted: #64748b;
+    --brand-border: #e2e8f0;
+    --brand-surface: #f8fafc;
+    --brand-surface-2: #eef2f7;
+    --brand-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+}
+
+body {
+    font-family: 'Manrope', 'Segoe UI', sans-serif;
+    color: var(--brand-ink);
+    background: radial-gradient(circle at top left, #ffffff 0%, #f6f7fb 45%, #eef2f7 100%);
+}
+
+h1, h2, h3, h4, h5, h6, .brand-name {
+    font-family: 'Playfair Display', 'Manrope', serif;
+    letter-spacing: 0.01em;
+}
 
 /* ===== LINKS CLICÁVEIS ===== */
 .nome-clicavel {
@@ -47,6 +71,7 @@
     padding: 0.55rem 1rem;
     box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
     transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+    border: 1px solid transparent;
 }
 
 .btn:hover {
@@ -63,6 +88,90 @@
     padding: 0.35rem 0.75rem;
     border-radius: 8px;
     font-weight: 600;
+}
+
+.btn-primary,
+.btn-primary:active,
+.btn-primary:focus {
+    background: var(--brand-primary);
+    border-color: var(--brand-primary);
+    color: #fff;
+}
+
+.btn-primary:hover {
+    background: var(--brand-primary-600);
+    border-color: var(--brand-primary-600);
+}
+
+.btn-outline-primary {
+    color: var(--brand-primary);
+    border-color: var(--brand-primary);
+}
+
+.btn-outline-primary:hover {
+    background: var(--brand-primary);
+    color: #fff;
+}
+
+.btn-outline-secondary {
+    color: var(--brand-muted);
+    border-color: var(--brand-border);
+    background: #fff;
+}
+
+.btn-outline-secondary:hover {
+    background: var(--brand-surface);
+    color: var(--brand-ink);
+}
+
+.btn-warning {
+    background: var(--brand-accent);
+    border-color: var(--brand-accent);
+    color: #1f2937;
+}
+
+.btn-warning:hover {
+    filter: brightness(0.96);
+}
+
+.form-control,
+.form-select {
+    border-radius: 12px;
+    border-color: var(--brand-border);
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 0.2rem rgba(15, 61, 94, 0.15);
+}
+
+.modal-content {
+    border-radius: 18px;
+    border: 1px solid var(--brand-border);
+    box-shadow: var(--brand-shadow);
+}
+
+.modal-header {
+    background: var(--brand-surface);
+    border-bottom: 1px solid var(--brand-border);
+}
+
+.modal-footer {
+    background: var(--brand-surface-2);
+    border-top: 1px solid var(--brand-border);
+}
+
+.ui-modal .modal-body {
+    font-size: 0.98rem;
+    color: var(--brand-ink);
+}
+
+.ui-footer-center {
+    justify-content: center;
 }
 
 /* ===== INPUT DATA (BR) ===== */

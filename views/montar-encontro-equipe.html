@@ -11,6 +11,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <link rel="stylesheet" href="/css/velzon-theme.css">
     <link rel="stylesheet" href="/css/style.css">
+    <script src=\"/js/ui-kit.js\"></script>
     <script src="/js/menu.js"></script>
     <style>
         .busca-resultados {
@@ -483,7 +484,7 @@
                             const msg = err.error || 'Erro ao adicionar jovem.';
                             this.searchErroMsg = msg;
                             if (res.status === 409 && err.conflict && this.buscaDestino === 'reserva') {
-                                const ok = confirm(`${msg} Deseja remover da equipe atual e passar para reserva aqui?`);
+                                const ok = await uiConfirm(`${msg} Deseja remover da equipe atual e passar para reserva aqui?`);
                                 if (ok && err.conflict.membro_id) {
                                     await fetch(`/api/montar-encontro/membro/${err.conflict.membro_id}`, { method: 'DELETE' });
                                     return await this.alocarJovem(jovem);
@@ -521,7 +522,7 @@
                 },
                 async removerRecusa(item) {
                     if (!item || !item.membro_id) return;
-                    if (!confirm('Remover a recusa deste jovem e torná-lo apto novamente?')) return;
+                    if (!(await uiConfirm('Remover a recusa deste jovem e torná-lo apto novamente?'))) return;
                     try {
                         const res = await fetch(`/api/montar-encontro/membro/${item.membro_id}/remover-recusa`, {
                             method: 'PATCH'
@@ -572,7 +573,7 @@
                     }
                 },
                 async removerMembro(membroId) {
-                    if (!confirm('Deseja retirar este jovem da equipe?')) return;
+                    if (!(await uiConfirm('Deseja retirar este jovem da equipe?'))) return;
                     try {
                         const res = await fetch(`/api/montar-encontro/membro/${membroId}`, { method: 'DELETE' });
                         if (res.ok) {
@@ -591,7 +592,7 @@
                         if (res.status === 409) {
                             const err = await res.json().catch(() => ({}));
                             const msg = err.error || 'Esse jovem já está em outra equipe. Deseja mover para esta?';
-                            if (!confirm(msg)) return;
+                            if (!(await uiConfirm(msg))) return;
                             res = await fetch(`/api/montar-encontro/membro/${membro.membro_id}/mover-titular`, {
                                 method: 'PATCH',
                                 headers: { 'Content-Type': 'application/json' },

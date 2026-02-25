@@ -12,6 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <link rel="stylesheet" href="/css/velzon-theme.css">
     <link rel="stylesheet" href="/css/style.css">
+    <script src=\"/js/ui-kit.js\"></script>
     <script src="/js/menu.js"></script>
     <style>
         .montagem-card {
@@ -236,19 +237,19 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label text-muted">Data do encontro</label>
-                            <input type="date" v-model="formMontagem.data_encontro" class="form-control datepicker" required lang="pt-BR">
+                            <input type="text" v-model="formMontagem.data_encontro" class="form-control date-br" placeholder="dd/mês/aaaa" required>
                         </div>
                         <div class="mb-3">
                             <label class="form-label text-muted">Data da tarde de revelação</label>
-                            <input type="date" v-model="formMontagem.data_tarde_revelacao" class="form-control datepicker" required lang="pt-BR">
+                            <input type="text" v-model="formMontagem.data_tarde_revelacao" class="form-control date-br" placeholder="dd/mês/aaaa" required>
                         </div>
                         <div class="mb-3">
                             <label class="form-label text-muted">Data de início das reuniões</label>
-                            <input type="date" v-model="formMontagem.data_inicio_reunioes" class="form-control datepicker" required lang="pt-BR">
+                            <input type="text" v-model="formMontagem.data_inicio_reunioes" class="form-control date-br" placeholder="dd/mês/aaaa" required>
                         </div>
                         <div class="mb-3">
                             <label class="form-label text-muted">Data de fim das reuniões</label>
-                            <input type="date" v-model="formMontagem.data_fim_reunioes" class="form-control datepicker" required lang="pt-BR">
+                            <input type="text" v-model="formMontagem.data_fim_reunioes" class="form-control date-br" placeholder="dd/mês/aaaa" required>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -274,19 +275,19 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label text-muted">Data do encontro</label>
-                            <input type="date" v-model="formEditarMontagem.data_encontro" class="form-control datepicker" lang="pt-BR">
+                            <input type="text" v-model="formEditarMontagem.data_encontro" class="form-control date-br" placeholder="dd/mês/aaaa">
                         </div>
                         <div class="mb-3">
                             <label class="form-label text-muted">Data da tarde de revelação</label>
-                            <input type="date" v-model="formEditarMontagem.data_tarde_revelacao" class="form-control datepicker" lang="pt-BR">
+                            <input type="text" v-model="formEditarMontagem.data_tarde_revelacao" class="form-control date-br" placeholder="dd/mês/aaaa">
                         </div>
                         <div class="mb-3">
                             <label class="form-label text-muted">Data de início das reuniões</label>
-                            <input type="date" v-model="formEditarMontagem.data_inicio_reunioes" class="form-control datepicker" lang="pt-BR">
+                            <input type="text" v-model="formEditarMontagem.data_inicio_reunioes" class="form-control date-br" placeholder="dd/mês/aaaa">
                         </div>
                         <div class="mb-3">
                             <label class="form-label text-muted">Data de fim das reuniões</label>
-                            <input type="date" v-model="formEditarMontagem.data_fim_reunioes" class="form-control datepicker" lang="pt-BR">
+                            <input type="text" v-model="formEditarMontagem.data_fim_reunioes" class="form-control date-br" placeholder="dd/mês/aaaa">
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -548,11 +549,13 @@
             methods: {
                 async uiAlert(msg, title) {
                     if (window.showFloatingAlert) return window.showFloatingAlert(msg, title || 'Aviso');
+                    if (window.uiAlert) return window.uiAlert(msg, { title: title || 'Aviso' });
                     alert(msg);
                 },
                 async uiConfirm(msg, title) {
                     if (window.showFloatingConfirm) return window.showFloatingConfirm(msg, title || 'Confirmação');
-                    return false;
+                    if (window.uiConfirm) return window.uiConfirm(msg, { title: title || 'Confirmação' });
+                    return confirm(msg);
                 },
                 async uiPrompt(msg, opts) {
                     if (window.showFloatingPrompt) return window.showFloatingPrompt(msg, opts || {});
@@ -560,17 +563,38 @@
                 },
                 parseDateBr(valor) {
                     if (!valor) return null;
-                    const txt = String(valor).trim();
+                    const txt = String(valor).trim().toLowerCase();
                     if (!txt) return null;
                     if (/^\d{4}-\d{2}-\d{2}$/.test(txt)) return txt;
                     const m = txt.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/);
-                    if (!m) return null;
-                    return `${m[3]}-${m[2]}-${m[1]}`;
+                    if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+                    const m2 = txt.match(/^(\d{2})[\/\\-]([a-zçãéíóú]+)[\/\\-](\d{4})$/i);
+                    if (!m2) return null;
+                    const monthMap = {
+                        jan: '01', janeiro: '01',
+                        fev: '02', fevereiro: '02',
+                        mar: '03', marco: '03', março: '03',
+                        abr: '04', abril: '04',
+                        mai: '05', maio: '05',
+                        jun: '06', junho: '06',
+                        jul: '07', julho: '07',
+                        ago: '08', agosto: '08',
+                        set: '09', setembro: '09',
+                        out: '10', outubro: '10',
+                        nov: '11', novembro: '11',
+                        dez: '12', dezembro: '12'
+                    };
+                    const key = m2[2].normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                    const mm = monthMap[key];
+                    if (!mm) return null;
+                    return `${m2[3]}-${mm}-${m2[1]}`;
                 },
                 formatarDataBr(valor) {
                     const m = String(valor || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
                     if (!m) return valor || '';
-                    return `${m[3]}/${m[2]}/${m[1]}`;
+                    const meses = ['janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+                    const nome = meses[Number(m[2]) - 1] || m[2];
+                    return `${m[3]}/${nome}/${m[1]}`;
                 },
                 formatarTelefonePadrao(v) {
                     const digits = String(v || '').replace(/\D/g, '').slice(0, 11);
@@ -622,7 +646,7 @@
                     const di = this.parseDateBr(this.formMontagem.data_inicio_reunioes);
                     const df = this.parseDateBr(this.formMontagem.data_fim_reunioes);
                     if (!de || !dt || !di || !df) {
-                        await this.uiAlert('Informe as datas no formato dd/mm/aaaa.');
+                        await this.uiAlert('Informe as datas no formato dd/mês/aaaa.');
                         return;
                     }
                     if (di > df) {
@@ -680,7 +704,7 @@
                     const di = this.parseDateBr(this.formEditarMontagem.data_inicio_reunioes);
                     const df = this.parseDateBr(this.formEditarMontagem.data_fim_reunioes);
                     if (!de || !dt || !di || !df) {
-                        await this.uiAlert('Informe as datas no formato dd/mm/aaaa.');
+                        await this.uiAlert('Informe as datas no formato dd/mês/aaaa.');
                         return;
                     }
                     if (di > df) {
